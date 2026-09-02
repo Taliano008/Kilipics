@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "KiliPicks",
+    "slug": "kilipicks-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "kilipicks",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router", "expo-splash-screen"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kilimax.kilipicks"
+    },
+    "android": {
+      "package": "com.kilimax.kilipicks",
+      "adaptiveIcon": {
+        "backgroundColor": "#F8F4F1"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
