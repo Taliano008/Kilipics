@@ -1,5 +1,6 @@
 import { track } from "@/analytics/events";
 import { useAnalyticsLifecycle } from "@/analytics/use-analytics-lifecycle";
+import { AuthProvider } from "@/auth/auth-context";
 import { CatalogProvider, useCatalog } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -65,23 +66,25 @@ export default Sentry.wrap(function RootLayout() {
         <CatalogProvider>
           <SplashGate>
             <SavedProvider>
-              <UpgradeGate>
-                <StatusBar style="dark" />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: colors.cream },
-                    animation: "slide_from_right",
-                  }}
-                >
-                  <Stack.Screen name="(tabs)" />
-                  <Stack.Screen name="provider/[id]" />
-                  <Stack.Screen
-                    name="booking/[providerId]"
-                    options={{ presentation: "modal" }}
-                  />
-                </Stack>
-              </UpgradeGate>
+              <AuthProvider>
+                <UpgradeGate>
+                  <StatusBar style="dark" />
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: colors.cream },
+                      animation: "slide_from_right",
+                    }}
+                  >
+                    <Stack.Screen name="(tabs)" />
+                    <Stack.Screen name="provider/[id]" />
+                    <Stack.Screen
+                      name="booking/[providerId]"
+                      options={{ presentation: "modal" }}
+                    />
+                  </Stack>
+                </UpgradeGate>
+              </AuthProvider>
             </SavedProvider>
           </SplashGate>
         </CatalogProvider>
