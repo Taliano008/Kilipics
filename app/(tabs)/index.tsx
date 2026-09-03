@@ -10,7 +10,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
-  const { catalog, loading, error, refresh, refreshing } = useCatalog();
+  const { catalog, loading, error, refresh, refreshing, stale } = useCatalog();
   const router = useRouter();
   useEffect(() => { void track("page_viewed", { pagePath: "/", pageTitle: "Home", sourceSection: "home" }); }, []);
   const providers = catalog?.providers ?? [];
@@ -23,6 +23,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.brand} />} contentContainerStyle={styles.content}>
         <View style={styles.topbar}><View><Text style={styles.brand}>✦ KiliPicks</Text><Text style={styles.location}>⌖ Nairobi</Text></View><View style={styles.avatar}><Text style={styles.avatarText}>K</Text></View></View>
+        {stale ? <View style={styles.staleBanner}><Text style={styles.staleText}>Showing saved results from earlier — pull to refresh</Text></View> : null}
         <View style={styles.hero}>
           <Text style={styles.kicker}>NAIROBI, PICKED WELL</Text>
           <Text style={styles.title}>Find a local favourite.</Text>
@@ -54,6 +55,8 @@ const styles = StyleSheet.create({
   location: { color: colors.muted, fontSize: 13, marginTop: 3 },
   avatar: { width: 42, height: 42, backgroundColor: colors.brand, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   avatarText: { color: colors.white, fontSize: 17, fontWeight: "800" },
+  staleBanner: { marginHorizontal: spacing.lg, marginBottom: spacing.sm, backgroundColor: colors.cream, borderRadius: radii.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  staleText: { color: colors.muted, fontSize: 12 },
   hero: { margin: spacing.md, padding: spacing.lg, backgroundColor: colors.brandDark, borderRadius: radii.lg },
   kicker: { color: "#F0C9D5", fontSize: 11, letterSpacing: 1.5, fontWeight: "800" },
   title: { color: colors.white, fontSize: 36, lineHeight: 40, fontWeight: "900", marginTop: 12, maxWidth: 300 },
