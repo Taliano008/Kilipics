@@ -6,7 +6,12 @@
     "orientation": "portrait",
     "scheme": "kilipicks",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router", "expo-splash-screen"],
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-image",
+      "./plugins/withWhatsAppQuery.js"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kilimax.kilipicks"
