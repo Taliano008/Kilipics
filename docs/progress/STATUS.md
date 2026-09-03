@@ -82,6 +82,31 @@ Scope: per the spec of that name, amending the Phase Zero PRD. 10 commits,
   already exist in the repo, contrary to the spec's assumption that they
   were blockers — used directly rather than stubbed.
 
+## Round 3 — Home hero redesign (2026-09-03)
+
+Product owner supplied four alternative hero/search redesign concepts
+(floating glass search bar, ambient video carousel, location+time header,
+editorial category cards) and picked **editorial category cards** (`bc693ba`).
+
+**Shipped:**
+- Replaced the static dark headline+search-button hero box with a
+  horizontal snap-carousel of compact cards
+  (`src/components/EditorialCards.tsx`)
+- Floating minimalist search icon in the top bar opens the existing search
+  flow as a full-screen modal (`app/search-overlay.tsx` — re-exports the
+  Search tab's component rather than duplicating its logic)
+- Search screen now also accepts an optional `query` route param (mirrors
+  the existing `category` param) so cards can deep-link into a pre-filled
+  area search
+
+**Flagged, not resolved:** card copy ("Most Booked Category: Spa & Massage",
+"Popular Area: Kilimani", "Browse everything") is derived from real catalog
+counts, not hand-written editorial content — the brief's example copy ("Top
+Spa Recoveries", "New Barbering Spots", "Weekend Glow Up Deals") implies
+curated claims (freshness, deals) the catalog snapshot has no data to back.
+Needs real editorial content from the product owner to fully match the
+original design intent.
+
 ## Outstanding blockers (need something from the product owner)
 
 | Item | Status |
@@ -93,11 +118,12 @@ Scope: per the spec of that name, amending the Phase Zero PRD. 10 commits,
 | Privacy notice content + legal review | Not started — now more urgent since the auth UI asks for a phone number |
 | Auth screen copy sign-off | Placeholder wording in place, needs approval |
 | Remaining category icons (hair, wigs, makeup, pilates, yoga) + `clapper.png`'s intended category | Not supplied / unclear |
-| Manual device testing | **Nothing in Round 2 has been run on a real device yet** — video splash timing, Sentry event delivery, and the category grid's two-row layout are unverified beyond "the bundle compiles and serves" |
+| Real editorial content for the Home hero cards | Not supplied — current cards are algorithmically derived from catalog counts, not curated copy |
+| Manual device testing | **Nothing from Round 2 or Round 3 has been run on a real device yet** — video splash timing, Sentry event delivery, the category grid's two-row layout, and the new hero cards/search overlay are all unverified beyond "the bundle compiles and serves" |
 
 ## Not yet true blockers, but worth knowing
 
-- `pnpm typecheck` and `pnpm lint` are green as of `7489e41`.
+- `pnpm typecheck` and `pnpm lint` are green as of `bc693ba`.
 - Expo Go may not support all the native modules now in the tree
   (`expo-video`, `expo-image`, `@sentry/react-native`'s native crash
   capture) — a custom dev client (`npx expo run:android`) may be needed for
