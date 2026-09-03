@@ -2,6 +2,7 @@ import { track } from "@/analytics/events";
 import { useAnalyticsLifecycle } from "@/analytics/use-analytics-lifecycle";
 import { CatalogProvider, useCatalog } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpgradeGate } from "@/components/UpgradeGate";
 import { colors } from "@/theme/tokens";
 import { Stack } from "expo-router";
@@ -31,21 +32,23 @@ export default function RootLayout() {
   useEffect(() => { void track("session_started", { pagePath: "/", pageTitle: "KiliPicks App" }); }, []);
   useAnalyticsLifecycle();
   return (
-    <SafeAreaProvider>
-      <CatalogProvider>
-        <SplashGate>
-          <SavedProvider>
-            <UpgradeGate>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream }, animation: "slide_from_right" }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="provider/[id]" />
-                <Stack.Screen name="booking/[providerId]" options={{ presentation: "modal" }} />
-              </Stack>
-            </UpgradeGate>
-          </SavedProvider>
-        </SplashGate>
-      </CatalogProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <CatalogProvider>
+          <SplashGate>
+            <SavedProvider>
+              <UpgradeGate>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream }, animation: "slide_from_right" }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="provider/[id]" />
+                  <Stack.Screen name="booking/[providerId]" options={{ presentation: "modal" }} />
+                </Stack>
+              </UpgradeGate>
+            </SavedProvider>
+          </SplashGate>
+        </CatalogProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
