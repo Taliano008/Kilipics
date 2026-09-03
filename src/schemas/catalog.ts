@@ -7,8 +7,19 @@ import { z } from "zod";
 // the app actually depends on.
 
 export const partnershipStatusSchema = z.enum(["signed", "unsigned"]);
-export const publicationStatusSchema = z.enum(["draft", "published", "hidden", "archived"]);
-export const bookingMethodSchema = z.enum(["kilipicks", "whatsapp", "phone", "external", "disabled"]);
+export const publicationStatusSchema = z.enum([
+  "draft",
+  "published",
+  "hidden",
+  "archived",
+]);
+export const bookingMethodSchema = z.enum([
+  "kilipicks",
+  "whatsapp",
+  "phone",
+  "external",
+  "disabled",
+]);
 
 const providerLocationSchema = z.object({
   latitude: z.number(),
@@ -26,7 +37,9 @@ const providerPaymentSettingsSchema = z.object({
   allowPayAtVenue: z.boolean(),
   requiresDeposit: z.boolean(),
   instantConfirmation: z.boolean(),
-  acceptedPaymentMethods: z.array(z.enum(["M-Pesa", "Voucher", "Pay at Venue"])),
+  acceptedPaymentMethods: z.array(
+    z.enum(["M-Pesa", "Voucher", "Pay at Venue"]),
+  ),
 });
 
 export const publicContactsSchema = z
@@ -135,6 +148,8 @@ export type BookingMethod = z.infer<typeof bookingMethodSchema>;
 export type PublicContacts = z.infer<typeof publicContactsSchema>;
 export type PublicCatalogProvider = z.infer<typeof publicCatalogProviderSchema>;
 export type PublicCatalogService = z.infer<typeof publicCatalogServiceSchema>;
-export type PublicCatalogAvailability = z.infer<typeof publicCatalogAvailabilitySchema>;
+export type PublicCatalogAvailability = z.infer<
+  typeof publicCatalogAvailabilitySchema
+>;
 export type AppConfig = z.infer<typeof appConfigSchema>;
 export type PublicCatalogSnapshot = z.infer<typeof publicCatalogSnapshotSchema>;

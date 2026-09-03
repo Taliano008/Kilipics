@@ -19,7 +19,9 @@ function addQueriesPackage(androidManifest, packageName) {
   if (!Array.isArray(queries.package)) {
     queries.package = [];
   }
-  const alreadyExists = queries.package.some((entry) => entry.$["android:name"] === packageName);
+  const alreadyExists = queries.package.some(
+    (entry) => entry.$["android:name"] === packageName,
+  );
   if (!alreadyExists) {
     queries.package.push({ $: { "android:name": packageName } });
   }

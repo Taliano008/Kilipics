@@ -2,9 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { enqueue } from "@/analytics/queue";
 import { Dimensions, Platform } from "react-native";
 
-type EventName = "session_started" | "page_viewed" | "search_submitted" | "search_results_viewed" |
-  "search_no_results" | "merchant_profile_viewed" | "merchant_saved" | "merchant_unsaved" |
-  "booking_cta_clicked" | "booking_started" | "contact_channel_clicked";
+type EventName =
+  | "session_started"
+  | "page_viewed"
+  | "search_submitted"
+  | "search_results_viewed"
+  | "search_no_results"
+  | "merchant_profile_viewed"
+  | "merchant_saved"
+  | "merchant_unsaved"
+  | "booking_cta_clicked"
+  | "booking_started"
+  | "contact_channel_clicked";
 
 type EventProperties = {
   pagePath?: string;
@@ -23,7 +32,8 @@ const ANONYMOUS_KEY = "kilipicks.analytics.anonymous.v1";
 const SESSION_KEY = "kilipicks.analytics.session.v2";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
-const createId = (prefix: string) => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 11)}`;
+const createId = (prefix: string) =>
+  `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 11)}`;
 
 // Memoized so concurrent track() calls on a fresh install await the same
 // in-flight resolution instead of each independently racing
@@ -52,28 +62,48 @@ type StoredSession = { sessionId: string; lastActivityAt: number };
 async function resolveSession(): Promise<string> {
   const raw = await AsyncStorage.getItem(SESSION_KEY);
   const stored = raw ? (JSON.parse(raw) as StoredSession) : null;
-  const expired = !stored || Date.now() - stored.lastActivityAt > SESSION_TIMEOUT_MS;
+  const expired =
+    !stored || Date.now() - stored.lastActivityAt > SESSION_TIMEOUT_MS;
   const sessionId = expired ? createId("app_session") : stored.sessionId;
-  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ sessionId, lastActivityAt: Date.now() }));
+  await AsyncStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ sessionId, lastActivityAt: Date.now() }),
+  );
   return sessionId;
 }
 
-export async function track(eventName: EventName, properties: EventProperties = {}) {
+export async function track(
+  eventName: EventName,
+  properties: EventProperties = {},
+) {
   try {
     const { anonymousUserId } = await identity();
     const sessionId = await resolveSession();
     const { width, height } = Dimensions.get("window");
     const timestamp = new Date().toISOString();
     await enqueue({
-      eventId: createId("app_event"), anonymousUserId, sessionId, eventName, timestamp,
-      pagePath: properties.pagePath ?? "/app", pageTitle: properties.pageTitle,
-      merchantId: properties.merchantId, merchantName: properties.merchantName,
-      categoryId: properties.categoryId, categoryName: properties.categoryName,
-      searchQuery: properties.searchQuery, sourceSurface: properties.sourceSurface ?? "mobile_app",
-      sourceSection: properties.sourceSection, sourceItemType: properties.merchantId ? "merchant" : undefined,
-      productVersion: "kilipicks-mobile@0.1.0", trackingSchemaVersion: "2.0",
-      deviceType: "mobile-app", screenWidth: Math.round(width), screenHeight: Math.round(height),
-      browser: "native-app", operatingSystem: `${Platform.OS} ${String(Platform.Version)}`,
+      eventId: createId("app_event"),
+      anonymousUserId,
+      sessionId,
+      eventName,
+      timestamp,
+      pagePath: properties.pagePath ?? "/app",
+      pageTitle: properties.pageTitle,
+      merchantId: properties.merchantId,
+      merchantName: properties.merchantName,
+      categoryId: properties.categoryId,
+      categoryName: properties.categoryName,
+      searchQuery: properties.searchQuery,
+      sourceSurface: properties.sourceSurface ?? "mobile_app",
+      sourceSection: properties.sourceSection,
+      sourceItemType: properties.merchantId ? "merchant" : undefined,
+      productVersion: "kilipicks-mobile@0.1.0",
+      trackingSchemaVersion: "2.0",
+      deviceType: "mobile-app",
+      screenWidth: Math.round(width),
+      screenHeight: Math.round(height),
+      browser: "native-app",
+      operatingSystem: `${Platform.OS} ${String(Platform.Version)}`,
       environment: __DEV__ ? "development" : "production",
       metadata: { channel: "mobile_app", ...properties.metadata },
     });

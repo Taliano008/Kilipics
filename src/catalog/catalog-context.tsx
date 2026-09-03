@@ -2,10 +2,25 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchCatalog } from "@/api/catalog";
 import { report } from "@/observability/report";
 import type { PublicCatalogSnapshot } from "@/types/catalog";
-import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const CATALOG_KEY = "kilipicks.catalog.snapshot.v1";
 const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+// Date.now() is impure, so it can't be called during render — this only
+// ever runs from inside an effect/callback, right when catalog is set.
+function computeStale(snapshot: PublicCatalogSnapshot | null): boolean {
+  if (!snapshot) return false;
+  return Date.now() - new Date(snapshot.generatedAt).getTime() > STALE_AFTER_MS;
+}
 
 type CatalogState = {
   catalog: PublicCatalogSnapshot | null;
@@ -25,30 +40,39 @@ export function CatalogProvider({ children }: PropsWithChildren) {
   const [refreshing, setRefreshing] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
 
-  const fetchAndApply = useCallback(async (hasCache: boolean, manual: boolean) => {
-    if (manual) setRefreshing(true);
-    else if (hasCache) setRevalidating(true);
-    else setLoading(true);
-    try {
-      const next = await fetchCatalog();
-      setCatalog(next);
-      setError(null);
-      void AsyncStorage.setItem(CATALOG_KEY, JSON.stringify(next));
-    } catch (reason) {
-      if (hasCache) {
-        // A cache exists: keep showing it, never surface a full-screen error,
-        // but don't let the failure disappear silently either.
-        report(reason, { scope: "catalog_revalidate" });
-      } else {
-        setError(reason instanceof Error ? reason.message : "Unable to load businesses");
+  const fetchAndApply = useCallback(
+    async (hasCache: boolean, manual: boolean) => {
+      if (manual) setRefreshing(true);
+      else if (hasCache) setRevalidating(true);
+      else setLoading(true);
+      try {
+        const next = await fetchCatalog();
+        setCatalog(next);
+        setStale(computeStale(next));
+        setError(null);
+        void AsyncStorage.setItem(CATALOG_KEY, JSON.stringify(next));
+      } catch (reason) {
+        if (hasCache) {
+          // A cache exists: keep showing it, never surface a full-screen error,
+          // but don't let the failure disappear silently either.
+          report(reason, { scope: "catalog_revalidate" });
+        } else {
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Unable to load businesses",
+          );
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setRevalidating(false);
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setRevalidating(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     (async () => {
@@ -56,7 +80,9 @@ export function CatalogProvider({ children }: PropsWithChildren) {
       try {
         const raw = await AsyncStorage.getItem(CATALOG_KEY);
         if (raw) {
-          setCatalog(JSON.parse(raw) as PublicCatalogSnapshot);
+          const cached = JSON.parse(raw) as PublicCatalogSnapshot;
+          setCatalog(cached);
+          setStale(computeStale(cached));
           setLoading(false);
           hasCache = true;
         }
@@ -68,19 +94,27 @@ export function CatalogProvider({ children }: PropsWithChildren) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const refresh = useCallback(() => fetchAndApply(Boolean(catalog), true), [fetchAndApply, catalog]);
-
-  const stale = useMemo(() => {
-    if (!catalog) return false;
-    return Date.now() - new Date(catalog.generatedAt).getTime() > STALE_AFTER_MS;
-  }, [catalog]);
+  const refresh = useCallback(
+    () => fetchAndApply(Boolean(catalog), true),
+    [fetchAndApply, catalog],
+  );
 
   const value = useMemo(
-    () => ({ catalog, loading, refreshing, revalidating, error, stale, refresh }),
+    () => ({
+      catalog,
+      loading,
+      refreshing,
+      revalidating,
+      error,
+      stale,
+      refresh,
+    }),
     [catalog, loading, refreshing, revalidating, error, stale, refresh],
   );
 
-  return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
+  return (
+    <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>
+  );
 }
 
 export function useCatalog() {

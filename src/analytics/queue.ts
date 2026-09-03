@@ -72,7 +72,8 @@ async function performFlush(): Promise<void> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ events: batch }),
     });
-    if (!response.ok) throw new Error(`Analytics ingest failed (${response.status})`);
+    if (!response.ok)
+      throw new Error(`Analytics ingest failed (${response.status})`);
     const sentIds = new Set(batch.map((event) => event.eventId));
     queue = queue.filter((event) => !sentIds.has(event.eventId));
     persist();
@@ -80,7 +81,11 @@ async function performFlush(): Promise<void> {
   } catch (reason) {
     // Analytics must never block or crash the UI — keep the batch queued
     // and retry with backoff rather than dropping or discarding silently.
-    report(reason, { scope: "analytics_flush", pending: queue.length }, "warning");
+    report(
+      reason,
+      { scope: "analytics_flush", pending: queue.length },
+      "warning",
+    );
     scheduleRetry();
   }
 }

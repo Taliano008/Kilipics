@@ -6,7 +6,8 @@
 export type ReportSeverity = "info" | "warning" | "error";
 
 function normalize(error: unknown): { message: string; stack?: string } {
-  if (error instanceof Error) return { message: error.message, stack: error.stack };
+  if (error instanceof Error)
+    return { message: error.message, stack: error.stack };
   if (typeof error === "string") return { message: error };
   try {
     return { message: JSON.stringify(error) };
@@ -15,18 +16,32 @@ function normalize(error: unknown): { message: string; stack?: string } {
   }
 }
 
-function log(severity: ReportSeverity, message: string, context?: Record<string, unknown>) {
-  const line = context ? `[${severity}] ${message} ${JSON.stringify(context)}` : `[${severity}] ${message}`;
+function log(
+  severity: ReportSeverity,
+  message: string,
+  context?: Record<string, unknown>,
+) {
+  const line = context
+    ? `[${severity}] ${message} ${JSON.stringify(context)}`
+    : `[${severity}] ${message}`;
   if (severity === "error") console.error(line);
   else if (severity === "warning") console.warn(line);
   else console.log(line);
 }
 
-export function report(error: unknown, context?: Record<string, unknown>, severity: ReportSeverity = "error") {
+export function report(
+  error: unknown,
+  context?: Record<string, unknown>,
+  severity: ReportSeverity = "error",
+) {
   const { message, stack } = normalize(error);
   log(severity, message, stack ? { ...context, stack } : context);
 }
 
-export function reportMessage(message: string, context?: Record<string, unknown>, severity: ReportSeverity = "info") {
+export function reportMessage(
+  message: string,
+  context?: Record<string, unknown>,
+  severity: ReportSeverity = "info",
+) {
   log(severity, message, context);
 }

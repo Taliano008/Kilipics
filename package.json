@@ -2,6 +2,7 @@
   "name": "kilipicks-mobile",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "packageManager": "pnpm@11.9.0",
   "main": "expo-router/entry",
   "scripts": {
@@ -9,7 +10,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
@@ -31,6 +34,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "^57.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.6",
     "typescript": "~6.0.3"
   }
 }

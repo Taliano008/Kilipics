@@ -13,5 +13,10 @@ const labels: Record<string, string> = {
 };
 
 export function categoryLabel(id: string) {
-  return labels[id] ?? id.replace(/[-_]/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+  return (
+    labels[id] ??
+    id
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (character) => character.toUpperCase())
+  );
 }

@@ -29,7 +29,12 @@ function SplashGate({ children }: PropsWithChildren) {
 }
 
 export default function RootLayout() {
-  useEffect(() => { void track("session_started", { pagePath: "/", pageTitle: "KiliPicks App" }); }, []);
+  useEffect(() => {
+    void track("session_started", {
+      pagePath: "/",
+      pageTitle: "KiliPicks App",
+    });
+  }, []);
   useAnalyticsLifecycle();
   return (
     <ErrorBoundary>
@@ -39,10 +44,19 @@ export default function RootLayout() {
             <SavedProvider>
               <UpgradeGate>
                 <StatusBar style="dark" />
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream }, animation: "slide_from_right" }}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: colors.cream },
+                    animation: "slide_from_right",
+                  }}
+                >
                   <Stack.Screen name="(tabs)" />
                   <Stack.Screen name="provider/[id]" />
-                  <Stack.Screen name="booking/[providerId]" options={{ presentation: "modal" }} />
+                  <Stack.Screen
+                    name="booking/[providerId]"
+                    options={{ presentation: "modal" }}
+                  />
                 </Stack>
               </UpgradeGate>
             </SavedProvider>

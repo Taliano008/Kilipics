@@ -11,12 +11,188 @@ export default function BookingScreen() {
   const router = useRouter();
   const { catalog } = useCatalog();
   const provider = catalog?.providers.find((item) => item.id === providerId);
-  const services = (catalog?.services ?? []).filter((item) => item.providerId === providerId && item.active && item.bookingEnabled);
+  const services = (catalog?.services ?? []).filter(
+    (item) =>
+      item.providerId === providerId && item.active && item.bookingEnabled,
+  );
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
-  if (!provider || provider.limitedListing || !provider.bookingEnabled) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Booking is not available</Text><Text style={styles.copy}>This business must be a signed KiliPicks partner before consumers can book.</Text><Pressable style={styles.secondary} onPress={() => router.back()}><Text style={styles.secondaryText}>Go back</Text></Pressable></View></SafeAreaView>;
+  if (!provider || provider.limitedListing || !provider.bookingEnabled)
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <Text style={styles.title}>Booking is not available</Text>
+          <Text style={styles.copy}>
+            This business must be a signed KiliPicks partner before consumers
+            can book.
+          </Text>
+          <Pressable style={styles.secondary} onPress={() => router.back()}>
+            <Text style={styles.secondaryText}>Go back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}><View style={styles.header}><Pressable onPress={() => router.back()}><Text style={styles.close}>×</Text></Pressable><Text style={styles.headerTitle}>Start booking</Text><View style={styles.headerSpacer} /></View><ScrollView contentContainerStyle={styles.content}><Text style={styles.eyebrow}>SELECT A SERVICE</Text><Text style={styles.title}>{provider.name}</Text><Text style={styles.copy}>Choose a published service to continue. Date, time and payment are the next implementation milestone.</Text>{services.map((service) => <Pressable key={service.id} style={[styles.service, serviceId === service.id && styles.selected]} onPress={() => setServiceId(service.id)}><View style={styles.radio}>{serviceId === service.id ? <View style={styles.dot} /> : null}</View><View style={styles.serviceBody}><Text style={styles.serviceName}>{service.name}</Text><Text style={styles.serviceMeta}>{service.durationMinutes} min</Text></View><Text style={styles.price}>KES {service.price.toLocaleString()}</Text></Pressable>)}<Pressable disabled={!serviceId} style={[styles.primary, !serviceId && styles.disabled]} onPress={() => { const service = services.find((item) => item.id === serviceId); void track("booking_started", { merchantId: provider.id, merchantName: provider.name, pagePath: `/booking/${provider.id}`, metadata: { serviceId: service?.id, serviceName: service?.name, stage: "service_selected_mobile_mvp" } }); }}><Text style={styles.primaryText}>Continue</Text></Pressable><Text style={styles.disclaimer}>MVP note: this button records verified booking intent; it does not create a paid appointment yet.</Text></ScrollView></SafeAreaView>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.close}>×</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>Start booking</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.eyebrow}>SELECT A SERVICE</Text>
+        <Text style={styles.title}>{provider.name}</Text>
+        <Text style={styles.copy}>
+          Choose a published service to continue. Date, time and payment are the
+          next implementation milestone.
+        </Text>
+        {services.map((service) => (
+          <Pressable
+            key={service.id}
+            style={[
+              styles.service,
+              serviceId === service.id && styles.selected,
+            ]}
+            onPress={() => setServiceId(service.id)}
+          >
+            <View style={styles.radio}>
+              {serviceId === service.id ? <View style={styles.dot} /> : null}
+            </View>
+            <View style={styles.serviceBody}>
+              <Text style={styles.serviceName}>{service.name}</Text>
+              <Text style={styles.serviceMeta}>
+                {service.durationMinutes} min
+              </Text>
+            </View>
+            <Text style={styles.price}>
+              KES {service.price.toLocaleString()}
+            </Text>
+          </Pressable>
+        ))}
+        <Pressable
+          disabled={!serviceId}
+          style={[styles.primary, !serviceId && styles.disabled]}
+          onPress={() => {
+            const service = services.find((item) => item.id === serviceId);
+            void track("booking_started", {
+              merchantId: provider.id,
+              merchantName: provider.name,
+              pagePath: `/booking/${provider.id}`,
+              metadata: {
+                serviceId: service?.id,
+                serviceName: service?.name,
+                stage: "service_selected_mobile_mvp",
+              },
+            });
+          }}
+        >
+          <Text style={styles.primaryText}>Continue</Text>
+        </Pressable>
+        <Text style={styles.disclaimer}>
+          MVP note: this button records verified booking intent; it does not
+          create a paid appointment yet.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.cream }, header: { height: 62, paddingHorizontal: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, close: { color: colors.ink, fontSize: 32 }, headerTitle: { color: colors.ink, fontSize: 16, fontWeight: "800" }, headerSpacer: { width: 24 }, content: { padding: spacing.lg, paddingBottom: 40 }, center: { flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.xl }, eyebrow: { color: colors.brand, fontSize: 11, fontWeight: "900", letterSpacing: 1.4 }, title: { color: colors.ink, fontSize: 30, lineHeight: 35, fontWeight: "900", marginTop: 6, textAlign: "left" }, copy: { color: colors.muted, fontSize: 15, lineHeight: 23, marginTop: 8, marginBottom: spacing.lg, textAlign: "left" }, service: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.line, borderRadius: radii.md, padding: spacing.md, marginBottom: 10, flexDirection: "row", alignItems: "center" }, selected: { borderColor: colors.brand, borderWidth: 2 }, radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.brand, alignItems: "center", justifyContent: "center", marginRight: 12 }, dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand }, serviceBody: { flex: 1 }, serviceName: { color: colors.ink, fontSize: 16, fontWeight: "800" }, serviceMeta: { color: colors.muted, fontSize: 13, marginTop: 3 }, price: { color: colors.brand, fontWeight: "800" }, primary: { backgroundColor: colors.brand, borderRadius: radii.md, alignItems: "center", padding: 17, marginTop: spacing.lg }, disabled: { opacity: 0.45 }, primaryText: { color: colors.white, fontSize: 16, fontWeight: "900" }, secondary: { borderWidth: 1, borderColor: colors.brand, borderRadius: radii.md, paddingHorizontal: 20, paddingVertical: 13, marginTop: spacing.md }, secondaryText: { color: colors.brand, fontWeight: "800" }, disclaimer: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 12 } });
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.cream },
+  header: {
+    height: 62,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  close: { color: colors.ink, fontSize: 32 },
+  headerTitle: { color: colors.ink, fontSize: 16, fontWeight: "800" },
+  headerSpacer: { width: 24 },
+  content: { padding: spacing.lg, paddingBottom: 40 },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+  },
+  eyebrow: {
+    color: colors.brand,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 30,
+    lineHeight: 35,
+    fontWeight: "900",
+    marginTop: 6,
+    textAlign: "left",
+  },
+  copy: {
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 23,
+    marginTop: 8,
+    marginBottom: spacing.lg,
+    textAlign: "left",
+  },
+  service: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selected: { borderColor: colors.brand, borderWidth: 2 },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.brand,
+  },
+  serviceBody: { flex: 1 },
+  serviceName: { color: colors.ink, fontSize: 16, fontWeight: "800" },
+  serviceMeta: { color: colors.muted, fontSize: 13, marginTop: 3 },
+  price: { color: colors.brand, fontWeight: "800" },
+  primary: {
+    backgroundColor: colors.brand,
+    borderRadius: radii.md,
+    alignItems: "center",
+    padding: 17,
+    marginTop: spacing.lg,
+  },
+  disabled: { opacity: 0.45 },
+  primaryText: { color: colors.white, fontSize: 16, fontWeight: "900" },
+  secondary: {
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radii.md,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    marginTop: spacing.md,
+  },
+  secondaryText: { color: colors.brand, fontWeight: "800" },
+  disclaimer: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 12,
+  },
+});

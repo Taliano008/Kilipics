@@ -1,8 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, type PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const STORAGE_KEY = "kilipicks.saved.providers.v1";
-type SavedState = { ids: Set<string>; ready: boolean; toggle: (id: string) => void; isSaved: (id: string) => boolean };
+type SavedState = {
+  ids: Set<string>;
+  ready: boolean;
+  toggle: (id: string) => void;
+  isSaved: (id: string) => boolean;
+};
 const SavedContext = createContext<SavedState | null>(null);
 
 export function SavedProvider({ children }: PropsWithChildren) {
@@ -11,7 +24,9 @@ export function SavedProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((value) => setIds(new Set(value ? JSON.parse(value) as string[] : [])))
+      .then((value) =>
+        setIds(new Set(value ? (JSON.parse(value) as string[]) : [])),
+      )
       .catch(() => setIds(new Set()))
       .finally(() => setReady(true));
   }, []);
@@ -25,8 +40,13 @@ export function SavedProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
-  const value = useMemo(() => ({ ids, ready, toggle, isSaved: (id: string) => ids.has(id) }), [ids, ready, toggle]);
-  return <SavedContext.Provider value={value}>{children}</SavedContext.Provider>;
+  const value = useMemo(
+    () => ({ ids, ready, toggle, isSaved: (id: string) => ids.has(id) }),
+    [ids, ready, toggle],
+  );
+  return (
+    <SavedContext.Provider value={value}>{children}</SavedContext.Provider>
+  );
 }
 
 export function useSaved() {
