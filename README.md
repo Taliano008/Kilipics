@@ -16,7 +16,7 @@ Android-first, iOS-compatible React Native application starter for the KiliPicks
 ## Requirements
 
 - Node.js 22+
-- pnpm 10+
+- pnpm 11+ (pinned via `packageManager` in `package.json`; run through Corepack: `corepack enable`)
 - Android Studio emulator or an Android phone with Expo Go
 - macOS + Xcode is required only for a local iOS simulator; cloud iOS builds can use EAS
 
@@ -50,7 +50,7 @@ pnpm typecheck
 
 ## Create an installable Android preview
 
-1. Install and sign in to EAS CLI: `npm install -g eas-cli && eas login`.
+1. Install and sign in to EAS CLI: `pnpm add -g eas-cli && eas login`.
 2. Run `eas init` and replace the placeholder project ID in `app.json`.
 3. Build an APK with `eas build --platform android --profile preview`.
 
