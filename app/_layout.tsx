@@ -72,6 +72,10 @@ export default Sentry.wrap(function RootLayout() {
                       name="auth"
                       options={{ presentation: "modal" }}
                     />
+                    <Stack.Screen
+                      name="search-overlay"
+                      options={{ presentation: "modal" }}
+                    />
                   </Stack>
                 </UpgradeGate>
               </AuthProvider>

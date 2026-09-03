@@ -17,13 +17,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SearchScreen() {
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; query?: string }>();
   const { catalog, loading, error, refresh } = useCatalog();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(params.query ?? "");
   const [category, setCategory] = useState(params.category ?? "all");
   useEffect(() => {
     if (params.category) setCategory(params.category);
   }, [params.category]);
+  useEffect(() => {
+    if (params.query) setQuery(params.query);
+  }, [params.query]);
   useEffect(() => {
     void track("page_viewed", {
       pagePath: "/search",

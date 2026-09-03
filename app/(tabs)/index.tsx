@@ -1,6 +1,11 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { CategoryGrid } from "@/components/CategoryGrid";
+import {
+  buildEditorialCards,
+  EditorialCards,
+  type EditorialCard,
+} from "@/components/EditorialCards";
 import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { colors, radii, spacing } from "@/theme/tokens";
@@ -55,6 +60,20 @@ export default function HomeScreen() {
         .slice(0, 12),
     [providers],
   );
+  const editorialCards = useMemo(
+    () => buildEditorialCards(providers),
+    [providers],
+  );
+  const selectEditorialCard = (card: EditorialCard) => {
+    void track("search_submitted", {
+      pagePath: "/",
+      categoryId: card.params.category,
+      searchQuery: card.params.query,
+      sourceSection: "home_editorial_cards",
+      metadata: { cardId: card.id },
+    });
+    router.push({ pathname: "/(tabs)/search", params: card.params });
+  };
 
   if (loading && !catalog) return <LoadingState />;
   if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
@@ -75,8 +94,17 @@ export default function HomeScreen() {
             <Text style={styles.brand}>✦ KiliPicks</Text>
             <Text style={styles.location}>⌖ Nairobi</Text>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>K</Text>
+          <View style={styles.topbarActions}>
+            <Pressable
+              style={styles.searchFab}
+              onPress={() => router.push("/search-overlay")}
+              accessibilityLabel="Search"
+            >
+              <Text style={styles.searchFabIcon}>⌕</Text>
+            </Pressable>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>K</Text>
+            </View>
           </View>
         </View>
         {stale ? (
@@ -86,21 +114,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : null}
-        <View style={styles.hero}>
-          <Text style={styles.kicker}>NAIROBI, PICKED WELL</Text>
-          <Text style={styles.title}>Find a local favourite.</Text>
-          <Text style={styles.subtitle}>
-            Real places, clear information and better decisions near you.
-          </Text>
-          <Pressable
-            style={styles.searchButton}
-            onPress={() => router.push("/(tabs)/search")}
-          >
-            <Text style={styles.searchIcon}>⌕</Text>
-            <Text style={styles.searchText}>Search services or places</Text>
-            <Text style={styles.arrow}>›</Text>
-          </Pressable>
-        </View>
+        <EditorialCards cards={editorialCards} onSelect={selectEditorialCard} />
 
         <View style={styles.sectionHeading}>
           <View>
@@ -167,6 +181,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: colors.white, fontSize: 17, fontWeight: "800" },
+  topbarActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  searchFab: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchFabIcon: { color: colors.brand, fontSize: 22 },
   staleBanner: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
@@ -176,45 +202,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   staleText: { color: colors.muted, fontSize: 12 },
-  hero: {
-    margin: spacing.md,
-    padding: spacing.lg,
-    backgroundColor: colors.brandDark,
-    borderRadius: radii.lg,
-  },
-  kicker: {
-    color: "#F0C9D5",
-    fontSize: 11,
-    letterSpacing: 1.5,
-    fontWeight: "800",
-  },
-  title: {
-    color: colors.white,
-    fontSize: 36,
-    lineHeight: 40,
-    fontWeight: "900",
-    marginTop: 12,
-    maxWidth: 300,
-  },
-  subtitle: {
-    color: "#F9EDEF",
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 10,
-    maxWidth: 310,
-  },
-  searchButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: radii.md,
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    minHeight: 54,
-  },
-  searchIcon: { color: colors.brand, fontSize: 25 },
-  searchText: { color: colors.muted, fontSize: 15, flex: 1, marginLeft: 9 },
-  arrow: { color: colors.ink, fontSize: 29 },
   sectionHeading: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
