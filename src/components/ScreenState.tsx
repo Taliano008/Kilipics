@@ -1,4 +1,5 @@
 import { colors, radii, spacing } from "@/theme/tokens";
+import type { PropsWithChildren, ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -34,11 +35,18 @@ export function ErrorState({
   );
 }
 
-export function EmptyState({ title, copy }: { title: string; copy: string }) {
+export function EmptyState({
+  icon,
+  title,
+  copy,
+  children,
+}: PropsWithChildren<{ icon?: ReactNode; title: string; copy: string }>) {
   return (
     <View style={styles.empty}>
+      {icon ? <Text style={styles.icon}>{icon}</Text> : null}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.copy}>{copy}</Text>
+      {children}
     </View>
   );
 }
@@ -59,6 +67,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     gap: spacing.sm,
   },
+  icon: { fontSize: 40 },
   title: {
     color: colors.ink,
     fontSize: 20,
