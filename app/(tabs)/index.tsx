@@ -1,5 +1,6 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
+import { CategoryGrid } from "@/components/CategoryGrid";
 import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { colors, radii, spacing } from "@/theme/tokens";
@@ -28,13 +29,21 @@ export default function HomeScreen() {
   }, []);
   const providers = catalog?.providers ?? [];
   const categoryIds = useMemo(
-    () =>
-      [...new Set(providers.map((provider) => provider.categoryId))].slice(
-        0,
-        8,
-      ),
+    () => [...new Set(providers.map((provider) => provider.categoryId))],
     [providers],
   );
+  const selectCategory = (categoryId: string) => {
+    void track("search_submitted", {
+      pagePath: "/",
+      categoryId,
+      categoryName: categoryId === "all" ? "All" : categoryLabel(categoryId),
+      sourceSection: "home_category_grid",
+    });
+    router.push({
+      pathname: "/(tabs)/search",
+      params: { category: categoryId },
+    });
+  };
   const recommended = useMemo(
     () =>
       [...providers]
@@ -99,26 +108,7 @@ export default function HomeScreen() {
             <Text style={styles.sectionCopy}>Browse by what you need</Text>
           </View>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-        >
-          {categoryIds.map((id) => (
-            <Pressable
-              key={id}
-              style={styles.chip}
-              onPress={() =>
-                router.push({
-                  pathname: "/(tabs)/search",
-                  params: { category: id },
-                })
-              }
-            >
-              <Text style={styles.chipText}>{categoryLabel(id)}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <CategoryGrid categoryIds={categoryIds} onSelect={selectCategory} />
 
         <View style={styles.sectionHeading}>
           <View>
@@ -236,16 +226,6 @@ const styles = StyleSheet.create({
   heading: { color: colors.ink, fontSize: 25, fontWeight: "900" },
   sectionCopy: { color: colors.muted, fontSize: 14, marginTop: 4 },
   seeAll: { color: colors.brand, fontSize: 14, fontWeight: "800" },
-  chips: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  chip: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  chipText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
   cards: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
