@@ -7,6 +7,10 @@ const icons: Partial<Record<string, ImageSourcePropType>> = {
   spa: require("../../assets/icons/massage.png"),
   nails: require("../../assets/icons/nail-artist.png"),
   tattoo: require("../../assets/icons/tattoo.png"),
+  barbering: require("../../assets/icons/barber.png"),
+  fitness: require("../../assets/icons/weightlifting.png"),
+  recovery: require("../../assets/icons/sauna.png"),
+  facials: require("../../assets/icons/tray.png"),
 };
 
 export const allCategoriesIcon: ImageSourcePropType = require("../../assets/icons/grid.png");
