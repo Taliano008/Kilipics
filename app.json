@@ -18,7 +18,8 @@
           "project": "react-native",
           "organization": "kilimax-s5"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "ios": {
       "supportsTablet": false,
@@ -40,7 +41,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#F8F4F1"
     },
-    "assetBundlePatterns": ["./assets/**/*"],
+    "assetBundlePatterns": [
+      "./assets/**/*"
+    ],
     "experiments": {
       "typedRoutes": true
     },

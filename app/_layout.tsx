@@ -1,15 +1,16 @@
 import { track } from "@/analytics/events";
 import { useAnalyticsLifecycle } from "@/analytics/use-analytics-lifecycle";
 import { AuthProvider } from "@/auth/auth-context";
-import { CatalogProvider, useCatalog } from "@/catalog/catalog-context";
+import { CatalogProvider } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpgradeGate } from "@/components/UpgradeGate";
+import { VideoSplashGate } from "@/components/VideoSplashGate";
 import { colors } from "@/theme/tokens";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { type PropsWithChildren, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Sentry from "@sentry/react-native";
 
@@ -37,21 +38,6 @@ Sentry.init({
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// The catalog's first load — a cache hit or the cold-start network fetch
-// settling, success or failure either way — is what "resolved" means here.
-// Dismissing on error too avoids ever leaving the splash stuck.
-function SplashGate({ children }: PropsWithChildren) {
-  const { loading } = useCatalog();
-  const hidden = useRef(false);
-  useEffect(() => {
-    if (!loading && !hidden.current) {
-      hidden.current = true;
-      void SplashScreen.hideAsync();
-    }
-  }, [loading]);
-  return children;
-}
-
 export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     void track("session_started", {
@@ -64,7 +50,7 @@ export default Sentry.wrap(function RootLayout() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <CatalogProvider>
-          <SplashGate>
+          <VideoSplashGate>
             <SavedProvider>
               <AuthProvider>
                 <UpgradeGate>
@@ -90,7 +76,7 @@ export default Sentry.wrap(function RootLayout() {
                 </UpgradeGate>
               </AuthProvider>
             </SavedProvider>
-          </SplashGate>
+          </VideoSplashGate>
         </CatalogProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
