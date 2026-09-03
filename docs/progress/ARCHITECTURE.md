@@ -92,6 +92,39 @@ project) and `RootLayout` is wrapped in `Sentry.wrap(...)`. Source-map/debug-
 symbol upload is configured via `@sentry/react-native/expo`'s config plugin
 in `app.json` and `getSentryExpoConfig` in `metro.config.js`.
 
+## Auth boundary
+
+Phase Zero has no auth backend at all — no OTP delivery, no session tokens,
+no credential storage, no server to talk to. `src/auth/auth-context.tsx` is
+the single seam every auth-adjacent screen goes through:
+
+```ts
+type AuthState = {
+  status: "signed_out" | "signed_in"; // always "signed_out" in Phase Zero
+  user: AuthUser | null;              // always null in Phase Zero
+  startPhoneAuth: (e164: string) => Promise<AuthResult>;
+  startEmailAuth: () => Promise<AuthResult>;
+  startGoogleAuth: () => Promise<AuthResult>;
+  signOut: () => Promise<void>;
+};
+```
+
+Every `start*` method always resolves `{ status: "unavailable", message }` —
+no network call, no storage write. `AuthResult` also has `"success"` and
+`"error"` variants that Phase Zero never returns, so a real provider can use
+them later without changing the type. Screens (`app/auth.tsx`,
+`app/(tabs)/activity.tsx`, `app/(tabs)/account.tsx`) only ever read `status`
+and the `AuthResult` a `start*` call resolves to — never any local auth
+state of their own. **When a real provider is wired in, only this file
+changes.**
+
+This also drove a product decision worth recording: `src/saved/saved-context.tsx`
+(local `AsyncStorage`, no account, works offline) is deliberately **not**
+gated behind auth — only the new Activity tab is, because Activity shows
+appointment history (inherently tied to an account) while Saved is a plain
+device-local shortlist. Gating Saved would only add friction to something
+that already works standalone.
+
 ## Known Phase One migration points
 
 - Real production API base URL; remove the Metro dev-only CORS proxy in
@@ -106,3 +139,11 @@ in `app.json` and `getSentryExpoConfig` in `metro.config.js`.
 - EAS build/submit pipeline and Play Console listing (§2.4, §5.1).
 - Real support WhatsApp number for in-app feedback, and privacy notice
   content/legal review (§5.3, §5.4).
+- Wire a real provider into `src/auth/auth-context.tsx` (OTP delivery,
+  session tokens, credential storage) — every screen already consumes the
+  boundary generically, so this should require zero screen edits.
+- Collecting phone numbers in the auth UI is a materially different privacy
+  posture than the current anonymous-analytics-only app, even though Phase
+  Zero's auth never actually sends or stores one. The privacy notice and Play
+  Data Safety declaration need to reflect that the UI now asks for a phone
+  number, ahead of shipping this to real users.
