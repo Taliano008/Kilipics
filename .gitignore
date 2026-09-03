@@ -16,3 +16,6 @@ web-build/
 expo-env.d.ts
 # @end expo-cli
 .env.local
+
+# Claude Code local tool-permission state — machine/session-specific, not project content
+.claude/settings.local.json
