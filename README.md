@@ -46,7 +46,13 @@ https://nairobi-local-picks-demo.hantianyang5.chatgpt.site
 
 ```bash
 pnpm typecheck
+pnpm lint
+pnpm format
 ```
+
+Run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once locally so `git blame` skips the formatting-only reformat commit.
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the catalog model, the signed/unsigned partnership boundary, and the analytics pipeline.
 
 ## Create an installable Android preview
 
