@@ -5,7 +5,8 @@ import { colors, radii, shadow, spacing } from "@/theme/tokens";
 import type { PublicCatalogProvider } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
 import { useRouter } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export function ProviderCard({ provider, compact = false }: { provider: PublicCatalogProvider; compact?: boolean }) {
   const router = useRouter();
@@ -19,7 +20,7 @@ export function ProviderCard({ provider, compact = false }: { provider: PublicCa
 
   return (
     <Pressable style={[styles.card, compact && styles.compactCard]} onPress={open} accessibilityRole="button">
-      {image ? <Image source={{ uri: image }} style={[styles.image, compact && styles.compactImage]} resizeMode="cover" /> : <View style={[styles.image, styles.placeholder, compact && styles.compactImage]}><Text style={styles.placeholderLetter}>{provider.name.slice(0, 1)}</Text><Text style={styles.placeholderText}>Local beauty</Text></View>}
+      {image ? <Image source={{ uri: image }} style={[styles.image, compact && styles.compactImage]} contentFit="cover" transition={200} /> : <View style={[styles.image, styles.placeholder, compact && styles.compactImage]}><Text style={styles.placeholderLetter}>{provider.name.slice(0, 1)}</Text><Text style={styles.placeholderText}>Local beauty</Text></View>}
       <Pressable accessibilityLabel={isSaved(provider.id) ? "Remove from saved" : "Save business"} hitSlop={10} style={styles.save} onPress={(event) => { event.stopPropagation(); const saved = isSaved(provider.id); toggle(provider.id); void track(saved ? "merchant_unsaved" : "merchant_saved", { merchantId: provider.id, merchantName: provider.name, pagePath: "/saved" }); }}>
         <Text style={styles.saveText}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
       </Pressable>
