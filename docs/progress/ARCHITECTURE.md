@@ -82,20 +82,22 @@ Enforced in three places:
 
 ## The `report()` seam
 
-`src/observability/report.ts` is a small, dependency-free, console-based
-failure reporter. Every non-fatal failure path in this app (queue flush
-failures, catalog schema-validation failures, the root error boundary,
-contact-link open failures) calls `report()` instead of a silent
-`catch {}`. It is **not** currently wired to any remote crash-reporting
-service — that's the single file to change when Sentry (or similar) is
-added later (§4.3 of the Phase Zero spec).
+`src/observability/report.ts` is the single seam every non-fatal failure
+path in this app (queue flush failures, catalog schema-validation failures,
+the root error boundary, contact-link open failures) calls instead of a
+silent `catch {}`. It logs locally **and** forwards to Sentry
+(`Sentry.captureException`/`captureMessage`) — Sentry is initialized in
+`app/_layout.tsx` (`Sentry.init`, DSN for the `kilimax-s5`/`react-native`
+project) and `RootLayout` is wrapped in `Sentry.wrap(...)`. Source-map/debug-
+symbol upload is configured via `@sentry/react-native/expo`'s config plugin
+in `app.json` and `getSentryExpoConfig` in `metro.config.js`.
 
 ## Known Phase One migration points
 
 - Real production API base URL; remove the Metro dev-only CORS proxy in
   `metro.config.js` and the `usesWebDevProxy` branch in `src/config/env.ts`
   once the backend sends correct CORS headers (§2.1).
-- Wire `report()` to a real crash-reporting SDK (§4.3).
+- ~~Wire `report()` to a real crash-reporting SDK (§4.3).~~ Done — Sentry.
 - Server-side catalog search/pagination once the dataset outgrows a single
   wholesale fetch (§7.1–7.2).
 - The `appConfig.minVersion`/`message` remote kill switch

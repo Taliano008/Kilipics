@@ -1,7 +1,9 @@
-// Local, dependency-free failure reporting. This is the single seam meant to
-// be swapped for a real crash-reporting SDK (e.g. Sentry) later — every call
-// site in the app should go through here instead of a silent catch {} or an
-// ad hoc console.error, so that swap only ever touches this one file.
+import * as Sentry from "@sentry/react-native";
+
+// This is the single seam every failure path in the app goes through
+// instead of a silent catch {} or an ad hoc console.error — it forwards to
+// Sentry (wired via app/_layout.tsx's Sentry.init) as well as logging
+// locally, so behaviour is inspectable even when a Sentry event doesn't land.
 
 export type ReportSeverity = "info" | "warning" | "error";
 
@@ -36,6 +38,15 @@ export function report(
 ) {
   const { message, stack } = normalize(error);
   log(severity, message, stack ? { ...context, stack } : context);
+  Sentry.captureException(error instanceof Error ? error : new Error(message), {
+    level:
+      severity === "error"
+        ? "error"
+        : severity === "warning"
+          ? "warning"
+          : "info",
+    extra: context,
+  });
 }
 
 export function reportMessage(
@@ -44,4 +55,13 @@ export function reportMessage(
   severity: ReportSeverity = "info",
 ) {
   log(severity, message, context);
+  Sentry.captureMessage(message, {
+    level:
+      severity === "error"
+        ? "error"
+        : severity === "warning"
+          ? "warning"
+          : "info",
+    extra: context,
+  });
 }

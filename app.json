@@ -10,7 +10,15 @@
       "expo-router",
       "expo-splash-screen",
       "expo-image",
-      "./plugins/withWhatsAppQuery.js"
+      "./plugins/withWhatsAppQuery.js",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "kilimax-s5"
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,
@@ -25,6 +33,13 @@
     "web": {
       "bundler": "metro"
     },
+    "icon": "./assets/icons/icon.png",
+    "splash": {
+      "image": "./assets/splash/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8F4F1"
+    },
+    "assetBundlePatterns": ["./assets/**/*"],
     "experiments": {
       "typedRoutes": true
     },

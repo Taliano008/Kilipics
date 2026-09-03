@@ -1,7 +1,7 @@
-const { getDefaultConfig } = require("expo/metro-config");
 const https = require("https");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 // The KiliPicks public catalog backend does not send CORS headers, so browser
 // `fetch()` calls to it fail with "Failed to fetch" when running `expo start --web`.
