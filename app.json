@@ -27,15 +27,16 @@
     "android": {
       "package": "com.kilimax.kilipicks",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icons/logo.png",
         "backgroundColor": "#F8F4F1"
       }
     },
     "web": {
       "bundler": "metro"
     },
-    "icon": "./assets/icons/icon.png",
+    "icon": "./assets/icons/logo.png",
     "splash": {
-      "image": "./assets/splash/splash.png",
+      "image": "./assets/icons/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#F8F4F1"
     },
