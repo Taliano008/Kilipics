@@ -1,4 +1,5 @@
 import { track } from "@/analytics/events";
+import { useAnalyticsLifecycle } from "@/analytics/use-analytics-lifecycle";
 import { CatalogProvider, useCatalog } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
 import { UpgradeGate } from "@/components/UpgradeGate";
@@ -28,6 +29,7 @@ function SplashGate({ children }: PropsWithChildren) {
 
 export default function RootLayout() {
   useEffect(() => { void track("session_started", { pagePath: "/", pageTitle: "KiliPicks App" }); }, []);
+  useAnalyticsLifecycle();
   return (
     <SafeAreaProvider>
       <CatalogProvider>
