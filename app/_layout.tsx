@@ -82,6 +82,10 @@ export default Sentry.wrap(function RootLayout() {
                       name="booking/[providerId]"
                       options={{ presentation: "modal" }}
                     />
+                    <Stack.Screen
+                      name="auth"
+                      options={{ presentation: "modal" }}
+                    />
                   </Stack>
                 </UpgradeGate>
               </AuthProvider>
