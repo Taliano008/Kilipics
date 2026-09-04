@@ -4,11 +4,14 @@ import { SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { colors, radii, spacing } from "@/theme/tokens";
+import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const APP_VERSION = Constants.expoConfig?.version ?? "0.0.0";
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -26,7 +29,6 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>KILIPICKS MOBILE MVP</Text>
         <Text style={styles.title}>Account</Text>
 
         {status === "signed_out" ? (
@@ -114,9 +116,7 @@ export default function AccountScreen() {
           <Text style={styles.rowArrow}>›</Text>
         </Pressable>
 
-        <Text style={styles.version}>
-          KiliPicks Mobile 0.1.0 · Android-first / iOS-compatible
-        </Text>
+        <Text style={styles.version}>KiliPicks {APP_VERSION}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -125,13 +125,7 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.cream },
   content: { padding: spacing.lg, paddingBottom: 48 },
-  eyebrow: {
-    color: colors.brand,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.5,
-  },
-  title: { color: colors.ink, fontSize: 34, fontWeight: "900", marginTop: 5 },
+  title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
   signInCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -167,5 +161,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: spacing.lg,
   },
-  version: { color: colors.muted, fontSize: 12, marginTop: spacing.lg },
+  version: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: spacing.lg,
+    textAlign: "center",
+  },
 });
