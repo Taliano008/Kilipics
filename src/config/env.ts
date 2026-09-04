@@ -21,3 +21,12 @@ export function resolveMediaUrl(value?: string | null) {
   if (/^https?:\/\//i.test(value)) return value;
   return `${API_BASE_URL}${value.startsWith("/") ? value : `/${value}`}`;
 }
+
+// Support channel — sourced from env so the placeholder can be swapped to a
+// real number without a code change. BLOCKED on the product owner supplying a
+// real WhatsApp number (see STATUS.md "Outstanding blockers"); until then the
+// Account tab's "Get help" row stays disabled. The empty string default keeps
+// the rest of the app typecheck-green and lets the support row render as
+// "coming soon" rather than a dead control that links to nowhere.
+export const SUPPORT_WHATSAPP_NUMBER =
+  process.env.EXPO_PUBLIC_SUPPORT_WHATSAPP_NUMBER ?? "";
