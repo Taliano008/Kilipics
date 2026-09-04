@@ -61,6 +61,19 @@ export default function AccountScreen() {
           <Text style={styles.rowArrow}>›</Text>
         </Pressable>
 
+        <Pressable
+          style={styles.rowCard}
+          onPress={() => router.push("/auth")}
+        >
+          <View>
+            <Text style={styles.rowTitle}>Switch to seller</Text>
+            <Text style={styles.rowCopy}>
+              List your business on KiliPicks
+            </Text>
+          </View>
+          <Text style={styles.rowArrow}>›</Text>
+        </Pressable>
+
         <Text style={styles.version}>
           KiliPicks Mobile 0.1.0 · Android-first / iOS-compatible
         </Text>
