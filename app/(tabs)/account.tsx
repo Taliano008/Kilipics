@@ -1,5 +1,6 @@
 import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
+import { useSaved } from "@/saved/saved-context";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
@@ -9,6 +10,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function AccountScreen() {
   const router = useRouter();
   const { status } = useAuth();
+  const { ids } = useSaved();
+  const savedCount = ids.size;
   useEffect(() => {
     void track("page_viewed", {
       pagePath: "/account",
@@ -36,6 +39,27 @@ export default function AccountScreen() {
             <Text style={styles.signInArrow}>›</Text>
           </Pressable>
         ) : null}
+
+        <Text style={styles.sectionTitle}>Your account</Text>
+        <Pressable
+          style={styles.rowCard}
+          onPress={() => {
+            void track("page_viewed", {
+              pagePath: "/saved",
+              pageTitle: "Saved",
+              sourceSection: "account",
+            });
+            router.push("/saved");
+          }}
+        >
+          <View>
+            <Text style={styles.rowTitle}>Your saved places</Text>
+            <Text style={styles.rowCopy}>
+              {savedCount === 0 ? "Nothing saved yet" : `${savedCount} saved`}
+            </Text>
+          </View>
+          <Text style={styles.rowArrow}>›</Text>
+        </Pressable>
 
         <Text style={styles.version}>
           KiliPicks Mobile 0.1.0 · Android-first / iOS-compatible
@@ -67,5 +91,27 @@ const styles = StyleSheet.create({
   signInTitle: { color: colors.white, fontSize: 17, fontWeight: "800" },
   signInCopy: { color: "#F9EDEF", fontSize: 13, marginTop: 4 },
   signInArrow: { color: colors.white, fontSize: 26 },
+  rowCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  rowTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
+  rowCopy: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  rowArrow: { color: colors.muted, fontSize: 22 },
+  sectionTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginTop: spacing.lg,
+  },
   version: { color: colors.muted, fontSize: 12, marginTop: spacing.lg },
 });
