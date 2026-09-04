@@ -50,8 +50,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "9fe20140-2b60-4094-a22e-66648958778a"
       }
-    }
+    },
+    "owner": "talianos-team"
   }
 }
