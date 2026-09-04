@@ -1,6 +1,5 @@
 import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
-import { API_BASE_URL } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
@@ -38,36 +37,6 @@ export default function AccountScreen() {
           </Pressable>
         ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>What works in this build</Text>
-          {[
-            "Live public merchant directory",
-            "Search and category filters",
-            "Local saved places",
-            "Signed / unsigned listing rules",
-            "Consumer behaviour analytics",
-          ].map((item) => (
-            <Text key={item} style={styles.row}>
-              ✓ {item}
-            </Text>
-          ))}
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Next product decisions</Text>
-          {[
-            "Real account backend (OTP delivery, sessions)",
-            "M-Pesa booking deposits",
-            "Push notifications",
-            "Maps and live distance",
-            "Reviews and community publishing",
-          ].map((item) => (
-            <Text key={item} style={styles.row}>
-              ○ {item}
-            </Text>
-          ))}
-        </View>
-        <Text style={styles.meta}>API environment</Text>
-        <Text style={styles.url}>{API_BASE_URL}</Text>
         <Text style={styles.version}>
           KiliPicks Mobile 0.1.0 · Android-first / iOS-compatible
         </Text>
@@ -98,30 +67,5 @@ const styles = StyleSheet.create({
   signInTitle: { color: colors.white, fontSize: 17, fontWeight: "800" },
   signInCopy: { color: "#F9EDEF", fontSize: 13, marginTop: 4 },
   signInArrow: { color: colors.white, fontSize: 26 },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  cardTitle: {
-    color: colors.ink,
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 10,
-  },
-  row: { color: colors.ink, fontSize: 15, lineHeight: 29 },
-  meta: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginTop: spacing.md,
-  },
-  url: { color: colors.brand, fontSize: 13, lineHeight: 19, marginTop: 6 },
   version: { color: colors.muted, fontSize: 12, marginTop: spacing.lg },
 });
