@@ -1,7 +1,7 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
-import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
+import { ProviderCard } from "@/components/ProviderCard";
 import { resolveMediaUrl } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
@@ -14,56 +14,87 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { Image } from "expo-image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type {
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type TabKey = "photos" | "services" | "hours" | "nearby";
-
-const TAB_LABELS: Record<TabKey, string> = {
-  photos: "Photos",
-  services: "Services",
-  hours: "Hours",
-  nearby: "Nearby",
-};
-
-const SCROLL_SPY_BUFFER = 32;
+const TAB_BAR_HEIGHT = 50;
 
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { catalog, loading, error, refresh } = useCatalog();
   const { isSaved, toggle } = useSaved();
-  const provider = catalog?.providers.find((item) => item.id === id);
-  const services = (catalog?.services ?? []).filter(
-    (service) => service.providerId === id && service.active,
+  const provider = useMemo(
+    () => catalog?.providers.find((item) => item.id === id),
+    [catalog, id],
+  );
+  const services = useMemo(
+    () =>
+      (catalog?.services ?? []).filter(
+        (service) => service.providerId === id && service.active,
+      ),
+    [catalog, id],
   );
   const [contactChannels, setContactChannels] = useState<ContactChannel[]>([]);
-  const scrollRef = useRef<ScrollView>(null);
-  const sectionOffsets = useRef<Partial<Record<TabKey, number>>>({});
-  const [activeTab, setActiveTab] = useState<TabKey | null>(null);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionOffsets = useRef<Record<string, number>>({});
+  const [activeSection, setActiveSection] = useState("");
+
+  const cover = provider ? resolveMediaUrl(provider.cover) : null;
+  const gallery = useMemo(
+    () =>
+      provider
+        ? [provider.cover, ...provider.gallery]
+            .map(resolveMediaUrl)
+            .filter((item): item is string => Boolean(item))
+        : [],
+    [provider],
+  );
 
   const nearbyProviders = useMemo(() => {
-    if (!provider || !catalog) return [];
-    const others = catalog.providers.filter((item) => item.id !== provider.id);
+    if (!catalog || !provider || provider.limitedListing) return [];
+    const others = catalog.providers.filter((p) => p.id !== provider.id);
     const sameCategory = others.filter(
-      (item) => item.categoryId === provider.categoryId,
+      (p) => p.categoryId === provider.categoryId,
     );
-    const picked = sameCategory.slice(0, 6);
-    if (picked.length < 6) {
-      const pickedIds = new Set(picked.map((item) => item.id));
-      const sameArea = others.filter(
-        (item) => !pickedIds.has(item.id) && item.area === provider.area,
-      );
-      picked.push(...sameArea.slice(0, 6 - picked.length));
+    const sameArea = others.filter(
+      (p) => p.area === provider.area && p.categoryId !== provider.categoryId,
+    );
+    let pool = sameCategory.slice(0, 6);
+    if (pool.length < 6) {
+      const room = 8 - pool.length;
+      pool = [...pool, ...sameArea.slice(0, room)];
     }
-    return picked.slice(0, 8);
+    pool = pool.slice(0, 8);
+    return pool.length >= 3 ? pool : [];
   }, [catalog, provider]);
+
+  const tabs = useMemo(() => {
+    if (!provider || provider.limitedListing) return [];
+    const list: { key: string; label: string }[] = [];
+    if (gallery.length > 1) list.push({ key: "photos", label: "Photos" });
+    list.push({ key: "services", label: "Services" });
+    list.push({ key: "hours", label: "Hours" });
+    if (nearbyProviders.length > 0) list.push({ key: "nearby", label: "Nearby" });
+    return list;
+  }, [provider, gallery, nearbyProviders]);
 
   useEffect(() => {
     if (provider)
@@ -102,6 +133,53 @@ export default function ProviderDetailScreen() {
     };
   }, [provider?.id]);
 
+  useEffect(() => {
+    if (tabs.length === 0) {
+      setActiveSection("");
+      return;
+    }
+    const entries = Object.entries(sectionOffsets.current).sort(
+      (a, b) => a[1] - b[1],
+    );
+    if (entries.length === 0) return;
+    const buffer = TAB_BAR_HEIGHT;
+    let active = entries[0][0];
+    for (const [key, offset] of entries) {
+      if (offset <= 0 + buffer) active = key;
+      else break;
+    }
+    setActiveSection(active);
+  }, [tabs]);
+
+  const registerOffset = useCallback((key: string) => (e: LayoutChangeEvent) => {
+    sectionOffsets.current[key] = e.nativeEvent.layout.y;
+  }, []);
+
+  const handleScroll = ({
+    nativeEvent,
+  }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (tabs.length === 0) return;
+    const y = nativeEvent.contentOffset.y;
+    const entries = Object.entries(sectionOffsets.current).sort(
+      (a, b) => a[1] - b[1],
+    );
+    if (entries.length === 0) return;
+    const buffer = TAB_BAR_HEIGHT;
+    let active = entries[0][0];
+    for (const [key, offset] of entries) {
+      if (offset <= y + buffer) active = key;
+      else break;
+    }
+    setActiveSection(active);
+  };
+
+  const scrollToSection = (key: string) => {
+    scrollViewRef.current?.scrollTo({
+      y: sectionOffsets.current[key] ?? 0,
+      animated: true,
+    });
+  };
+
   const openChannel = (channel: ContactChannel) => {
     void track("contact_channel_clicked", {
       merchantId: provider?.id,
@@ -123,39 +201,19 @@ export default function ProviderDetailScreen() {
         retry={() => router.back()}
       />
     );
-  const cover = resolveMediaUrl(provider.cover);
-  const gallery = [provider.cover, ...provider.gallery]
-    .map(resolveMediaUrl)
-    .filter((item): item is string => Boolean(item));
   const saved = isSaved(provider.id);
 
-  const tabs: TabKey[] = [];
-  if (!provider.limitedListing) {
-    if (gallery.length > 1) tabs.push("photos");
-    tabs.push("services");
-    tabs.push("hours");
-    if (nearbyProviders.length >= 3) tabs.push("nearby");
-  }
-
-  const handleSectionLayout = (key: TabKey, event: LayoutChangeEvent) => {
-    sectionOffsets.current[key] = event.nativeEvent.layout.y;
-  };
-
-  const scrollToSection = (key: TabKey) => {
-    const offset = sectionOffsets.current[key];
-    if (offset === undefined) return;
-    scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
-    setActiveTab(key);
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const y = event.nativeEvent.contentOffset.y + SCROLL_SPY_BUFFER;
-    let current: TabKey | null = null;
-    for (const key of tabs) {
-      const offset = sectionOffsets.current[key];
-      if (offset !== undefined && offset <= y) current = key;
-    }
-    if (current !== activeTab) setActiveTab(current);
+  const bookService = (serviceId: string) => {
+    void track("booking_cta_clicked", {
+      merchantId: provider.id,
+      merchantName: provider.name,
+      pagePath: `/provider/${provider.id}`,
+      metadata: { serviceId, source: "service_row" },
+    });
+    router.push({
+      pathname: "/booking/[providerId]",
+      params: { providerId: provider.id, serviceId },
+    });
   };
 
   return (
@@ -185,31 +243,42 @@ export default function ProviderDetailScreen() {
           <Text style={styles.heart}>{saved ? "♥" : "♡"}</Text>
         </Pressable>
       </View>
+
       {tabs.length >= 2 ? (
-        <View style={styles.tabBar}>
-          {tabs.map((key) => (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabBarScroll}
+          contentContainerStyle={styles.tabBar}
+        >
+          {tabs.map((tab) => (
             <Pressable
-              key={key}
+              key={tab.key}
               style={styles.tab}
-              onPress={() => scrollToSection(key)}
+              onPress={() => scrollToSection(tab.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Go to ${tab.label}`}
             >
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === key && styles.tabTextActive,
+                  activeSection === tab.key && styles.tabTextActive,
                 ]}
               >
-                {TAB_LABELS[key]}
+                {tab.label}
               </Text>
-              {activeTab === key ? <View style={styles.tabIndicator} /> : null}
+              {activeSection === tab.key ? (
+                <View style={styles.tabIndicator} />
+              ) : null}
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       ) : null}
+
       <ScrollView
-        ref={scrollRef}
+        ref={scrollViewRef}
         onScroll={handleScroll}
-        scrollEventThrottle={16}
+        scrollEventThrottle={32}
         contentContainerStyle={styles.content}
       >
         {cover ? (
@@ -317,30 +386,22 @@ export default function ProviderDetailScreen() {
                 <Text style={styles.metricLabel}>right now</Text>
               </View>
             </View>
-            <View
-              onLayout={(event) => handleSectionLayout("services", event)}
-            >
+
+            <View onLayout={registerOffset("services")}>
               <Text style={styles.sectionTitle}>Services</Text>
               {services.length ? (
                 services.map((service) => {
                   const bookable =
-                    !provider.limitedListing &&
+                    service.bookingEnabled &&
                     provider.bookingEnabled &&
-                    service.bookingEnabled;
-                  return (
+                    !provider.limitedListing;
+                  return bookable ? (
                     <Pressable
                       key={service.id}
-                      disabled={!bookable}
                       style={styles.service}
-                      onPress={() => {
-                        router.push({
-                          pathname: "/booking/[providerId]",
-                          params: {
-                            providerId: provider.id,
-                            serviceId: service.id,
-                          },
-                        });
-                      }}
+                      onPress={() => bookService(service.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Book ${service.name}`}
                     >
                       <View style={styles.serviceBody}>
                         <Text style={styles.serviceName}>{service.name}</Text>
@@ -355,10 +416,24 @@ export default function ProviderDetailScreen() {
                           ? "Quote"
                           : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`}
                       </Text>
-                      {bookable ? (
-                        <Text style={styles.serviceChevron}>›</Text>
-                      ) : null}
+                      <Text style={styles.chevron}>›</Text>
                     </Pressable>
+                  ) : (
+                    <View key={service.id} style={styles.service}>
+                      <View style={styles.serviceBody}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <Text style={styles.serviceMeta}>
+                          {service.durationMinutes
+                            ? `${service.durationMinutes} min`
+                            : "Duration confirmed at booking"}
+                        </Text>
+                      </View>
+                      <Text style={styles.servicePrice}>
+                        {service.priceType === "contact_for_price"
+                          ? "Quote"
+                          : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`}
+                      </Text>
+                    </View>
                   );
                 })
               ) : (
@@ -367,8 +442,9 @@ export default function ProviderDetailScreen() {
                 </Text>
               )}
             </View>
+
             {gallery.length > 1 ? (
-              <View onLayout={(event) => handleSectionLayout("photos", event)}>
+              <View onLayout={registerOffset("photos")}>
                 <Text style={styles.sectionTitle}>Photos</Text>
                 <ScrollView
                   horizontal
@@ -387,14 +463,20 @@ export default function ProviderDetailScreen() {
                 </ScrollView>
               </View>
             ) : null}
-            <View onLayout={(event) => handleSectionLayout("hours", event)}>
+
+            <View onLayout={registerOffset("hours")}>
               <Text style={styles.sectionTitle}>Hours</Text>
-              <Text style={styles.hoursLine}>
-                {provider.openNow ? "Open now" : "Closed now"}
-              </Text>
+              {provider.hours ? (
+                <Text style={styles.hoursText}>{provider.hours}</Text>
+              ) : (
+                <Text style={styles.hoursText}>
+                  {provider.openNow ? "Open now" : "Closed"}
+                </Text>
+              )}
             </View>
-            {nearbyProviders.length >= 3 ? (
-              <View onLayout={(event) => handleSectionLayout("nearby", event)}>
+
+            {nearbyProviders.length > 0 ? (
+              <View onLayout={registerOffset("nearby")}>
                 <Text style={styles.sectionTitle}>Venues nearby</Text>
                 <ScrollView
                   horizontal
@@ -402,11 +484,15 @@ export default function ProviderDetailScreen() {
                   contentContainerStyle={styles.nearbyCards}
                 >
                   {nearbyProviders.map((nearby) => (
-                    <ProviderCard key={nearby.id} provider={nearby} />
+                    <ProviderCard
+                      key={nearby.id}
+                      provider={nearby}
+                    />
                   ))}
                 </ScrollView>
               </View>
             ) : null}
+
             <Pressable
               disabled={!provider.bookingEnabled}
               style={[styles.book, !provider.bookingEnabled && styles.disabled]}
@@ -463,22 +549,30 @@ const styles = StyleSheet.create({
   },
   heart: { color: colors.brand, fontSize: 26 },
   headerTitle: { flex: 1, color: colors.ink, fontSize: 16, fontWeight: "800" },
-  tabBar: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
+  tabBarScroll: {
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    backgroundColor: colors.white,
   },
-  tab: { marginRight: spacing.lg, paddingVertical: 14, alignItems: "center" },
-  tabText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
-  tabTextActive: { color: colors.brand },
+  tabBar: {
+    height: TAB_BAR_HEIGHT,
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    alignItems: "center",
+  },
+  tabText: { color: colors.muted, fontSize: 14, fontWeight: "600" },
+  tabTextActive: { color: colors.brand, fontWeight: "900" },
   tabIndicator: {
-    marginTop: 6,
+    width: 20,
     height: 3,
-    width: "100%",
     borderRadius: 2,
     backgroundColor: colors.brand,
+    marginTop: 5,
   },
   content: { paddingBottom: 44 },
   cover: { width: "100%", height: 330, backgroundColor: colors.blush },
@@ -592,7 +686,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginLeft: 10,
   },
-  serviceChevron: { color: colors.muted, fontSize: 20, marginLeft: 8 },
+  chevron: {
+    color: colors.muted,
+    fontSize: 26,
+    lineHeight: 26,
+    marginLeft: spacing.sm,
+    marginTop: 2,
+  },
+  hoursText: {
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 24,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
   emptyCopy: { color: colors.muted, marginHorizontal: spacing.lg },
   gallery: { paddingHorizontal: spacing.lg, gap: 10 },
   galleryImage: {
@@ -601,16 +708,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.blush,
   },
-  hoursLine: {
-    color: colors.ink,
-    fontSize: 15,
-    marginHorizontal: spacing.lg,
-    marginTop: -4,
-  },
   nearbyCards: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
   },
   book: {
     margin: spacing.lg,
