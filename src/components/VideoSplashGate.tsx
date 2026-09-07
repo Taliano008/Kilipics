@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, Platform, StyleSheet, View } from "react-native";
 
 // Cold-start only: plays once, muted, no controls, not skippable. The native
 // splash (already held by app/_layout.tsx) stays up until this video's first
@@ -20,6 +20,7 @@ import { AccessibilityInfo, StyleSheet, View } from "react-native";
 // screen. Failing to load reports once and proceeds straight to Home.
 const VIDEO_TIMEOUT_MS = 3000;
 const splashVideoSource = require("../../assets/splash/intro.mp4");
+const shouldPlaySplashVideo = Platform.OS !== "web";
 
 export function VideoSplashGate({ children }: PropsWithChildren) {
   const { loading: catalogLoading } = useCatalog();
@@ -76,12 +77,12 @@ export function VideoSplashGate({ children }: PropsWithChildren) {
   // Start playback as soon as the player exists, concurrently with the
   // catalog fetch — by the time either settles, the other is likely warm too.
   useEffect(() => {
-    if (reduceMotion) return;
+    if (!shouldPlaySplashVideo || reduceMotion) return;
     player.play();
   }, [player, reduceMotion]);
 
   useEffect(() => {
-    if (reduceMotion) return;
+    if (!shouldPlaySplashVideo || reduceMotion) return;
     const statusSub = player.addListener(
       "statusChange",
       ({ status, error }) => {
@@ -104,7 +105,7 @@ export function VideoSplashGate({ children }: PropsWithChildren) {
   // catalog has settled and we know whether to show a video at all.
   useEffect(() => {
     if (revealed.current || catalogLoading || reduceMotion === null) return;
-    if (reduceMotion || videoErrored) {
+    if (!shouldPlaySplashVideo || reduceMotion || videoErrored) {
       reveal(true);
     } else if (firstFrameReady) {
       reveal(false);
@@ -114,7 +115,7 @@ export function VideoSplashGate({ children }: PropsWithChildren) {
   // Safety net: if the catalog has settled but the video never reaches a
   // first frame (or an error) within 3s, don't wait on it any longer.
   useEffect(() => {
-    if (catalogLoading) return;
+    if (!shouldPlaySplashVideo || catalogLoading) return;
     const timer = setTimeout(() => {
       if (!revealed.current) {
         report("Video splash timed out before a first frame", {
@@ -128,10 +129,13 @@ export function VideoSplashGate({ children }: PropsWithChildren) {
   }, [catalogLoading, reveal]);
 
   if (appReady) return children;
-  if (reduceMotion) return null;
+  if (!shouldPlaySplashVideo || reduceMotion) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View
+      style={[StyleSheet.absoluteFill, styles.clip]}
+      pointerEvents="none"
+    >
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
@@ -142,3 +146,9 @@ export function VideoSplashGate({ children }: PropsWithChildren) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  clip: {
+    overflow: "hidden",
+  },
+});
