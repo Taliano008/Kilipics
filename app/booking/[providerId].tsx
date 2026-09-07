@@ -7,7 +7,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function BookingScreen() {
-  const { providerId } = useLocalSearchParams<{ providerId: string }>();
+  const { providerId, serviceId: preselectedServiceId } = useLocalSearchParams<{
+    providerId: string;
+    serviceId?: string;
+  }>();
   const router = useRouter();
   const { catalog } = useCatalog();
   const provider = catalog?.providers.find((item) => item.id === providerId);
@@ -15,7 +18,12 @@ export default function BookingScreen() {
     (item) =>
       item.providerId === providerId && item.active && item.bookingEnabled,
   );
-  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
+  const [serviceId, setServiceId] = useState(
+    preselectedServiceId &&
+      services.some((item) => item.id === preselectedServiceId)
+      ? preselectedServiceId
+      : (services[0]?.id ?? ""),
+  );
   if (!provider || provider.limitedListing || !provider.bookingEnabled)
     return (
       <SafeAreaView style={styles.safe}>

@@ -1,5 +1,6 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
+import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
 import { report } from "@/observability/report";
@@ -13,9 +14,25 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type TabKey = "photos" | "services" | "hours" | "nearby";
+
+const TAB_LABELS: Record<TabKey, string> = {
+  photos: "Photos",
+  services: "Services",
+  hours: "Hours",
+  nearby: "Nearby",
+};
+
+const SCROLL_SPY_BUFFER = 32;
 
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +44,26 @@ export default function ProviderDetailScreen() {
     (service) => service.providerId === id && service.active,
   );
   const [contactChannels, setContactChannels] = useState<ContactChannel[]>([]);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionOffsets = useRef<Partial<Record<TabKey, number>>>({});
+  const [activeTab, setActiveTab] = useState<TabKey | null>(null);
+
+  const nearbyProviders = useMemo(() => {
+    if (!provider || !catalog) return [];
+    const others = catalog.providers.filter((item) => item.id !== provider.id);
+    const sameCategory = others.filter(
+      (item) => item.categoryId === provider.categoryId,
+    );
+    const picked = sameCategory.slice(0, 6);
+    if (picked.length < 6) {
+      const pickedIds = new Set(picked.map((item) => item.id));
+      const sameArea = others.filter(
+        (item) => !pickedIds.has(item.id) && item.area === provider.area,
+      );
+      picked.push(...sameArea.slice(0, 6 - picked.length));
+    }
+    return picked.slice(0, 8);
+  }, [catalog, provider]);
 
   useEffect(() => {
     if (provider)
@@ -92,6 +129,35 @@ export default function ProviderDetailScreen() {
     .filter((item): item is string => Boolean(item));
   const saved = isSaved(provider.id);
 
+  const tabs: TabKey[] = [];
+  if (!provider.limitedListing) {
+    if (gallery.length > 1) tabs.push("photos");
+    tabs.push("services");
+    tabs.push("hours");
+    if (nearbyProviders.length >= 3) tabs.push("nearby");
+  }
+
+  const handleSectionLayout = (key: TabKey, event: LayoutChangeEvent) => {
+    sectionOffsets.current[key] = event.nativeEvent.layout.y;
+  };
+
+  const scrollToSection = (key: TabKey) => {
+    const offset = sectionOffsets.current[key];
+    if (offset === undefined) return;
+    scrollRef.current?.scrollTo({ y: Math.max(offset - 8, 0), animated: true });
+    setActiveTab(key);
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y + SCROLL_SPY_BUFFER;
+    let current: TabKey | null = null;
+    for (const key of tabs) {
+      const offset = sectionOffsets.current[key];
+      if (offset !== undefined && offset <= y) current = key;
+    }
+    if (current !== activeTab) setActiveTab(current);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
@@ -119,7 +185,33 @@ export default function ProviderDetailScreen() {
           <Text style={styles.heart}>{saved ? "♥" : "♡"}</Text>
         </Pressable>
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      {tabs.length >= 2 ? (
+        <View style={styles.tabBar}>
+          {tabs.map((key) => (
+            <Pressable
+              key={key}
+              style={styles.tab}
+              onPress={() => scrollToSection(key)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === key && styles.tabTextActive,
+                ]}
+              >
+                {TAB_LABELS[key]}
+              </Text>
+              {activeTab === key ? <View style={styles.tabIndicator} /> : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      <ScrollView
+        ref={scrollRef}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.content}
+      >
         {cover ? (
           <Image
             source={{ uri: cover }}
@@ -225,32 +317,58 @@ export default function ProviderDetailScreen() {
                 <Text style={styles.metricLabel}>right now</Text>
               </View>
             </View>
-            <Text style={styles.sectionTitle}>Services</Text>
-            {services.length ? (
-              services.map((service) => (
-                <View key={service.id} style={styles.service}>
-                  <View style={styles.serviceBody}>
-                    <Text style={styles.serviceName}>{service.name}</Text>
-                    <Text style={styles.serviceMeta}>
-                      {service.durationMinutes
-                        ? `${service.durationMinutes} min`
-                        : "Duration confirmed at booking"}
-                    </Text>
-                  </View>
-                  <Text style={styles.servicePrice}>
-                    {service.priceType === "contact_for_price"
-                      ? "Quote"
-                      : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.emptyCopy}>
-                Services will appear here when published.
-              </Text>
-            )}
+            <View
+              onLayout={(event) => handleSectionLayout("services", event)}
+            >
+              <Text style={styles.sectionTitle}>Services</Text>
+              {services.length ? (
+                services.map((service) => {
+                  const bookable =
+                    !provider.limitedListing &&
+                    provider.bookingEnabled &&
+                    service.bookingEnabled;
+                  return (
+                    <Pressable
+                      key={service.id}
+                      disabled={!bookable}
+                      style={styles.service}
+                      onPress={() => {
+                        router.push({
+                          pathname: "/booking/[providerId]",
+                          params: {
+                            providerId: provider.id,
+                            serviceId: service.id,
+                          },
+                        });
+                      }}
+                    >
+                      <View style={styles.serviceBody}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <Text style={styles.serviceMeta}>
+                          {service.durationMinutes
+                            ? `${service.durationMinutes} min`
+                            : "Duration confirmed at booking"}
+                        </Text>
+                      </View>
+                      <Text style={styles.servicePrice}>
+                        {service.priceType === "contact_for_price"
+                          ? "Quote"
+                          : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`}
+                      </Text>
+                      {bookable ? (
+                        <Text style={styles.serviceChevron}>›</Text>
+                      ) : null}
+                    </Pressable>
+                  );
+                })
+              ) : (
+                <Text style={styles.emptyCopy}>
+                  Services will appear here when published.
+                </Text>
+              )}
+            </View>
             {gallery.length > 1 ? (
-              <>
+              <View onLayout={(event) => handleSectionLayout("photos", event)}>
                 <Text style={styles.sectionTitle}>Photos</Text>
                 <ScrollView
                   horizontal
@@ -267,7 +385,27 @@ export default function ProviderDetailScreen() {
                     />
                   ))}
                 </ScrollView>
-              </>
+              </View>
+            ) : null}
+            <View onLayout={(event) => handleSectionLayout("hours", event)}>
+              <Text style={styles.sectionTitle}>Hours</Text>
+              <Text style={styles.hoursLine}>
+                {provider.openNow ? "Open now" : "Closed now"}
+              </Text>
+            </View>
+            {nearbyProviders.length >= 3 ? (
+              <View onLayout={(event) => handleSectionLayout("nearby", event)}>
+                <Text style={styles.sectionTitle}>Venues nearby</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.nearbyCards}
+                >
+                  {nearbyProviders.map((nearby) => (
+                    <ProviderCard key={nearby.id} provider={nearby} />
+                  ))}
+                </ScrollView>
+              </View>
             ) : null}
             <Pressable
               disabled={!provider.bookingEnabled}
@@ -325,6 +463,23 @@ const styles = StyleSheet.create({
   },
   heart: { color: colors.brand, fontSize: 26 },
   headerTitle: { flex: 1, color: colors.ink, fontSize: 16, fontWeight: "800" },
+  tabBar: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  tab: { marginRight: spacing.lg, paddingVertical: 14, alignItems: "center" },
+  tabText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+  tabTextActive: { color: colors.brand },
+  tabIndicator: {
+    marginTop: 6,
+    height: 3,
+    width: "100%",
+    borderRadius: 2,
+    backgroundColor: colors.brand,
+  },
   content: { paddingBottom: 44 },
   cover: { width: "100%", height: 330, backgroundColor: colors.blush },
   placeholder: { alignItems: "center", justifyContent: "center" },
@@ -437,6 +592,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginLeft: 10,
   },
+  serviceChevron: { color: colors.muted, fontSize: 20, marginLeft: 8 },
   emptyCopy: { color: colors.muted, marginHorizontal: spacing.lg },
   gallery: { paddingHorizontal: spacing.lg, gap: 10 },
   galleryImage: {
@@ -444,6 +600,17 @@ const styles = StyleSheet.create({
     height: 170,
     borderRadius: radii.md,
     backgroundColor: colors.blush,
+  },
+  hoursLine: {
+    color: colors.ink,
+    fontSize: 15,
+    marginHorizontal: spacing.lg,
+    marginTop: -4,
+  },
+  nearbyCards: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   book: {
     margin: spacing.lg,
