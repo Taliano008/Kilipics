@@ -1,0 +1,37 @@
+{
+  "name": "kilipicks-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "nodemon --watch src --ext js,json,sql src/app.js",
+    "start": "node src/app.js",
+    "migrate": "node migrations.js",
+    "migrate:status": "node migrations.js --status",
+    "init:env": "node scripts/init-env.mjs",
+    "seed:dev": "node scripts/seed-dev.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "check:catalog": "node scripts/check-catalog.mjs",
+    "check:open-now": "node scripts/check-open-now.mjs"
+  },
+  "dependencies": {
+    "fastify": "^4",
+    "@fastify/cors": "^9",
+    "@fastify/static": "^7",
+    "@fastify/multipart": "^8",
+    "@fastify/rate-limit": "^9",
+    "mysql2": "^3",
+    "bcrypt": "^5",
+    "ulid": "^2",
+    "adminjs": "^7",
+    "@adminjs/fastify": "^4",
+    "@adminjs/sql": "^2",
+    "dotenv": "^16"
+  },
+  "devDependencies": {
+    "nodemon": "^3"
+  }
+}

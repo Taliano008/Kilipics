@@ -42,6 +42,36 @@ The default environment points to the existing public KiliPicks backend:
 https://nairobi-local-picks-demo.hantianyang5.chatgpt.site
 ```
 
+## Backend (auth)
+
+`backend/` is a Node/Fastify + MySQL server — moved in wholesale from the
+former `kilipicks-server` repo, now the one backend behind this app. It
+provides real, separate consumer and merchant auth (two tables, two
+passwords, linked by `merchants.owner_user_id`, never one shared row/role
+array) plus a public catalog endpoint the mobile app doesn't consume yet.
+
+First-time setup, from the repo root:
+
+```bash
+pnpm backend:install
+cd backend && npm run init:env   # generates JWT_SECRET / ADMIN_PASSWORD / ANALYTICS_APP_TOKEN
+# edit backend/.env and fill in DB_PASSWORD for your local MySQL
+cd ..
+pnpm backend:migrate
+```
+
+Then, in a second terminal, before using email sign-up or sign-in:
+
+```bash
+pnpm backend:dev
+```
+
+On web it is reached at `http://localhost:3000`; Android emulators use
+`http://10.0.2.2:3000`. For a physical phone, set
+`EXPO_PUBLIC_AUTH_API_BASE_URL` to the computer's LAN IP in `.env` and restart
+Expo. See [`backend/README.md`](backend/README.md) for the full API contract,
+and `pnpm backend:smoke` (with the server running) to verify it end to end.
+
 ## Validate
 
 ```bash

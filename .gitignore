@@ -17,5 +17,11 @@ expo-env.d.ts
 # @end expo-cli
 .env.local
 
+# backend/ is its own Node project with its own .gitignore (node_modules,
+# .env, uploads/*, *.log) — nothing backend-specific needed here.
+
+# pnpm's local package store — cache, not project content
+.pnpm-store/
+
 # Claude Code local tool-permission state — machine/session-specific, not project content
 .claude/settings.local.json

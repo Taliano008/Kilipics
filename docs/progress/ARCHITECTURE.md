@@ -94,29 +94,50 @@ in `app.json` and `getSentryExpoConfig` in `metro.config.js`.
 
 ## Auth boundary
 
-Phase Zero has no auth backend at all — no OTP delivery, no session tokens,
-no credential storage, no server to talk to. `src/auth/auth-context.tsx` is
-the single seam every auth-adjacent screen goes through:
+Auth is real, backed by `backend/` (Node/Fastify + MySQL, moved in from the
+former `kilipicks-server` repo). Email + password only — no OTP, no Google.
+`src/auth/auth-context.tsx` is the single seam every auth-adjacent screen
+goes through, and it models **two separate identities**, never one shared
+row with a role array:
 
 ```ts
 type AuthState = {
-  status: "signed_out" | "signed_in"; // always "signed_out" in Phase Zero
-  user: AuthUser | null;              // always null in Phase Zero
-  startPhoneAuth: (e164: string) => Promise<AuthResult>;
-  startEmailAuth: () => Promise<AuthResult>;
-  startGoogleAuth: () => Promise<AuthResult>;
+  status: "loading" | "signed_out" | "signed_in";
+  user: ConsumerProfile | null;      // the consumer session — always present once signed in
+  merchant: MerchantProfile | null;  // a linked merchant session, only if one has been authenticated
+  merchantLinked: boolean;
+  merchantNeedsSignIn: boolean;      // a merchant identity exists but this session doesn't hold its token
+  signUpWithEmail: (input) => Promise<void>;
+  signInWithEmail: (input) => Promise<void>;
   signOut: () => Promise<void>;
+  becomeMerchant: (input: { fullName; password }) => Promise<void>;
 };
 ```
 
-Every `start*` method always resolves `{ status: "unavailable", message }` —
-no network call, no storage write. `AuthResult` also has `"success"` and
-`"error"` variants that Phase Zero never returns, so a real provider can use
-them later without changing the type. Screens (`app/auth.tsx`,
-`app/(tabs)/activity.tsx`, `app/(tabs)/account.tsx`) only ever read `status`
-and the `AuthResult` a `start*` call resolves to — never any local auth
-state of their own. **When a real provider is wired in, only this file
-changes.**
+The backend enforces the separation the PRD requires: `users` and
+`merchants` are different tables with different primary keys and different
+`password_hash` columns, in different bearer-token namespaces (`kp_u_...`
+vs. `kp_m_...`). The only connection is `merchants.owner_user_id`, a
+nullable pointer — a merchant can also exist standalone with no consumer
+account. Choosing "Business owner" in `app/auth.tsx`'s profile-selection
+step calls `POST /api/auth/consumer/signup` with `accountType: "merchant"`,
+which creates both rows in one request and returns both tokens. An existing
+consumer can add a merchant identity later via the Account tab's "Switch to
+seller," which — because it's a genuinely separate credential, not a role
+flip — prompts for its own password rather than reusing the consumer's.
+
+Consumer login always authenticates against `users`. If a linked merchant
+exists and the same password also matches its independent hash (the common
+case, since both are usually set together), a merchant token is issued too;
+if it doesn't match — the business password was changed separately since —
+the response carries `merchant.needsMerchantSignIn: true` instead, and the
+Account tab says so rather than silently dropping the business session.
+
+**What's still a gap:** signing up or "switching to seller" creates a real
+merchant account, but there is still no business-creation screen anywhere —
+`kilipicks_backend.md`'s merchant business CRUD (§6.1) hasn't been built.
+A merchant can authenticate; they have nowhere yet to actually list a
+business. That's the next piece, not this one.
 
 This also drove a product decision worth recording: `src/saved/saved-context.tsx`
 (local `AsyncStorage`, no account, works offline) is deliberately **not**
@@ -139,11 +160,16 @@ that already works standalone.
 - EAS build/submit pipeline and Play Console listing (§2.4, §5.1).
 - Real support WhatsApp number for in-app feedback, and privacy notice
   content/legal review (§5.3, §5.4).
-- Wire a real provider into `src/auth/auth-context.tsx` (OTP delivery,
-  session tokens, credential storage) — every screen already consumes the
-  boundary generically, so this should require zero screen edits.
-- Collecting phone numbers in the auth UI is a materially different privacy
-  posture than the current anonymous-analytics-only app, even though Phase
-  Zero's auth never actually sends or stores one. The privacy notice and Play
-  Data Safety declaration need to reflect that the UI now asks for a phone
-  number, ahead of shipping this to real users.
+- ~~Wire a real provider into `src/auth/auth-context.tsx`~~ Done — email +
+  password against `backend/`, with separate consumer/merchant sessions (see
+  "Auth boundary" above). Still open: merchant business CRUD, so a merchant
+  can authenticate but not yet list anything.
+- Collecting an email and password in the auth UI is a materially different
+  privacy posture than the current anonymous-analytics-only app. The privacy
+  notice and Play Data Safety declaration need to reflect that the UI now
+  asks for account credentials, ahead of shipping this to real users.
+- Repoint `EXPO_PUBLIC_API_BASE_URL` at `backend/`'s own
+  `GET /api/public/catalog` (already built, matches this repo's zod schema)
+  instead of the external demo host — deliberately not done alongside the
+  auth consolidation, since it also means seeding real business data and
+  touching analytics' target host.

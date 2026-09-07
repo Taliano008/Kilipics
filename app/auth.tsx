@@ -1,12 +1,14 @@
 import { useAuth } from "@/auth/auth-context";
 import { report } from "@/observability/report";
 import { colors, radii, spacing } from "@/theme/tokens";
-import { normalizeKenyanPhone } from "@/utils/phone";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,26 +16,63 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+type Mode = "sign_in" | "sign_up";
+type AccountType = "consumer" | "merchant";
+
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
 export default function AuthScreen() {
   const router = useRouter();
-  const { startPhoneAuth, startEmailAuth, startGoogleAuth } = useAuth();
-  const [rawPhone, setRawPhone] = useState("");
+  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const [mode, setMode] = useState<Mode>("sign_up");
+  const [accountType, setAccountType] = useState<AccountType>("consumer");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const normalized = normalizeKenyanPhone(rawPhone);
+  const isSignUp = mode === "sign_up";
 
-  const runAuthPath = async (
-    start: () => ReturnType<typeof startPhoneAuth>,
-  ) => {
+  const changeMode = (nextMode: Mode) => {
+    setMode(nextMode);
+    setMessage(null);
+  };
+
+  const submit = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!isEmail(cleanEmail)) return setMessage("Enter a valid email address.");
+    if (password.length < 8)
+      return setMessage("Your password needs at least 8 characters.");
+    if (isSignUp && name.trim().length < 2)
+      return setMessage("Enter the name you would like us to use.");
+    if (isSignUp && password !== confirmation)
+      return setMessage("Your passwords do not match.");
+
     setPending(true);
     setMessage(null);
     try {
-      const result = await start();
-      if (result.status !== "success") setMessage(result.message ?? null);
+      if (isSignUp) {
+        await signUpWithEmail({
+          name: name.trim(),
+          email: cleanEmail,
+          password,
+          accountType,
+        });
+      } else {
+        await signInWithEmail({ email: cleanEmail, password });
+      }
+      router.back();
     } catch (reason) {
-      report(reason, { scope: "auth_screen" });
-      setMessage("Something went wrong. Please try again later.");
+      report(reason, { scope: "email_auth", mode });
+      setMessage(
+        reason instanceof TypeError
+          ? "We couldn't reach KiliPicks. Start the local auth server and try again."
+          : reason instanceof Error
+            ? reason.message
+            : "We couldn't complete that request. Please try again.",
+      );
     } finally {
       setPending(false);
     }
@@ -41,161 +80,164 @@ export default function AuthScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Pressable
-          style={styles.close}
-          onPress={() => router.back()}
-          accessibilityLabel="Close"
-        >
-          <Text style={styles.closeIcon}>✕</Text>
-        </Pressable>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.safe}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Pressable
+            style={styles.close}
+            onPress={() => router.back()}
+            accessibilityLabel="Close"
+          >
+            <Text style={styles.closeIcon}>×</Text>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title}>
+            {isSignUp ? "Create your account" : "Welcome back"}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isSignUp
+              ? "Use one email account to discover venues and, if you choose, manage a business."
+              : "Sign in to continue with your KiliPicks account."}
+          </Text>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Log in or sign up</Text>
-        <Text style={styles.subtitle}>
-          We&apos;ll need to verify it&apos;s you
-        </Text>
-
-        <View style={styles.phoneRow}>
-          <View style={styles.countryCode}>
-            <Text style={styles.countryCodeText}>+254</Text>
+          <View style={styles.modeSwitch}>
+            <Pressable
+              style={[styles.modeOption, isSignUp && styles.modeOptionActive]}
+              onPress={() => changeMode("sign_up")}
+            >
+              <Text style={[styles.modeText, isSignUp && styles.modeTextActive]}>Sign up</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.modeOption, !isSignUp && styles.modeOptionActive]}
+              onPress={() => changeMode("sign_in")}
+            >
+              <Text style={[styles.modeText, !isSignUp && styles.modeTextActive]}>Sign in</Text>
+            </Pressable>
           </View>
+
+          {isSignUp ? (
+            <>
+              <Text style={styles.label}>I&apos;m joining as</Text>
+              <View style={styles.accountTypes}>
+                <Pressable
+                  style={[
+                    styles.accountType,
+                    accountType === "consumer" && styles.accountTypeActive,
+                  ]}
+                  onPress={() => setAccountType("consumer")}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: accountType === "consumer" }}
+                >
+                  <Text style={styles.accountTypeTitle}>Customer</Text>
+                  <Text style={styles.accountTypeCopy}>Discover and save venues</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.accountType,
+                    accountType === "merchant" && styles.accountTypeActive,
+                  ]}
+                  onPress={() => setAccountType("merchant")}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: accountType === "merchant" }}
+                >
+                  <Text style={styles.accountTypeTitle}>Business owner</Text>
+                  <Text style={styles.accountTypeCopy}>Also includes customer access</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.label}>Your name</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Your name"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="words"
+                editable={!pending}
+              />
+            </>
+          ) : null}
+
+          <Text style={styles.label}>Email address</Text>
           <TextInput
-            style={styles.phoneInput}
-            placeholder="712 345 678"
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
             placeholderTextColor={colors.muted}
-            keyboardType="phone-pad"
-            value={rawPhone}
-            onChangeText={setRawPhone}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
             editable={!pending}
           />
-        </View>
-        <Text style={styles.helper}>
-          We&apos;ll send you a verification code. Standard rates may apply.
-        </Text>
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 8 characters"
+            placeholderTextColor={colors.muted}
+            secureTextEntry
+            textContentType={isSignUp ? "newPassword" : "password"}
+            editable={!pending}
+          />
+          {isSignUp ? (
+            <>
+              <Text style={styles.label}>Confirm password</Text>
+              <TextInput
+                style={styles.input}
+                value={confirmation}
+                onChangeText={setConfirmation}
+                placeholder="Re-enter your password"
+                placeholderTextColor={colors.muted}
+                secureTextEntry
+                textContentType="newPassword"
+                editable={!pending}
+              />
+            </>
+          ) : null}
 
-        <Pressable
-          style={[styles.continueButton, !normalized && styles.disabled]}
-          disabled={!normalized || pending}
-          onPress={() =>
-            normalized && runAuthPath(() => startPhoneAuth(normalized))
-          }
-        >
-          {pending ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={styles.continueText}>Continue</Text>
-          )}
-        </Pressable>
-
-        {message ? <Text style={styles.message}>{message}</Text> : null}
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <Pressable
-          style={styles.secondaryButton}
-          disabled={pending}
-          onPress={() => runAuthPath(startEmailAuth)}
-        >
-          <Text style={styles.secondaryText}>Continue with email</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryButton}
-          disabled={pending}
-          onPress={() => runAuthPath(startGoogleAuth)}
-        >
-          <Text style={styles.secondaryText}>Continue with Google</Text>
-        </Pressable>
-      </View>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <Pressable style={[styles.submit, pending && styles.disabled]} disabled={pending} onPress={submit}>
+            {pending ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitText}>{isSignUp ? "Create account" : "Sign in"}</Text>}
+          </Pressable>
+          <Text style={styles.privacy}>
+            By continuing, you agree to use KiliPicks responsibly. Password reset is not available yet.
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.white },
-  header: {
-    height: 56,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  header: { height: 56, paddingHorizontal: spacing.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerSpacer: { width: 42, height: 42 },
-  close: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeIcon: { color: colors.ink, fontSize: 18 },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  title: { color: colors.ink, fontSize: 28, fontWeight: "900" },
-  subtitle: { color: colors.muted, fontSize: 15, marginTop: 8 },
-  phoneRow: {
-    flexDirection: "row",
-    marginTop: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radii.md,
-    overflow: "hidden",
-  },
-  countryCode: {
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.cream,
-    borderRightWidth: 1,
-    borderRightColor: colors.line,
-  },
-  countryCodeText: { color: colors.ink, fontSize: 16, fontWeight: "700" },
-  phoneInput: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 15,
-    fontSize: 16,
-    color: colors.ink,
-  },
-  helper: { color: colors.muted, fontSize: 13, marginTop: 10, lineHeight: 18 },
-  continueButton: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.brand,
-    borderRadius: radii.md,
-    alignItems: "center",
-    padding: 17,
-  },
-  disabled: { backgroundColor: "#B9AFB1" },
-  continueText: { color: colors.white, fontSize: 16, fontWeight: "900" },
-  message: {
-    marginTop: spacing.md,
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: spacing.xl,
-    gap: spacing.sm,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
-  dividerText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
-  secondaryButton: {
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radii.md,
-    alignItems: "center",
-    padding: 16,
-  },
-  secondaryText: { color: colors.ink, fontSize: 15, fontWeight: "700" },
+  close: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
+  closeIcon: { color: colors.ink, fontSize: 26, lineHeight: 28 },
+  content: { padding: spacing.lg, paddingTop: spacing.md, paddingBottom: 48 },
+  title: { color: colors.ink, fontSize: 29, fontWeight: "900" },
+  subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 8 },
+  modeSwitch: { flexDirection: "row", backgroundColor: colors.cream, borderRadius: radii.md, padding: 4, marginTop: spacing.lg },
+  modeOption: { flex: 1, alignItems: "center", borderRadius: radii.sm, paddingVertical: 11 },
+  modeOptionActive: { backgroundColor: colors.white },
+  modeText: { color: colors.muted, fontWeight: "800" },
+  modeTextActive: { color: colors.brand },
+  label: { color: colors.ink, fontSize: 14, fontWeight: "800", marginTop: spacing.lg, marginBottom: 8 },
+  accountTypes: { gap: spacing.sm },
+  accountType: { borderWidth: 1, borderColor: colors.line, borderRadius: radii.md, padding: spacing.md },
+  accountTypeActive: { borderColor: colors.brand, borderWidth: 2, backgroundColor: colors.blush },
+  accountTypeTitle: { color: colors.ink, fontSize: 16, fontWeight: "800" },
+  accountTypeCopy: { color: colors.muted, fontSize: 13, marginTop: 3 },
+  input: { borderWidth: 1, borderColor: colors.line, borderRadius: radii.md, color: colors.ink, fontSize: 16, paddingHorizontal: spacing.md, paddingVertical: 15 },
+  message: { color: colors.warning, fontSize: 14, lineHeight: 20, marginTop: spacing.md },
+  submit: { marginTop: spacing.xl, backgroundColor: colors.brand, borderRadius: radii.md, alignItems: "center", minHeight: 54, justifyContent: "center", paddingHorizontal: spacing.md },
+  disabled: { opacity: 0.55 },
+  submitText: { color: colors.white, fontSize: 16, fontWeight: "900" },
+  privacy: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: spacing.md },
 });

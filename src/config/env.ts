@@ -2,18 +2,27 @@ import { Platform } from "react-native";
 
 const fallbackApiBase =
   "https://nairobi-local-picks-demo.hantianyang5.chatgpt.site";
+const localAuthBase =
+  Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://localhost:3000";
 
 // The public catalog backend has no CORS headers, so browser fetch() calls fail
-// with "Failed to fetch". In web dev (no explicit EXPO_PUBLIC_API_BASE_URL set),
-// route through the same-origin Metro proxy configured in metro.config.js instead.
+// with "Failed to fetch". In web development always route through the
+// same-origin Metro proxy configured in metro.config.js. This also prevents an
+// Android-emulator-only URL such as 10.0.2.2 from being used by a desktop browser.
 const webDevProxyBase = "/kilipicks-proxy";
-const usesWebDevProxy =
-  __DEV__ && Platform.OS === "web" && !process.env.EXPO_PUBLIC_API_BASE_URL;
+const usesWebDevProxy = __DEV__ && Platform.OS === "web";
 
 export const API_BASE_URL = (
   usesWebDevProxy
     ? webDevProxyBase
     : process.env.EXPO_PUBLIC_API_BASE_URL || fallbackApiBase
+).replace(/\/$/, "");
+
+// Authentication is served by the Fastify/MySQL backend in backend/ (moved
+// in from the former kilipicks-server repo). Set EXPO_PUBLIC_AUTH_API_BASE_URL
+// to a LAN or deployed URL for a physical phone or a production build.
+export const AUTH_API_BASE_URL = (
+  process.env.EXPO_PUBLIC_AUTH_API_BASE_URL || localAuthBase
 ).replace(/\/$/, "");
 
 export function resolveMediaUrl(value?: string | null) {
