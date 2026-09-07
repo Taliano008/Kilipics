@@ -8,6 +8,6 @@ export function normalizeKenyanPhone(raw?: string | null): string | null {
   const digitsOnly = raw.trim().replace(/\D/g, "");
   if (/^254\d{9}$/.test(digitsOnly)) return `+${digitsOnly}`;
   if (/^0\d{9}$/.test(digitsOnly)) return `+254${digitsOnly.slice(1)}`;
-  if (/^\d{9}$/.test(digitsOnly)) return `+254${digitsOnly}`;
+  if (/^[1-9]\d{8}$/.test(digitsOnly)) return `+254${digitsOnly}`;
   return null;
 }
