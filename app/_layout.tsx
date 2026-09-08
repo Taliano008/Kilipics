@@ -38,7 +38,24 @@ Sentry.init({
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from "@expo-google-fonts/plus-jakarta-sans";
+
 export default Sentry.wrap(function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
   useEffect(() => {
     void track("session_started", {
       pagePath: "/",
@@ -46,6 +63,16 @@ export default Sentry.wrap(function RootLayout() {
     });
   }, []);
   useAnalyticsLifecycle();
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
+
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

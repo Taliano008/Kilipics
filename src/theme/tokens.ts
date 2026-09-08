@@ -1,5 +1,14 @@
 export const colors = {
-  ink: "#241F20",
+  // New palette
+  surface: "#FFFDF9",
+  ink: "#1A1614",
+  inkMuted: "#6E645D",
+  clay: "#B3452B",
+  moss: "#2F5D4B",
+  sand: "#EDE4D8",
+  white: "#FFFFFF",
+
+  // Retain during migration
   muted: "#776D70",
   brand: "#8A2343",
   brandDark: "#68172F",
@@ -11,7 +20,6 @@ export const colors = {
   warning: "#8B5A12",
   warningBg: "#FFF3D9",
   successBg: "#EAF5F0",
-  white: "#FFFFFF",
 } as const;
 
 export const radii = { sm: 12, md: 18, lg: 26, pill: 999 } as const;
