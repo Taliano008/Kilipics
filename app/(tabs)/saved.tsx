@@ -68,10 +68,10 @@ export default function SavedScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   list: { padding: spacing.lg, paddingBottom: 40 },
   eyebrow: {
-    color: colors.brand,
+    color: colors.clay,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.5,

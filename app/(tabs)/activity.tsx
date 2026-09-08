@@ -54,13 +54,13 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
   body: { flex: 1, justifyContent: "center", padding: spacing.lg },
   primary: {
     marginTop: spacing.md,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,

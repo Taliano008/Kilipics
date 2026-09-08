@@ -85,7 +85,7 @@ export default Sentry.wrap(function RootLayout() {
                   <Stack
                     screenOptions={{
                       headerShown: false,
-                      contentStyle: { backgroundColor: colors.cream },
+                      contentStyle: { backgroundColor: colors.sand },
                       animation: "slide_from_right",
                     }}
                   >

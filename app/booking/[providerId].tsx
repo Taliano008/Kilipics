@@ -109,7 +109,7 @@ export default function BookingScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   header: {
     height: 62,
     paddingHorizontal: spacing.lg,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   eyebrow: {
-    color: colors.brand,
+    color: colors.clay,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.4,
@@ -159,13 +159,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  selected: { borderColor: colors.brand, borderWidth: 2 },
+  selected: { borderColor: colors.clay, borderWidth: 2 },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.brand,
+    borderColor: colors.clay,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -174,14 +174,14 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
   },
   serviceBody: { flex: 1 },
   serviceName: { color: colors.ink, fontSize: 16, fontWeight: "800" },
   serviceMeta: { color: colors.muted, fontSize: 13, marginTop: 3 },
-  price: { color: colors.brand, fontWeight: "800" },
+  price: { color: colors.clay, fontWeight: "800" },
   primary: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: radii.md,
     alignItems: "center",
     padding: 17,
@@ -191,13 +191,13 @@ const styles = StyleSheet.create({
   primaryText: { color: colors.white, fontSize: 16, fontWeight: "900" },
   secondary: {
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: colors.clay,
     borderRadius: radii.md,
     paddingHorizontal: 20,
     paddingVertical: 13,
     marginTop: spacing.md,
   },
-  secondaryText: { color: colors.brand, fontWeight: "800" },
+  secondaryText: { color: colors.clay, fontWeight: "800" },
   disclaimer: {
     color: colors.muted,
     fontSize: 12,

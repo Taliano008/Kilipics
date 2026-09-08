@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   compactImage: { height: 210, aspectRatio: undefined },
   directoryImage: { aspectRatio: 16 / 10 }, // 16:10
   placeholder: { alignItems: "center", justifyContent: "center" },
-  placeholderLetter: { color: colors.brand, fontSize: 46, fontWeight: "800" },
+  placeholderLetter: { color: colors.clay, fontSize: 46, fontWeight: "800" },
   placeholderText: { color: colors.muted, fontSize: 12, marginTop: 4 },
   directoryChip: {
     position: "absolute",
@@ -161,10 +161,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.93)",
     borderRadius: 21,
   },
-  saveText: { color: colors.brand, fontSize: 27, lineHeight: 29 },
+  saveText: { color: colors.clay, fontSize: 27, lineHeight: 29 },
   body: { padding: spacing.md, gap: 5 },
   eyebrow: {
-    color: colors.brand,
+    color: colors.clay,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   price: {
-    color: colors.forest,
+    color: colors.moss,
     fontSize: 14,
     fontWeight: "700",
   },

@@ -235,10 +235,10 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   list: { padding: spacing.lg, paddingBottom: 40 },
   eyebrow: {
-    color: colors.brand,
+    color: colors.clay,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.5,
@@ -257,10 +257,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  searchIcon: { color: colors.brand, fontSize: 25 },
+  searchIcon: { color: colors.clay, fontSize: 25 },
   input: { flex: 1, color: colors.ink, fontSize: 16, paddingHorizontal: 10 },
   go: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: 13,
     paddingHorizontal: 17,
     paddingVertical: 11,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  activeFilter: { borderColor: colors.brand, backgroundColor: colors.brand },
+  activeFilter: { borderColor: colors.clay, backgroundColor: colors.clay },
   filterText: { color: colors.ink, fontWeight: "700", fontSize: 13 },
   activeFilterText: { color: colors.white },
   resultCount: {

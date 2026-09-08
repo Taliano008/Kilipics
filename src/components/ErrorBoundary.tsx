@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl,
     gap: spacing.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sand,
   },
   title: {
     color: colors.ink,
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   button: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,

@@ -124,7 +124,7 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={colors.brand}
+            tintColor={colors.clay}
           />
         }
         contentContainerStyle={styles.content}
@@ -182,7 +182,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   content: { paddingBottom: 42 },
   topbar: {
     paddingHorizontal: spacing.lg,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 42,
     height: 42,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
@@ -213,11 +213,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  searchFabIcon: { color: colors.brand, fontSize: 22 },
+  searchFabIcon: { color: colors.clay, fontSize: 22 },
   staleBanner: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sand,
     borderRadius: radii.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   heading: { color: colors.ink, fontSize: 25, fontWeight: "900" },
   sectionCopy: { color: colors.muted, fontSize: 14, marginTop: 4 },
-  seeAll: { color: colors.brand, fontSize: 14, fontWeight: "800" },
+  seeAll: { color: colors.clay, fontSize: 14, fontWeight: "800" },
   cards: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
@@ -257,6 +257,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
   },
-  trustTitle: { color: colors.forest, fontSize: 19, fontWeight: "800" },
+  trustTitle: { color: colors.moss, fontSize: 19, fontWeight: "800" },
   trustCopy: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 8 },
 });

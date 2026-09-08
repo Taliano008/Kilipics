@@ -11,7 +11,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.brand,
+        tabBarActiveTintColor: colors.clay,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: styles.label,
         tabBarStyle: styles.bar,
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 11, fontWeight: "700" },
   icon: { color: colors.muted, fontSize: 26, lineHeight: 28 },
-  activeIcon: { color: colors.brand },
+  activeIcon: { color: colors.clay },
 });

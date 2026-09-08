@@ -11,7 +11,7 @@ import {
 export function LoadingState() {
   return (
     <View style={styles.wrap}>
-      <ActivityIndicator color={colors.brand} size="large" />
+      <ActivityIndicator color={colors.clay} size="large" />
       <Text style={styles.copy}>Finding local favourites…</Text>
     </View>
   );
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: spacing.xl,
     margin: spacing.md,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.sand,
     borderRadius: radii.lg,
     gap: spacing.sm,
   },
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   button: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,

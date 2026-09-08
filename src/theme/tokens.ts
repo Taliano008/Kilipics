@@ -10,10 +10,6 @@ export const colors = {
 
   // Retain during migration
   muted: "#776D70",
-  brand: "#8A2343",
-  brandDark: "#68172F",
-  forest: "#0B6B50",
-  cream: "#F8F4F1",
   blush: "#F7E9EC",
   card: "#FFFFFF",
   line: "#E8DFDC",

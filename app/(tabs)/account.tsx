@@ -233,14 +233,14 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   content: { padding: spacing.lg, paddingBottom: 48 },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
   signInCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.ink,
     borderRadius: radii.lg,
     padding: spacing.lg,
     marginTop: spacing.lg,
@@ -262,12 +262,12 @@ const styles = StyleSheet.create({
   signOutButton: {
     alignSelf: "flex-start",
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  signOutText: { color: colors.brand, fontSize: 13, fontWeight: "800" },
+  signOutText: { color: colors.clay, fontSize: 13, fontWeight: "800" },
   rowCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   message: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
   sellerSubmit: {
     marginTop: spacing.md,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.clay,
     borderRadius: radii.md,
     alignItems: "center",
     minHeight: 48,

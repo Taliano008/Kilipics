@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   icon: { width: 30, height: 30 },
-  fallbackLetter: { color: colors.brand, fontSize: 20, fontWeight: "800" },
+  fallbackLetter: { color: colors.clay, fontSize: 20, fontWeight: "800" },
   label: {
     color: colors.ink,
     fontSize: 11,

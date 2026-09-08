@@ -58,7 +58,7 @@ export default function PrivacyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.cream },
+  safe: { flex: 1, backgroundColor: colors.sand },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   closeIcon: { color: colors.ink, fontSize: 22 },
   content: { padding: spacing.lg, paddingBottom: 48 },
   eyebrow: {
-    color: colors.brand,
+    color: colors.clay,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.5,
