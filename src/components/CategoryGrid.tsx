@@ -15,9 +15,11 @@ type Tile = {
 
 export function CategoryGrid({
   categoryIds,
+  counts,
   onSelect,
 }: {
   categoryIds: string[];
+  counts?: Record<string, number>;
   onSelect: (categoryId: string) => void;
 }) {
   if (categoryIds.length === 0) return null;
@@ -47,30 +49,33 @@ export function CategoryGrid({
     >
       {columns.map((column, index) => (
         <View key={index} style={styles.column}>
-          {column.map((tile) => (
-            <Pressable
-              key={tile.id}
-              style={styles.tile}
-              onPress={() => onSelect(tile.id)}
-            >
-              <View style={styles.iconWrap}>
-                {tile.icon ? (
-                  <Image
-                    source={tile.icon}
-                    style={styles.icon}
-                    contentFit="contain"
-                  />
-                ) : (
-                  <Text style={styles.fallbackLetter}>
-                    {tile.label.slice(0, 1)}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.label} numberOfLines={2}>
-                {tile.label}
-              </Text>
-            </Pressable>
-          ))}
+          {column.map((tile) => {
+            const countStr = counts && counts[tile.id] !== undefined ? ` · ${counts[tile.id]}` : "";
+            return (
+              <Pressable
+                key={tile.id}
+                style={styles.tile}
+                onPress={() => onSelect(tile.id)}
+              >
+                <View style={styles.iconWrap}>
+                  {tile.icon ? (
+                    <Image
+                      source={tile.icon}
+                      style={styles.icon}
+                      contentFit="contain"
+                    />
+                  ) : (
+                    <Text style={styles.fallbackLetter}>
+                      {tile.label.slice(0, 1)}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.label} numberOfLines={2}>
+                  {tile.label}{countStr}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       ))}
     </ScrollView>

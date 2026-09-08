@@ -1,11 +1,7 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { CategoryGrid } from "@/components/CategoryGrid";
-import {
-  buildEditorialCards,
-  EditorialCards,
-  type EditorialCard,
-} from "@/components/EditorialCards";
+import { ProviderCard } from "@/components/ProviderCard";
 import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { colors, radii, spacing } from "@/theme/tokens";
@@ -49,30 +45,74 @@ export default function HomeScreen() {
       params: { category: categoryId },
     });
   };
-  const recommended = useMemo(
-    () =>
-      [...providers]
-        .sort(
-          (a, b) =>
-            Number(b.recommended) - Number(a.recommended) ||
-            Number(Boolean(b.cover)) - Number(Boolean(a.cover)),
-        )
-        .slice(0, 12),
-    [providers],
-  );
-  const editorialCards = useMemo(
-    () => buildEditorialCards(providers),
-    [providers],
-  );
-  const selectEditorialCard = (card: EditorialCard) => {
-    void track("search_submitted", {
-      pagePath: "/",
-      categoryId: card.params.category,
-      searchQuery: card.params.query,
-      sourceSection: "home_editorial_cards",
-      metadata: { cardId: card.id },
-    });
-    router.push({ pathname: "/(tabs)/search", params: card.params });
+
+  const bookable = useMemo(() => providers.filter(p => !p.limitedListing && p.bookingEnabled), [providers]);
+  const directories = useMemo(() => providers.filter(p => p.limitedListing), [providers]);
+
+  // Find most common area for directory carousel
+  const mostCommonArea = useMemo(() => {
+    const areaCounts = directories.reduce((acc, p) => {
+      if (p.area) acc[p.area] = (acc[p.area] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const sorted = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
+    return sorted.length > 0 && sorted[0][1] >= 3 ? sorted[0][0] : null;
+  }, [directories]);
+
+  const nearArea = useMemo(() => {
+    if (!mostCommonArea) return [];
+    return directories.filter(p => p.area === mostCommonArea).slice(0, 8);
+  }, [directories, mostCommonArea]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    counts["all"] = providers.length;
+    for (const p of providers) {
+      counts[p.categoryId] = (counts[p.categoryId] || 0) + 1;
+    }
+    return counts;
+  }, [providers]);
+
+  const renderBookable = () => {
+    if (bookable.length === 0) return null;
+    return (
+      <View style={styles.shelf}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.heading}>Bookable now</Text>
+          <Pressable onPress={() => router.push({ pathname: "/(tabs)/search", params: { type: "bookable" } })}>
+            <Text style={styles.seeAll}>See all</Text>
+          </Pressable>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
+          {bookable.map(p => <ProviderCard key={p.id} provider={p} />)}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const renderDirectoryBlock = () => {
+    return (
+      <View style={styles.shelf}>
+        <Pressable
+          style={styles.directoryBanner}
+          onPress={() => router.push({ pathname: "/(tabs)/search", params: { type: "directory" } })}
+        >
+          <Text style={styles.directoryBannerTitle}>{providers.length} beauty businesses across Nairobi</Text>
+          <Text style={styles.directoryBannerCopy}>Limited details until each one joins.</Text>
+          <Text style={styles.directoryBannerCta}>View directory ›</Text>
+        </Pressable>
+        {nearArea.length > 0 ? (
+          <View style={{ marginTop: spacing.md }}>
+            <View style={styles.sectionHeading}>
+              <Text style={styles.heading}>Near {mostCommonArea}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
+              {nearArea.map(p => <ProviderCard key={p.id} provider={p} />)}
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
+    );
   };
 
   if (loading && !catalog) return <LoadingState />;
@@ -114,36 +154,17 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : null}
-        <EditorialCards cards={editorialCards} onSelect={selectEditorialCard} />
+        {bookable.length > 0 ? renderBookable() : renderDirectoryBlock()}
 
-        <View style={styles.sectionHeading}>
+        <View style={[styles.sectionHeading, { marginTop: spacing.xl }]}>
           <View>
             <Text style={styles.heading}>Explore beauty</Text>
             <Text style={styles.sectionCopy}>Browse by what you need</Text>
           </View>
         </View>
-        <CategoryGrid categoryIds={categoryIds} onSelect={selectCategory} />
+        <CategoryGrid categoryIds={categoryIds} counts={categoryCounts} onSelect={selectCategory} />
 
-        <View style={styles.sectionHeading}>
-          <View>
-            <Text style={styles.heading}>Recommended near you</Text>
-            <Text style={styles.sectionCopy}>
-              {providers.length} public businesses across Nairobi
-            </Text>
-          </View>
-          <Pressable onPress={() => router.push("/(tabs)/search")}>
-            <Text style={styles.seeAll}>See all</Text>
-          </Pressable>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cards}
-        >
-          {recommended.map((provider) => (
-            <ProviderCard key={provider.id} provider={provider} />
-          ))}
-        </ScrollView>
+        {bookable.length > 0 ? renderDirectoryBlock() : null}
 
         <View style={styles.trust}>
           <Text style={styles.trustTitle}>
@@ -218,6 +239,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     gap: spacing.md,
   },
+  shelf: { marginTop: spacing.md },
+  directoryBanner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    backgroundColor: colors.sand,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+  directoryBannerTitle: { color: colors.ink, fontSize: 19, fontWeight: "900" },
+  directoryBannerCopy: { color: colors.inkMuted, fontSize: 15, marginTop: 4 },
+  directoryBannerCta: { color: colors.clay, fontSize: 15, fontWeight: "800", marginTop: 12 },
   trust: {
     margin: spacing.lg,
     marginTop: spacing.xl,
