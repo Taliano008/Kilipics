@@ -30,6 +30,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -216,6 +217,24 @@ export default function ProviderDetailScreen() {
     });
   };
 
+  const shareProvider = async () => {
+    try {
+      // Assuming a standard expo-router scheme or a generic URL.
+      const url = `kilipicks://provider/${provider.id}`;
+      await Share.share({
+        message: `Check out ${provider.name} on KiliPicks! ${url}`,
+        url,
+      });
+      void track("merchant_shared", { merchantId: provider.id });
+    } catch (err) {
+      report(err, { scope: "merchant_share" });
+    }
+  };
+
+  const bookableNearby = useMemo(() => {
+    return nearbyProviders.filter(p => !p.limitedListing && p.bookingEnabled);
+  }, [nearbyProviders]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
@@ -351,15 +370,56 @@ export default function ProviderDetailScreen() {
         ) : null}
 
         {provider.limitedListing ? (
-          <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>
-              This business has not yet claimed its KiliPicks profile.
-            </Text>
-            <Text style={styles.noticeCopy}>
-              Only basic discovery information is shown. Services, prices,
-              reviews, contacts, exact address and booking become available
-              after the business partners with KiliPicks.
-            </Text>
+          <View>
+            <View style={styles.notice}>
+              <Text style={styles.noticeTitle}>
+                This business has not yet claimed its KiliPicks profile.
+              </Text>
+              <Text style={styles.noticeCopy}>
+                Only basic discovery information is shown. Services, prices,
+                reviews, contacts, exact address and booking become available
+                after the business partners with KiliPicks.
+              </Text>
+            </View>
+
+            <View style={styles.directoryActions}>
+              <Pressable
+                style={styles.directoryActionBtn}
+                onPress={() => {
+                  toggle(provider.id);
+                  void track(saved ? "merchant_unsaved" : "merchant_saved", {
+                    merchantId: provider.id,
+                    merchantName: provider.name,
+                    pagePath: `/provider/${provider.id}`,
+                  });
+                }}
+              >
+                <Text style={styles.directoryActionIcon}>{saved ? "♥" : "♡"}</Text>
+                <Text style={styles.directoryActionText}>
+                  {saved ? "Saved" : "Save this place"}
+                </Text>
+              </Pressable>
+              
+              <Pressable style={styles.directoryActionBtn} onPress={shareProvider}>
+                <Text style={styles.directoryActionIcon}>↗</Text>
+                <Text style={styles.directoryActionText}>Share profile</Text>
+              </Pressable>
+            </View>
+
+            {bookableNearby.length > 0 ? (
+              <View style={styles.directoryNearby}>
+                <Text style={styles.sectionTitle}>Similar places you can book</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.nearbyCards}
+                >
+                  {bookableNearby.map((nearby) => (
+                    <ProviderCard key={nearby.id} provider={nearby} />
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
           </View>
         ) : (
           <>
@@ -492,31 +552,30 @@ export default function ProviderDetailScreen() {
                 </ScrollView>
               </View>
             ) : null}
-
-            <Pressable
-              disabled={!provider.bookingEnabled}
-              style={[styles.book, !provider.bookingEnabled && styles.disabled]}
-              onPress={() => {
-                void track("booking_cta_clicked", {
-                  merchantId: provider.id,
-                  merchantName: provider.name,
-                  pagePath: `/provider/${provider.id}`,
-                });
-                router.push({
-                  pathname: "/booking/[providerId]",
-                  params: { providerId: provider.id },
-                });
-              }}
-            >
-              <Text style={styles.bookText}>
-                {provider.bookingEnabled
-                  ? "View times & book"
-                  : "Booking not available yet"}
-              </Text>
-            </Pressable>
           </>
         )}
       </ScrollView>
+
+      {!provider.limitedListing && provider.bookingEnabled ? (
+        <View style={styles.stickyBookBar}>
+          <View style={styles.stickyBookInfo}>
+            <Text style={styles.stickyBookTitle}>
+              {services.length} services
+            </Text>
+            <Text style={styles.stickyBookPrice}>
+              {provider.startingPrice
+                ? `From KES ${provider.startingPrice.toLocaleString()}`
+                : "View services"}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.stickyBookBtn}
+            onPress={() => scrollToSection("services")}
+          >
+            <Text style={styles.stickyBookBtnText}>Book now</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -713,14 +772,42 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingBottom: spacing.md,
   },
-  book: {
-    margin: spacing.lg,
-    marginTop: spacing.xl,
-    backgroundColor: colors.brand,
-    borderRadius: radii.md,
-    alignItems: "center",
-    padding: 17,
+  directoryActions: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
-  disabled: { backgroundColor: "#B9AFB1" },
-  bookText: { color: colors.white, fontSize: 16, fontWeight: "900" },
+  directoryActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cream,
+    paddingVertical: 14,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    gap: 8,
+  },
+  directoryActionIcon: { color: colors.brand, fontSize: 20 },
+  directoryActionText: { color: colors.brand, fontSize: 16, fontWeight: "800" },
+  directoryNearby: { marginTop: spacing.lg },
+  stickyBookBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
+  },
+  stickyBookInfo: { flex: 1 },
+  stickyBookTitle: { color: colors.ink, fontSize: 15, fontWeight: "800" },
+  stickyBookPrice: { color: colors.forest, fontSize: 14, fontWeight: "600", marginTop: 2 },
+  stickyBookBtn: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: radii.pill,
+  },
+  stickyBookBtnText: { color: colors.white, fontSize: 16, fontWeight: "800" },
 });
