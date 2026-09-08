@@ -10,14 +10,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export function ProviderCard({
   provider,
+  variant = "carousel",
   compact = false,
 }: {
   provider: PublicCatalogProvider;
+  variant?: "list" | "carousel";
   compact?: boolean;
 }) {
   const router = useRouter();
   const { isSaved, toggle } = useSaved();
   const image = resolveMediaUrl(provider.cover);
+  const isDirectory = provider.limitedListing;
 
   const open = () => {
     void track("merchant_profile_viewed", {
@@ -37,46 +40,57 @@ export function ProviderCard({
       onPress={open}
       accessibilityRole="button"
     >
-      {image ? (
-        <Image
-          source={{ uri: image }}
-          style={[styles.image, compact && styles.compactImage]}
-          contentFit="cover"
-          transition={200}
-        />
-      ) : (
-        <View
-          style={[
-            styles.image,
-            styles.placeholder,
-            compact && styles.compactImage,
-          ]}
+      <View style={styles.imageContainer}>
+        {image ? (
+          <Image
+            source={{ uri: image }}
+            style={[styles.image, compact && styles.compactImage, isDirectory && styles.directoryImage]}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View
+            style={[
+              styles.image,
+              styles.placeholder,
+              compact && styles.compactImage,
+              isDirectory && styles.directoryImage,
+            ]}
+          >
+            <Text style={styles.placeholderLetter}>
+              {provider.name.slice(0, 1)}
+            </Text>
+            <Text style={styles.placeholderText}>Local beauty</Text>
+          </View>
+        )}
+        
+        {isDirectory ? (
+          <View style={styles.directoryChip}>
+            <Text style={styles.directoryChipText}>Directory listing</Text>
+          </View>
+        ) : null}
+
+        <Pressable
+          accessibilityLabel={
+            isSaved(provider.id) ? "Remove from saved" : "Save business"
+          }
+          hitSlop={10}
+          style={styles.save}
+          onPress={(event) => {
+            event.stopPropagation();
+            const saved = isSaved(provider.id);
+            toggle(provider.id);
+            void track(saved ? "merchant_unsaved" : "merchant_saved", {
+              merchantId: provider.id,
+              merchantName: provider.name,
+              pagePath: "/saved",
+            });
+          }}
         >
-          <Text style={styles.placeholderLetter}>
-            {provider.name.slice(0, 1)}
-          </Text>
-          <Text style={styles.placeholderText}>Local beauty</Text>
-        </View>
-      )}
-      <Pressable
-        accessibilityLabel={
-          isSaved(provider.id) ? "Remove from saved" : "Save business"
-        }
-        hitSlop={10}
-        style={styles.save}
-        onPress={(event) => {
-          event.stopPropagation();
-          const saved = isSaved(provider.id);
-          toggle(provider.id);
-          void track(saved ? "merchant_unsaved" : "merchant_saved", {
-            merchantId: provider.id,
-            merchantName: provider.name,
-            pagePath: "/saved",
-          });
-        }}
-      >
-        <Text style={styles.saveText}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
-      </Pressable>
+          <Text style={styles.saveText}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
+        </Pressable>
+      </View>
+      
       <View style={styles.body}>
         <Text style={styles.eyebrow}>{categoryLabel(provider.categoryId)}</Text>
         <Text style={styles.name} numberOfLines={1}>
@@ -86,20 +100,24 @@ export function ProviderCard({
           ⌖ {provider.area || "Nairobi"}
           {provider.distance ? ` · ${provider.distance}` : ""}
         </Text>
-        {provider.limitedListing ? (
-          <View style={styles.limited}>
-            <Text style={styles.limitedText}>
-              Basic listing · Not yet claimed
+        
+        {isDirectory ? (
+          <Text style={styles.directorySubline} numberOfLines={2}>
+            Details are limited until this business joins KiliPicks.
+          </Text>
+        ) : (
+          <View style={styles.claimedInfo}>
+            {provider.rating ? (
+              <Text style={styles.rating}>★ {provider.rating.toFixed(1)}</Text>
+            ) : null}
+            <Text style={styles.price}>
+              {provider.startingPrice
+                ? `From KES ${provider.startingPrice.toLocaleString()}`
+                : provider.openNow
+                  ? "Open now"
+                  : "View services"}
             </Text>
           </View>
-        ) : (
-          <Text style={styles.price}>
-            {provider.startingPrice
-              ? `From KES ${provider.startingPrice.toLocaleString()}`
-              : provider.openNow
-                ? "Open now"
-                : "View services"}
-          </Text>
         )}
       </View>
     </Pressable>
@@ -115,11 +133,23 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   compactCard: { width: "100%", marginBottom: spacing.md },
-  image: { width: "100%", height: 188, backgroundColor: colors.blush },
-  compactImage: { height: 210 },
+  imageContainer: { position: "relative" },
+  image: { width: "100%", aspectRatio: 4 / 3, backgroundColor: colors.blush }, // 4:3
+  compactImage: { height: 210, aspectRatio: undefined },
+  directoryImage: { aspectRatio: 16 / 10 }, // 16:10
   placeholder: { alignItems: "center", justifyContent: "center" },
   placeholderLetter: { color: colors.brand, fontSize: 46, fontWeight: "800" },
   placeholderText: { color: colors.muted, fontSize: 12, marginTop: 4 },
+  directoryChip: {
+    position: "absolute",
+    left: 14,
+    top: 14,
+    backgroundColor: colors.sand,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  directoryChipText: { color: colors.ink, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
   save: {
     position: "absolute",
     right: 14,
@@ -142,19 +172,24 @@ const styles = StyleSheet.create({
   },
   name: { color: colors.ink, fontSize: 19, fontWeight: "800" },
   meta: { color: colors.muted, fontSize: 14 },
+  directorySubline: {
+    color: colors.inkMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  claimedInfo: {
+    marginTop: 4,
+    gap: 2,
+  },
+  rating: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   price: {
     color: colors.forest,
     fontSize: 14,
     fontWeight: "700",
-    marginTop: 4,
   },
-  limited: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.warningBg,
-    borderRadius: radii.pill,
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  limitedText: { color: colors.warning, fontSize: 12, fontWeight: "700" },
 });
