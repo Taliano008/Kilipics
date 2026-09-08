@@ -5,8 +5,9 @@ import { EmptyState, LoadingState } from "@/components/ScreenState";
 import { useSaved } from "@/saved/saved-context";
 import { colors, spacing } from "@/theme/tokens";
 import { useEffect } from "react";
-import { FlatList, StyleSheet, Text } from "react-native";
+import { SectionList, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { categoryLabel } from "@/utils/categories";
 
 export default function SavedScreen() {
   const { catalog, loading } = useCatalog();
@@ -19,15 +20,32 @@ export default function SavedScreen() {
     });
   }, []);
   if (loading || !ready) return <LoadingState />;
+  
   const providers = (catalog?.providers ?? []).filter((provider) =>
     ids.has(provider.id),
   );
+
+  const groupedProviders = (() => {
+    const groups: Record<string, typeof providers> = {};
+    for (const p of providers) {
+      const label = categoryLabel(p.categoryId);
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(p);
+    }
+    return Object.entries(groups)
+      .map(([title, data]) => ({ title, data }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  })();
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <FlatList
-        data={providers}
+      <SectionList
+        sections={groupedProviders}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <ProviderCard provider={item} compact />}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.sectionHeader}>{title}</Text>
+        )}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <>
@@ -59,6 +77,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900", marginTop: 5 },
+  sectionHeader: { color: colors.ink, fontSize: 19, fontWeight: "900", marginTop: spacing.md, marginBottom: spacing.sm },
   copy: {
     color: colors.muted,
     fontSize: 15,

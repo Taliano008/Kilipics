@@ -95,7 +95,9 @@ export default function BookingScreen() {
             });
           }}
         >
-          <Text style={styles.primaryText}>Continue</Text>
+          <Text style={styles.primaryText}>
+            {provider.bookingMethod === "kilipicks" ? "Confirm & pay" : "Request booking"}
+          </Text>
         </Pressable>
         <Text style={styles.disclaimer}>
           MVP note: this button records verified booking intent; it does not
