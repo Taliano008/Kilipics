@@ -12,15 +12,18 @@ export function ProviderCard({
   provider,
   variant = "carousel",
   compact = false,
+  size = "large",
 }: {
   provider: PublicCatalogProvider;
   variant?: "list" | "carousel";
   compact?: boolean;
+  size?: "large" | "dense";
 }) {
   const router = useRouter();
   const { isSaved, toggle } = useSaved();
   const image = resolveMediaUrl(provider.cover);
   const isDirectory = provider.limitedListing;
+  const isDense = size === "dense";
 
   const open = () => {
     void track("merchant_profile_viewed", {
@@ -36,7 +39,11 @@ export function ProviderCard({
 
   return (
     <Pressable
-      style={[styles.card, compact && styles.compactCard]}
+      style={[
+        styles.card,
+        compact && styles.compactCard,
+        isDense && styles.denseCard,
+      ]}
       onPress={open}
       accessibilityRole="button"
     >
@@ -44,7 +51,12 @@ export function ProviderCard({
         {image ? (
           <Image
             source={{ uri: image }}
-            style={[styles.image, compact && styles.compactImage, isDirectory && styles.directoryImage]}
+            style={[
+              styles.image,
+              compact && styles.compactImage,
+              isDirectory && styles.directoryImage,
+              isDense && styles.denseImage,
+            ]}
             contentFit="cover"
             transition={200}
           />
@@ -55,18 +67,21 @@ export function ProviderCard({
               styles.placeholder,
               compact && styles.compactImage,
               isDirectory && styles.directoryImage,
+              isDense && styles.denseImage,
             ]}
           >
-            <Text style={styles.placeholderLetter}>
+            <Text style={[styles.placeholderLetter, isDense && styles.densePlaceholderLetter]}>
               {provider.name.slice(0, 1)}
             </Text>
-            <Text style={styles.placeholderText}>Local beauty</Text>
+            {!isDense && <Text style={styles.placeholderText}>Local beauty</Text>}
           </View>
         )}
         
         {isDirectory ? (
-          <View style={styles.directoryChip}>
-            <Text style={styles.directoryChipText}>Directory listing</Text>
+          <View style={[styles.directoryChip, isDense && styles.denseDirectoryChip]}>
+            <Text style={[styles.directoryChipText, isDense && styles.denseDirectoryChipText]}>
+              {isDense ? "Directory" : "Directory listing"}
+            </Text>
           </View>
         ) : null}
 
@@ -75,7 +90,7 @@ export function ProviderCard({
             isSaved(provider.id) ? "Remove from saved" : "Save business"
           }
           hitSlop={10}
-          style={styles.save}
+          style={[styles.save, isDense && styles.denseSave]}
           onPress={(event) => {
             event.stopPropagation();
             const saved = isSaved(provider.id);
@@ -87,30 +102,30 @@ export function ProviderCard({
             });
           }}
         >
-          <Text style={styles.saveText}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
+          <Text style={[styles.saveText, isDense && styles.denseSaveText]}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
         </Pressable>
       </View>
       
-      <View style={styles.body}>
-        <Text style={styles.eyebrow}>{categoryLabel(provider.categoryId)}</Text>
-        <Text style={styles.name} numberOfLines={1}>
+      <View style={[styles.body, isDense && styles.denseBody]}>
+        <Text style={[styles.eyebrow, isDense && styles.denseEyebrow]}>{categoryLabel(provider.categoryId)}</Text>
+        <Text style={[styles.name, isDense && styles.denseName]} numberOfLines={1}>
           {provider.name}
         </Text>
-        <Text style={styles.meta} numberOfLines={1}>
+        <Text style={[styles.meta, isDense && styles.denseMeta]} numberOfLines={1}>
           ⌖ {provider.area || "Nairobi"}
           {provider.distance ? ` · ${provider.distance}` : ""}
         </Text>
         
         {isDirectory ? (
-          <Text style={styles.directorySubline} numberOfLines={2}>
+          <Text style={[styles.directorySubline, isDense && styles.denseSubline]} numberOfLines={2}>
             Details are limited until this business joins KiliPicks.
           </Text>
         ) : (
-          <View style={styles.claimedInfo}>
+          <View style={[styles.claimedInfo, isDense && styles.denseClaimedInfo]}>
             {provider.rating ? (
-              <Text style={styles.rating}>★ {provider.rating.toFixed(1)}</Text>
+              <Text style={[styles.rating, isDense && styles.denseRating]}>★ {provider.rating.toFixed(1)}</Text>
             ) : null}
-            <Text style={styles.price}>
+            <Text style={[styles.price, isDense && styles.densePrice]} numberOfLines={1}>
               {provider.startingPrice
                 ? `From KES ${provider.startingPrice.toLocaleString()}`
                 : provider.openNow
@@ -133,12 +148,15 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   compactCard: { width: "100%", marginBottom: spacing.md },
+  denseCard: { width: 180 },
   imageContainer: { position: "relative" },
   image: { width: "100%", aspectRatio: 4 / 3, backgroundColor: colors.blush }, // 4:3
   compactImage: { height: 210, aspectRatio: undefined },
   directoryImage: { aspectRatio: 16 / 10 }, // 16:10
+  denseImage: { aspectRatio: 4 / 3 }, // Overrides directory 16:10 for dense format if needed
   placeholder: { alignItems: "center", justifyContent: "center" },
   placeholderLetter: { color: colors.clay, fontSize: 46, fontWeight: "800" },
+  densePlaceholderLetter: { fontSize: 32 },
   placeholderText: { color: colors.muted, fontSize: 12, marginTop: 4 },
   directoryChip: {
     position: "absolute",
@@ -149,7 +167,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: radii.pill,
   },
+  denseDirectoryChip: { left: 8, top: 8, paddingHorizontal: 6, paddingVertical: 2 },
   directoryChipText: { color: colors.ink, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  denseDirectoryChipText: { fontSize: 9 },
   save: {
     position: "absolute",
     right: 14,
@@ -161,8 +181,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.93)",
     borderRadius: 21,
   },
+  denseSave: { right: 8, top: 8, width: 32, height: 32, borderRadius: 16 },
   saveText: { color: colors.clay, fontSize: 27, lineHeight: 29 },
+  denseSaveText: { fontSize: 20, lineHeight: 22 },
   body: { padding: spacing.md, gap: 5 },
+  denseBody: { padding: spacing.sm, gap: 2 },
   eyebrow: {
     color: colors.clay,
     fontSize: 11,
@@ -170,26 +193,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: "uppercase",
   },
+  denseEyebrow: { fontSize: 9 },
   name: { color: colors.ink, fontSize: 19, fontWeight: "800" },
+  denseName: { fontSize: 15 },
   meta: { color: colors.muted, fontSize: 14 },
+  denseMeta: { fontSize: 12 },
   directorySubline: {
     color: colors.inkMuted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 4,
   },
+  denseSubline: { fontSize: 11, lineHeight: 14, marginTop: 2 },
   claimedInfo: {
     marginTop: 4,
     gap: 2,
   },
+  denseClaimedInfo: { marginTop: 2, gap: 1 },
   rating: {
     color: colors.ink,
     fontSize: 14,
     fontWeight: "700",
   },
+  denseRating: { fontSize: 12 },
   price: {
     color: colors.moss,
     fontSize: 14,
     fontWeight: "700",
   },
+  densePrice: { fontSize: 12 },
 });

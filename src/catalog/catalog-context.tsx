@@ -12,7 +12,8 @@ import {
   useState,
 } from "react";
 
-const CATALOG_KEY = "kilipicks.catalog.snapshot.v1";
+const isMockMode = process.env.EXPO_PUBLIC_USE_MOCK_CATALOG === "true";
+const CATALOG_KEY = isMockMode ? "kilipicks.catalog.snapshot.v2.mock" : "kilipicks.catalog.snapshot.v2";
 const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 // Date.now() is impure, so it can't be called during render — this only
@@ -48,7 +49,14 @@ export function CatalogProvider({ children }: PropsWithChildren) {
       else if (hasCache) setRevalidating(true);
       else setLoading(true);
       try {
-        const next = await fetchCatalog();
+        let next: PublicCatalogSnapshot;
+        if (isMockMode) {
+          const { MOCK_CATALOG } = require("./mock-catalog-data");
+          next = MOCK_CATALOG;
+          await new Promise(resolve => setTimeout(resolve, 300)); // Simulate delay
+        } else {
+          next = await fetchCatalog();
+        }
         setCatalog(next);
         setStale(computeStale(next));
         setError(null);

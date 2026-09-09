@@ -5,7 +5,6 @@ import { CatalogProvider } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpgradeGate } from "@/components/UpgradeGate";
-import { VideoSplashGate } from "@/components/VideoSplashGate";
 import { colors } from "@/theme/tokens";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -77,37 +76,35 @@ export default Sentry.wrap(function RootLayout() {
     <ErrorBoundary>
       <SafeAreaProvider>
         <CatalogProvider>
-          <VideoSplashGate>
-            <SavedProvider>
-              <AuthProvider>
-                <UpgradeGate>
-                  <StatusBar style="dark" />
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: colors.sand },
-                      animation: "slide_from_right",
-                    }}
-                  >
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="provider/[id]" />
-                    <Stack.Screen
-                      name="booking/[providerId]"
-                      options={{ presentation: "modal" }}
-                    />
-                    <Stack.Screen
-                      name="auth"
-                      options={{ presentation: "modal" }}
-                    />
-                    <Stack.Screen
-                      name="search-overlay"
-                      options={{ presentation: "modal" }}
-                    />
-                  </Stack>
-                </UpgradeGate>
-              </AuthProvider>
-            </SavedProvider>
-          </VideoSplashGate>
+          <SavedProvider>
+            <AuthProvider>
+              <UpgradeGate>
+                <StatusBar style="dark" />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: colors.sand },
+                    animation: "slide_from_right",
+                  }}
+                >
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="provider/[id]" />
+                  <Stack.Screen
+                    name="booking/[providerId]"
+                    options={{ presentation: "modal" }}
+                  />
+                  <Stack.Screen
+                    name="auth"
+                    options={{ presentation: "modal" }}
+                  />
+                  <Stack.Screen
+                    name="search-overlay"
+                    options={{ presentation: "modal" }}
+                  />
+                </Stack>
+              </UpgradeGate>
+            </AuthProvider>
+          </SavedProvider>
         </CatalogProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

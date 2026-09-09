@@ -91,6 +91,22 @@ export const publicCatalogProviderSchema = z.object({
   featured: z.boolean(),
   gallery: z.array(z.string()),
   publicContacts: publicContactsSchema,
+  about: z.string().optional(),
+  team: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    role: z.string(),
+    avatarUrl: z.string().optional()
+  })).optional(),
+  reviews: z.array(z.object({
+    id: z.string(),
+    author: z.string(),
+    rating: z.number(),
+    text: z.string(),
+    date: z.string()
+  })).optional(),
+  portfolio: z.array(z.string()).optional(),
+  otherSection: z.string().optional(),
 });
 
 export const publicCatalogServiceSchema = z.object({

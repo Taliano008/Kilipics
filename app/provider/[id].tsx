@@ -7,6 +7,7 @@ import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel } from "@/utils/categories";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
   type ContactChannel,
@@ -98,7 +99,7 @@ export default function ProviderDetailScreen() {
   }, [provider, gallery, nearbyProviders]);
 
   useEffect(() => {
-    if (provider)
+    if (provider) {
       void track("merchant_profile_viewed", {
         pagePath: `/provider/${provider.id}`,
         pageTitle: provider.name,
@@ -107,6 +108,14 @@ export default function ProviderDetailScreen() {
         categoryId: provider.categoryId,
         sourceSection: "provider_detail",
       });
+      AsyncStorage.getItem("kilipicks.recently_viewed").then((res) => {
+        let viewed: string[] = res ? JSON.parse(res) : [];
+        viewed = viewed.filter((v) => v !== provider.id);
+        viewed.unshift(provider.id);
+        viewed = viewed.slice(0, 8); // Keep last 8
+        void AsyncStorage.setItem("kilipicks.recently_viewed", JSON.stringify(viewed));
+      });
+    }
   }, [provider?.id]);
 
   useEffect(() => {

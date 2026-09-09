@@ -1,13 +1,15 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { CategoryGrid } from "@/components/CategoryGrid";
 import { ProviderCard } from "@/components/ProviderCard";
-import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
+import { resolveMediaUrl } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel } from "@/utils/categories";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { Image } from "expo-image";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -45,6 +47,34 @@ export default function HomeScreen() {
       params: { category: categoryId },
     });
   };
+
+  const [recentlyViewedIds, setRecentlyViewedIds] = useState<string[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem("kilipicks.recently_viewed").then((res) => {
+        if (res) setRecentlyViewedIds(JSON.parse(res) as string[]);
+      });
+    }, [])
+  );
+
+  const recentlyViewed = useMemo(() => {
+    return recentlyViewedIds
+      .map(id => providers.find(p => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  }, [recentlyViewedIds, providers]);
+
+  const browseChips = useMemo(() => {
+    const chipsMap = new Map<string, string>();
+    for (const p of providers) {
+      if (!p.cover || p.cover.startsWith("provider-placeholder")) continue;
+      const label = p.mainOffering || p.subcategory;
+      if (label && !chipsMap.has(label)) {
+        chipsMap.set(label, p.cover);
+      }
+      if (chipsMap.size >= 6) break;
+    }
+    return Array.from(chipsMap.entries()).map(([label, cover]) => ({ label, cover }));
+  }, [providers]);
 
   const bookable = useMemo(() => providers.filter(p => !p.limitedListing && p.bookingEnabled), [providers]);
   const directories = useMemo(() => providers.filter(p => p.limitedListing), [providers]);
@@ -84,7 +114,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-          {bookable.map(p => <ProviderCard key={p.id} provider={p} />)}
+          {bookable.map(p => <ProviderCard key={p.id} provider={p} size="large" />)}
         </ScrollView>
       </View>
     );
@@ -107,10 +137,39 @@ export default function HomeScreen() {
               <Text style={styles.heading}>Near {mostCommonArea}</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-              {nearArea.map(p => <ProviderCard key={p.id} provider={p} />)}
+              {nearArea.map(p => <ProviderCard key={p.id} provider={p} size="dense" />)}
             </ScrollView>
           </View>
         ) : null}
+      </View>
+    );
+  };
+
+  const renderBrowseChips = () => {
+    if (browseChips.length === 0) return null;
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+        {browseChips.map((chip, i) => (
+          <Pressable key={i} style={styles.chip} onPress={() => router.push({ pathname: "/(tabs)/search", params: { q: chip.label } })}>
+            <Image source={{ uri: resolveMediaUrl(chip.cover) || "" }} style={styles.chipImage} contentFit="cover" />
+            <View style={styles.chipScrim} />
+            <Text style={styles.chipText}>{chip.label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    );
+  };
+
+  const renderRecentlyViewed = () => {
+    if (recentlyViewed.length === 0) return null;
+    return (
+      <View style={styles.shelf}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.heading}>Recently viewed</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
+          {recentlyViewed.map(p => <ProviderCard key={p.id} provider={p} size="dense" />)}
+        </ScrollView>
       </View>
     );
   };
@@ -130,8 +189,13 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
       >
         <View style={styles.topbar}>
-          <View>
-            <Text style={styles.brand}>✦ KiliPicks</Text>
+          <View style={styles.topbarSpacer} />
+          <View style={styles.topbarLeft}>
+            <Image
+              source={require("../../assets/icons/logo.png")}
+              style={styles.brandLogo}
+              contentFit="contain"
+            />
             <Text style={styles.location}>⌖ Nairobi</Text>
           </View>
           <View style={styles.topbarActions}>
@@ -154,15 +218,20 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : null}
-        {bookable.length > 0 ? renderBookable() : renderDirectoryBlock()}
 
-        <View style={[styles.sectionHeading, { marginTop: spacing.xl }]}>
+        {renderBrowseChips()}
+
+        <View style={[styles.sectionHeading, { marginTop: browseChips.length > 0 ? spacing.lg : spacing.md }]}>
           <View>
             <Text style={styles.heading}>Explore beauty</Text>
             <Text style={styles.sectionCopy}>Browse by what you need</Text>
           </View>
         </View>
         <CategoryGrid categoryIds={categoryIds} counts={categoryCounts} onSelect={selectCategory} />
+
+        {renderRecentlyViewed()}
+
+        {bookable.length > 0 ? renderBookable() : renderDirectoryBlock()}
 
         {bookable.length > 0 ? renderDirectoryBlock() : null}
 
@@ -191,8 +260,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  brand: { color: colors.ink, fontSize: 25, fontWeight: "900" },
-  location: { color: colors.muted, fontSize: 13, marginTop: 3 },
+  topbarSpacer: {
+    flex: 1,
+  },
+  topbarLeft: {
+    alignItems: "flex-start",
+    justifyContent: "center",
+    marginLeft: "auto",
+  },
+  brandLogo: {
+    width: 190,
+    height: 40,
+    marginLeft: -4,
+    marginTop: 2,
+  },
+  location: {
+    color: colors.muted,
+    fontSize: 13,
+    marginTop: 4,
+    marginLeft: 3,
+  },
   avatar: {
     width: 42,
     height: 42,
@@ -259,4 +346,32 @@ const styles = StyleSheet.create({
   },
   trustTitle: { color: colors.moss, fontSize: 19, fontWeight: "800" },
   trustCopy: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 8 },
+  chipsScroll: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  chip: {
+    width: 110,
+    height: 70,
+    borderRadius: radii.md,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+    padding: 8,
+  },
+  chipImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  chipScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  chipText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "800",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 });

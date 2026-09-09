@@ -82,6 +82,11 @@ function serializeProvider(row, serviceIdsByBusiness) {
   if (row.starting_price != null) provider.startingPrice = row.starting_price;
   if (row.next_available != null) provider.nextAvailable = row.next_available;
   if (row.positioning != null) provider.positioning = row.positioning;
+  if (row.about != null) provider.about = row.about;
+  if (row.team != null) provider.team = row.team;
+  if (row.reviews != null) provider.reviews = row.reviews;
+  if (row.portfolio != null) provider.portfolio = row.portfolio;
+  if (row.other_section != null) provider.otherSection = row.other_section;
 
   return provider;
 }

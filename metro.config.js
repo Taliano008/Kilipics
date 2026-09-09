@@ -17,26 +17,35 @@ config.server = {
     return (req, res, next) => {
       if (req.url && req.url.startsWith(PROXY_PREFIX)) {
         const upstreamUrl = `${UPSTREAM_ORIGIN}${req.url.slice(PROXY_PREFIX.length) || "/"}`;
-        https
-          .get(
-            upstreamUrl,
-            { headers: { Accept: "application/json" } },
-            (upstreamRes) => {
-              res.statusCode = upstreamRes.statusCode || 502;
-              const contentType = upstreamRes.headers["content-type"];
-              if (contentType) res.setHeader("Content-Type", contentType);
-              upstreamRes.pipe(res);
-            },
-          )
-          .on("error", (err) => {
-            res.statusCode = 502;
-            res.end(
-              JSON.stringify({
-                error: "Proxy request failed",
-                message: err.message,
-              }),
-            );
-          });
+        const options = {
+          method: req.method,
+          headers: { ...req.headers, host: new URL(UPSTREAM_ORIGIN).host },
+        };
+        // Remove headers that might confuse the upstream or cause issues
+        delete options.headers.origin;
+        delete options.headers.referer;
+        
+        const proxyReq = https.request(upstreamUrl, options, (upstreamRes) => {
+          res.statusCode = upstreamRes.statusCode || 502;
+          for (const [key, value] of Object.entries(upstreamRes.headers)) {
+            if (value) res.setHeader(key, value);
+          }
+          // Enable CORS for web dev server
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          upstreamRes.pipe(res);
+        });
+
+        proxyReq.on("error", (err) => {
+          res.statusCode = 502;
+          res.end(
+            JSON.stringify({
+              error: "Proxy request failed",
+              message: err.message,
+            }),
+          );
+        });
+
+        req.pipe(proxyReq);
         return;
       }
       return middleware(req, res, next);

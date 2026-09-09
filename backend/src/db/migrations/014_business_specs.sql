@@ -1,0 +1,6 @@
+ALTER TABLE businesses
+ADD COLUMN about TEXT,
+ADD COLUMN team JSON NOT NULL DEFAULT ('[]'),
+ADD COLUMN reviews JSON NOT NULL DEFAULT ('[]'),
+ADD COLUMN portfolio JSON NOT NULL DEFAULT ('[]'),
+ADD COLUMN other_section TEXT;

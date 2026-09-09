@@ -6,6 +6,7 @@ import { ApiError } from "./lib/http-errors.js";
 import consumerAuthRoutes from "./routes/auth/consumer.js";
 import merchantAuthRoutes from "./routes/auth/merchant.js";
 import publicCatalogRoutes from "./routes/public/catalog.js";
+import analyticsRoutes from "./routes/public/analytics.js";
 
 assertEnv();
 
@@ -58,6 +59,7 @@ app.setErrorHandler((err, request, reply) => {
 await app.register(consumerAuthRoutes, { prefix: "/api/auth/consumer" });
 await app.register(merchantAuthRoutes, { prefix: "/api/auth/merchant" });
 await app.register(publicCatalogRoutes, { prefix: "/api/public" });
+await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
 app.get("/healthz", async (request, reply) => {
   try {

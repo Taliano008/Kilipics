@@ -240,16 +240,27 @@ async function main() {
       longitude: 36.8065,
       hours: "",
       mainOffering: "Manicures",
-      verified: false,
-      recommended: false,
+      verified: true,
+      recommended: true,
       featured: false,
-      bookingEnabled: false,
-      bookingMethod: "disabled",
-      partnershipStatus: "unsigned",
-      limitedListing: true,
-      publicContacts: { phone: "+254733445566" },
+      bookingEnabled: true,
+      bookingMethod: "kilipicks",
+      partnershipStatus: "signed",
+      limitedListing: false,
+      coverUrl: "https://picsum.photos/seed/nailedit-cover/900/600",
+      galleryUrls: ["https://picsum.photos/seed/nailedit-1/900/600"],
+      publicContacts: { phone: "+254733445566", whatsapp: "+254733445566" },
     },
-    [],
+    [
+      {
+        name: "Classic Manicure",
+        description: "Standard manicure with regular polish.",
+        price: 1200,
+        priceType: "fixed",
+        durationMinutes: 45,
+        bookingEnabled: true,
+      }
+    ],
   );
 
   await upsertBusiness(
@@ -266,16 +277,27 @@ async function main() {
       longitude: 36.7889,
       hours: "",
       mainOffering: "Manicures & Pedicures",
-      verified: false,
+      verified: true,
       recommended: false,
-      featured: false,
-      bookingEnabled: false,
-      bookingMethod: "disabled",
-      partnershipStatus: "unsigned",
-      limitedListing: true,
-      publicContacts: { phone: "+254744556677" },
+      featured: true,
+      bookingEnabled: true,
+      bookingMethod: "kilipicks",
+      partnershipStatus: "signed",
+      limitedListing: false,
+      coverUrl: "https://picsum.photos/seed/polishperfect-cover/900/600",
+      galleryUrls: ["https://picsum.photos/seed/polishperfect-1/900/600"],
+      publicContacts: { phone: "+254744556677", whatsapp: "+254744556677" },
     },
-    [],
+    [
+      {
+        name: "Deluxe Pedicure",
+        description: "Relaxing pedicure with massage.",
+        price: 2000,
+        priceType: "fixed",
+        durationMinutes: 60,
+        bookingEnabled: true,
+      }
+    ],
   );
 
   invalidateCatalogCache();
@@ -283,8 +305,8 @@ async function main() {
   console.log("Seeded 4 businesses (1 merchant):");
   console.log("  - Zuri Beauty Lounge   (claimed, booking-enabled, hero listing)");
   console.log("  - Glow Nail Bar        (claimed, booking-enabled)");
-  console.log("  - Nailed It Nairobi    (limited listing)");
-  console.log("  - Polish Perfect       (limited listing)");
+  console.log("  - Nailed It Nairobi    (claimed, booking-enabled)");
+  console.log("  - Polish Perfect       (claimed, booking-enabled)");
 }
 
 main()

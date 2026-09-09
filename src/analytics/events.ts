@@ -11,6 +11,7 @@ type EventName =
   | "merchant_profile_viewed"
   | "merchant_saved"
   | "merchant_unsaved"
+  | "merchant_shared"
   | "booking_cta_clicked"
   | "booking_started"
   | "contact_channel_clicked";

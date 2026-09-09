@@ -51,6 +51,11 @@ export function makeProvider(
     featured: false,
     gallery: [],
     publicContacts: {},
+    about: undefined,
+    team: [],
+    reviews: [],
+    portfolio: [],
+    otherSection: undefined,
     ...overrides,
   };
 }
