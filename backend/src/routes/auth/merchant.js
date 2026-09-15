@@ -19,6 +19,7 @@ export default async function merchantAuthRoutes(app) {
   app.post(
     "/signup",
     {
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         body: {
           type: "object",
@@ -42,6 +43,7 @@ export default async function merchantAuthRoutes(app) {
   app.post(
     "/login",
     {
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         body: {
           type: "object",

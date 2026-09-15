@@ -63,7 +63,11 @@ export default function AuthScreen() {
       } else {
         await signInWithEmail({ email: cleanEmail, password });
       }
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/");
+      }
     } catch (reason) {
       report(reason, { scope: "email_auth", mode });
       setMessage(

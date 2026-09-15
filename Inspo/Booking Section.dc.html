@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0}
+  @keyframes bs-pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+  @keyframes bs-spin{to{transform:rotate(360deg)}}
+  @keyframes bs-check{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
+</style>
+</helmet>
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" title="KiliPicks" hint-size="390px,844px">
+  <div style="width:100%;height:100%;background:#FBF8F4;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;overflow:hidden">
+
+    <sc-if value="{{ submitted }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center">
+        <div style="width:64px;height:64px;border-radius:50%;background:#3E6B4C;display:flex;align-items:center;justify-content:center;animation:bs-pop .4s ease-out">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="24" style="animation:bs-check .5s .2s ease-out forwards"/></svg>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font:700 20px Manrope,sans-serif;color:#1E1B1A">Request sent</h2>
+          <p style="margin:0;font:14px/1.6 system-ui,sans-serif;color:#6B6560;max-width:280px">We'll message {{ formattedWhatsapp }} on WhatsApp once the business replies for {{ dateSummary }}, {{ timeSel }}. No payment has been taken.</p>
+        </div>
+        <button onClick="{{ resetForm }}" style="margin-top:8px;padding:12px 26px;border:1px solid #DED5C6;border-radius:12px;background:transparent;color:#1E1B1A;font:600 14px Manrope,sans-serif;cursor:pointer">Make another request</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ notSubmitted }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:none;padding:18px 20px 12px;display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div style="font:700 11px Manrope,sans-serif;color:#8B3648;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Pilot availability check</div>
+        <h1 style="margin:0;font:700 23px Manrope,sans-serif;color:#1E1B1A">Check availability</h1>
+      </div>
+      <button aria-label="Close" style="flex:none;width:32px;height:32px;border-radius:50%;border:1px solid #DED5C6;background:#fff;color:#4A4541;font-size:16px;line-height:1;cursor:pointer">&times;</button>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:0 20px 16px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;gap:10px;padding:13px 14px;background:#F6ECD9;border:1px solid #E9DCB9;border-radius:12px">
+        <span style="flex:none;font-size:16px">&#9888;</span>
+        <p style="margin:0;font:13px/1.55 system-ui,sans-serif;color:#5B4E2E">KiliPicks is testing this service. We'll manually contact the business and reply on WhatsApp. This is not a confirmed appointment and no payment will be taken.</p>
+      </div>
+
+      <div>
+        <div style="font:600 12px Manrope,sans-serif;color:#4A4541;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Service you want</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border:1.5px solid #1E1B1A;border-radius:12px;background:#fff">
+          <span style="font:15px system-ui,sans-serif;color:#1E1B1A;font-weight:600">{{ service }}</span>
+          <button onClick="{{ cycleService }}" style="border:none;background:none;color:#8B3648;font:600 13px Manrope,sans-serif;cursor:pointer">Change</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font:600 12px Manrope,sans-serif;color:#4A4541;text-transform:uppercase;letter-spacing:.04em">Preferred date</span>
+          <span style="font:13px Manrope,sans-serif;color:#8B3648;font-weight:700">{{ dateSummary }}</span>
+        </div>
+        <div style="border:1px solid #E4DED6;border-radius:14px;background:#fff;padding:12px 14px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <button onClick="{{ prevMonth }}" disabled="{{ prevDisabled }}" style="{{ navBtnStyle }}">&#8249;</button>
+            <span style="font:700 13px Manrope,sans-serif;color:#1E1B1A">{{ monthLabel }}</span>
+            <button onClick="{{ nextMonth }}" style="border:none;background:none;color:#1E1B1A;font-size:18px;cursor:pointer;padding:4px 8px">&#8250;</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+            <sc-for list="{{ weekdayLabels }}" as="wd" hint-placeholder-count="7">
+              <div style="text-align:center;font:600 10px Manrope,sans-serif;color:#9A8F7E;padding:4px 0">{{ wd }}</div>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+            <sc-for list="{{ calendarCells }}" as="c" hint-placeholder-count="35">
+              <button onClick="{{ c.select }}" disabled="{{ c.disabled }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font:600 12px Manrope,sans-serif;color:#4A4541;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Preferred time</div>
+        <sc-if value="{{ isPillTime }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <sc-for list="{{ timeOptions }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.select }}" style="{{ t.pillStyle }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isDropdownTime }}" hint-placeholder-val="{{ false }}">
+          <select value="{{ timeSel }}" onChange="{{ setTimeSelect }}" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #DED5C6;border-radius:12px;font:14px system-ui,sans-serif;color:#1E1B1A;background:#fff">
+            <sc-for list="{{ timeOptions }}" as="t" hint-placeholder-count="4">
+              <option value="{{ t.label }}">{{ t.label }}</option>
+            </sc-for>
+          </select>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font:600 12px Manrope,sans-serif;color:#4A4541;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Your name</div>
+        <input type="text" placeholder="Full name" value="{{ name }}" onChange="{{ setName }}" style="width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #DED5C6;border-radius:12px;font:14px system-ui,sans-serif;color:#1E1B1A;background:#fff" />
+      </div>
+
+      <div>
+        <div style="font:600 12px Manrope,sans-serif;color:#4A4541;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">WhatsApp number</div>
+        <div style="display:flex;align-items:stretch;border:1px solid {{ phoneBorder }};border-radius:12px;background:#fff;overflow:hidden">
+          <span style="flex:none;display:flex;align-items:center;padding:0 12px;background:#F1ECE6;color:#4A4541;font:600 14px system-ui,sans-serif;border-right:1px solid #DED5C6">+</span>
+          <input type="tel" placeholder="254 712 345 678" value="{{ whatsapp }}" onChange="{{ setWhatsapp }}" style="flex:1;min-width:0;border:none;outline:none;padding:13px 14px;font:14px system-ui,sans-serif;color:#1E1B1A;background:transparent" />
+        </div>
+        <sc-if value="{{ showPhoneError }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:6px;font:12px system-ui,sans-serif;color:#8B3648">Enter a valid number with country code, e.g. 254712345678</div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ notesOpen }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font:600 12px Manrope,sans-serif;color:#4A4541;text-transform:uppercase;letter-spacing:.04em">Anything we should know?</span>
+            <span style="font:12px system-ui,sans-serif;color:#9A8F7E">Optional</span>
+          </div>
+          <textarea placeholder="e.g. I'd like a specific stylist, or I'm bringing a friend" value="{{ notes }}" onChange="{{ setNotes }}" rows="3" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid #DED5C6;border-radius:12px;font:14px system-ui,sans-serif;color:#1E1B1A;background:#fff;resize:none"></textarea>
+        </div>
+      </sc-if>
+      <sc-if value="{{ notesClosed }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ openNotes }}" style="align-self:flex-start;border:none;background:none;color:#8B3648;font:600 13px Manrope,sans-serif;cursor:pointer;text-align:left;padding:0">+ Add a note (optional)</button>
+      </sc-if>
+
+      <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+        <input type="checkbox" checked="{{ agreed }}" onChange="{{ toggleAgree }}" style="margin-top:2px;width:17px;height:17px;flex:none;accent-color:#8B3648" />
+        <span style="font:13px/1.55 system-ui,sans-serif;color:#6B6560">I agree that KiliPicks may use these details to contact this business and update me about this request.</span>
+      </label>
+    </div>
+
+    <div style="flex:none;padding:14px 20px 20px;background:#FBF8F4;border-top:1px solid #EDE6DA">
+      <button onClick="{{ submit }}" disabled="{{ submitDisabled }}" style="{{ submitStyle }}">
+        <sc-if value="{{ submitting }}" hint-placeholder-val="{{ false }}">
+          <svg width="18" height="18" viewBox="0 0 24 24" style="animation:bs-spin .8s linear infinite"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" stroke-width="3" fill="none"/><path d="M21 12a9 9 0 00-9-9" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+        </sc-if>
+        <sc-if value="{{ notSubmitting }}" hint-placeholder-val="{{ true }}">
+          <span>Send availability request</span>
+        </sc-if>
+      </button>
+    </div>
+    </sc-if>
+  </div>
+</x-import>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;timeStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Pills&quot;,&quot;options&quot;:[&quot;Pills&quot;,&quot;Dropdown&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behavior&quot;},&quot;requireConsent&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;}}">
+const SERVICES = ["Beauty salon", "Barbershop", "Spa & massage", "Nail studio"];
+const WEEKDAY_LABELS = ["S","M","T","W","T","F","S"];
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TODAY = new Date(2026, 8, 14);
+
+class Component extends DCLogic {
+  state = {
+    serviceIdx: 0,
+    viewYear: TODAY.getFullYear(),
+    viewMonth: TODAY.getMonth(),
+    selectedDay: null,
+    selectedMonth: TODAY.getMonth(),
+    selectedYear: TODAY.getFullYear(),
+    timeSel: "Flexible",
+    name: "",
+    whatsapp: "",
+    notesOpen: false,
+    notes: "",
+    agreed: false,
+    submitting: false,
+    submitted: false,
+    touchedPhone: false
+  };
+
+  cycleService = () => this.setState(s => ({ serviceIdx: (s.serviceIdx + 1) % SERVICES.length }));
+
+  prevMonth = () => this.setState(s => {
+    let m = s.viewMonth - 1, y = s.viewYear;
+    if (m < 0) { m = 11; y -= 1; }
+    if (y < TODAY.getFullYear() || (y === TODAY.getFullYear() && m < TODAY.getMonth())) return {};
+    return { viewMonth: m, viewYear: y };
+  });
+  nextMonth = () => this.setState(s => {
+    let m = s.viewMonth + 1, y = s.viewYear;
+    if (m > 11) { m = 0; y += 1; }
+    return { viewMonth: m, viewYear: y };
+  });
+  selectDay = (day) => this.setState(s => ({ selectedDay: day, selectedMonth: s.viewMonth, selectedYear: s.viewYear }));
+
+  selectTime = (label) => this.setState({ timeSel: label });
+  setTimeSelect = (e) => this.setState({ timeSel: e.target.value });
+  setName = (e) => this.setState({ name: e.target.value });
+  setWhatsapp = (e) => this.setState({ whatsapp: e.target.value, touchedPhone: true });
+  openNotes = () => this.setState({ notesOpen: true });
+  setNotes = (e) => this.setState({ notes: e.target.value });
+  toggleAgree = () => this.setState(s => ({ agreed: !s.agreed }));
+
+  resetForm = () => this.setState({
+    submitted: false, name: "", whatsapp: "", notes: "", notesOpen: false, agreed: false,
+    selectedDay: null, timeSel: "Flexible", viewMonth: TODAY.getMonth(), viewYear: TODAY.getFullYear()
+  });
+
+  isPhoneValid() {
+    const digits = this.state.whatsapp.replace(/[^0-9]/g, "");
+    return digits.length >= 9;
+  }
+
+  submit = () => {
+    if (this.state.submitting) return;
+    const requireConsent = this.props.requireConsent !== false;
+    if (!this.state.name.trim() || !this.isPhoneValid() || !this.state.selectedDay || (requireConsent && !this.state.agreed)) {
+      this.setState({ touchedPhone: true });
+      return;
+    }
+    this.setState({ submitting: true });
+    setTimeout(() => this.setState({ submitting: false, submitted: true }), 900);
+  };
+
+  renderVals() {
+    const s = this.state;
+    const props = this.props || {};
+    const timeStyle = props.timeStyle || "Pills";
+    const requireConsent = props.requireConsent !== false;
+
+    const firstOfMonth = new Date(s.viewYear, s.viewMonth, 1);
+    const startWeekday = firstOfMonth.getDay();
+    const daysInMonth = new Date(s.viewYear, s.viewMonth + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < startWeekday; i++) cells.push({ label: "", disabled: true, select: () => {}, style: "visibility:hidden" });
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(s.viewYear, s.viewMonth, day);
+      const isPast = cellDate < TODAY;
+      const isToday = cellDate.getTime() === TODAY.getTime();
+      const isSelected = s.selectedDay === day && s.selectedMonth === s.viewMonth && s.selectedYear === s.viewYear;
+      let style = "aspect-ratio:1;border:none;border-radius:10px;font:600 13px Manrope,sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;";
+      if (isSelected) style += "background:#8B3648;color:#fff;";
+      else if (isPast) style += "background:transparent;color:#D9D2C6;cursor:default;";
+      else if (isToday) style += "background:#F6ECD9;color:#1E1B1A;border:1.5px solid #8B3648;";
+      else style += "background:transparent;color:#1E1B1A;";
+      cells.push({ label: String(day), disabled: isPast, select: () => this.selectDay(day), style });
+    }
+
+    const prevDisabled = s.viewYear === TODAY.getFullYear() && s.viewMonth === TODAY.getMonth();
+
+    const timeOptions = ["Morning", "Afternoon", "Evening", "Flexible"].map(label => {
+      const selected = s.timeSel === label;
+      return {
+        label,
+        select: () => this.selectTime(label),
+        pillStyle: `padding:12px 0;border-radius:12px;border:1.5px solid ${selected ? "#8B3648" : "#E4DED6"};background:${selected ? "#8B3648" : "#fff"};color:${selected ? "#fff" : "#1E1B1A"};font:600 14px Manrope,sans-serif;cursor:pointer`
+      };
+    });
+
+    const phoneInvalid = s.touchedPhone && s.whatsapp.length > 0 && !this.isPhoneValid();
+    const canSubmit = s.name.trim().length > 0 && this.isPhoneValid() && !!s.selectedDay && (!requireConsent || s.agreed) && !s.submitting;
+
+    let dateSummary = "Select a date";
+    if (s.selectedDay) {
+      dateSummary = `${MONTH_NAMES[s.selectedMonth].slice(0,3)} ${s.selectedDay}`;
+    }
+
+    return {
+      submitted: s.submitted,
+      notSubmitted: !s.submitted,
+      resetForm: this.resetForm,
+      service: SERVICES[s.serviceIdx],
+      cycleService: this.cycleService,
+      monthLabel: `${MONTH_NAMES[s.viewMonth]} ${s.viewYear}`,
+      prevMonth: this.prevMonth,
+      nextMonth: this.nextMonth,
+      prevDisabled,
+      navBtnStyle: `border:none;background:none;color:${prevDisabled ? "#D9D2C6" : "#1E1B1A"};font-size:18px;cursor:${prevDisabled ? "default" : "pointer"};padding:4px 8px`,
+      weekdayLabels: WEEKDAY_LABELS,
+      calendarCells: cells,
+      dateSummary,
+      isPillTime: timeStyle === "Pills",
+      isDropdownTime: timeStyle === "Dropdown",
+      timeOptions,
+      timeSel: s.timeSel,
+      setTimeSelect: this.setTimeSelect,
+      name: s.name,
+      setName: this.setName,
+      whatsapp: s.whatsapp,
+      setWhatsapp: this.setWhatsapp,
+      phoneBorder: phoneInvalid ? "#8B3648" : "#DED5C6",
+      showPhoneError: phoneInvalid,
+      notesOpen: s.notesOpen,
+      notesClosed: !s.notesOpen,
+      openNotes: this.openNotes,
+      notes: s.notes,
+      setNotes: this.setNotes,
+      agreed: s.agreed,
+      toggleAgree: this.toggleAgree,
+      submit: this.submit,
+      submitting: s.submitting,
+      notSubmitting: !s.submitting,
+      submitDisabled: !canSubmit,
+      submitStyle: `width:100%;box-sizing:border-box;padding:16px;border:none;border-radius:14px;background:${canSubmit ? "#8B3648" : "#DED5C6"};color:#fff;font:700 15px Manrope,sans-serif;display:flex;align-items:center;justify-content:center;cursor:${canSubmit ? "pointer" : "default"}`,
+      formattedWhatsapp: s.whatsapp ? "+" + s.whatsapp.replace(/[^0-9]/g, "") : "your number"
+    };
+  }
+}
+
+</script>
+</body>
+</html>

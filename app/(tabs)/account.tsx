@@ -121,10 +121,17 @@ export default function AccountScreen() {
 
         <Pressable
           style={styles.rowCard}
-          disabled={Boolean(merchant)}
           onPress={() => {
             if (status !== "signed_in") return router.push("/auth");
-            if (merchant) return;
+            if (merchant) {
+              // A merchant identity can exist (e.g. right after the quick
+              // "Switch to seller" form below) before the actual business
+              // profile has been created — landing that merchant on the
+              // dashboard produces an empty, half-broken Overview screen.
+              // Route them into onboarding until a business actually exists.
+              router.push(merchant.hasBusiness ? "/merchant/profile" : "/merchant/onboard/step1");
+              return;
+            }
             setSellerMessage(null);
             setSellerFormOpen((open) => !open);
           }}
@@ -139,13 +146,15 @@ export default function AccountScreen() {
             </Text>
             <Text style={styles.rowCopy}>
               {merchant
-                ? "You can still use KiliPicks as a customer"
+                ? "Open your Business Dashboard →"
                 : merchantNeedsSignIn
                   ? "Your business password was changed separately — a dedicated sign-in is coming soon"
                   : "List your business on KiliPicks"}
             </Text>
           </View>
-          {merchant ? null : <Text style={styles.rowArrow}>{sellerFormOpen ? "⌄" : "›"}</Text>}
+          <Text style={styles.rowArrow}>
+            {merchant ? "›" : sellerFormOpen ? "⌄" : "›"}
+          </Text>
         </Pressable>
 
         {sellerFormOpen && !merchant ? (
@@ -186,6 +195,13 @@ export default function AccountScreen() {
               ) : (
                 <Text style={styles.sellerSubmitText}>Create business account</Text>
               )}
+            </Pressable>
+            {/* Quick-start: go directly to merchant onboarding UI */}
+            <Pressable
+              style={styles.onboardBtn}
+              onPress={() => router.push("/merchant/onboard/step1")}
+            >
+              <Text style={styles.onboardBtnText}>Set up my business profile →</Text>
             </Pressable>
           </View>
         ) : null}
@@ -318,6 +334,15 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.55 },
   sellerSubmitText: { color: colors.white, fontSize: 15, fontWeight: "900" },
+  onboardBtn: {
+    marginTop: spacing.sm,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.clay,
+  },
+  onboardBtnText: { color: colors.clay, fontSize: 14, fontWeight: "700" },
   sectionTitle: {
     color: colors.muted,
     fontSize: 12,

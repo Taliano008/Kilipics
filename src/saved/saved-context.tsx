@@ -34,7 +34,11 @@ export function SavedProvider({ children }: PropsWithChildren) {
   const toggle = useCallback((id: string) => {
     setIds((current) => {
       const next = new Set(current);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...next]));
       return next;
     });

@@ -14,7 +14,8 @@ type EventName =
   | "merchant_shared"
   | "booking_cta_clicked"
   | "booking_started"
-  | "contact_channel_clicked";
+  | "contact_channel_clicked"
+  | "service_added";
 
 type EventProperties = {
   pagePath?: string;

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API_BASE_URL } from "@/config/env";
+import { ANALYTICS_APP_TOKEN, API_BASE_URL } from "@/config/env";
 import { report } from "@/observability/report";
 
 const QUEUE_KEY = "kilipicks.analytics.queue.v1";
@@ -22,31 +22,38 @@ async function ensureLoaded() {
   if (!loadPromise) {
     loadPromise = AsyncStorage.getItem(QUEUE_KEY)
       .then((raw) => {
-        queue = raw ? (JSON.parse(raw) as QueuedEvent[]) : [];
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) queue = parsed;
+          } catch {
+            queue = [];
+          }
+        }
+        loaded = true;
       })
-      .catch((reason) => {
-        report(reason, { scope: "analytics_queue_load" });
+      .catch(() => {
         queue = [];
-      })
-      .finally(() => {
         loaded = true;
       });
   }
-  await loadPromise;
+  return loadPromise;
 }
 
 function persist() {
-  void AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  void AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue)).catch(() => {});
 }
 
-export async function enqueue(event: QueuedEvent) {
+export async function enqueue(event: QueuedEvent): Promise<void> {
   await ensureLoaded();
+  if (queue.length >= MAX_BUFFER) {
+    // Drop oldest to avoid unbounded memory growth
+    queue.shift();
+  }
   queue.push(event);
-  if (queue.length > MAX_BUFFER) queue = queue.slice(queue.length - MAX_BUFFER);
   persist();
-  // Skip while a backoff retry is already scheduled — the pending retry will
-  // pick up everything queued so far (performFlush always sends the full
-  // current queue), so this avoids hammering the network on every event
+
+  // Flush immediately if buffer reaches threshold, but don't re-trigger
   // once the buffer is past the threshold during an outage.
   if (queue.length >= FLUSH_THRESHOLD && !retryTimer) void flush();
 }
@@ -69,7 +76,10 @@ async function performFlush(): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/analytics/events`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-App-Token": ANALYTICS_APP_TOKEN,
+      },
       body: JSON.stringify({ events: batch }),
     });
     if (!response.ok)

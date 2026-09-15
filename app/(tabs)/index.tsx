@@ -1,14 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
-import { CategoryGrid } from "@/components/CategoryGrid";
-import { ProviderCard } from "@/components/ProviderCard";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel } from "@/utils/categories";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -20,9 +19,36 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Icons
+const ICONS = {
+  all: require("../../assets/icons/grid.png"),
+  hair: require("../../assets/icons/massage.png"),
+  barber: require("../../assets/icons/barber.png"),
+  nails: require("../../assets/icons/nail-artist.png"),
+  makeup: require("../../assets/icons/tray.png"),
+  spa: require("../../assets/icons/sauna.png"),
+  gym: require("../../assets/icons/weightlifting.png"),
+  tattoo: require("../../assets/icons/tattoo.png"),
+};
+
+// Mock data
+const COMING_SOON = [
+  { name: 'Restaurants', image: require("../../assets/images/braids_cover.jpg") },
+  { name: 'Events', image: require("../../assets/images/bridal_glam_cover.jpg") },
+  { name: 'Weddings', image: require("../../assets/images/mens_grooming_cover.jpg") },
+];
+
+const NEARBY_PROS = [
+  { name: 'Amina K.', specialty: 'Nail tech', initials: 'AK', bg: '#F6DCE0', fg: '#C1502E' },
+  { name: 'David M.', specialty: 'Barber', initials: 'DM', bg: '#E7DAC3', fg: '#6B4A24' },
+  { name: 'Zainab O.', specialty: 'Makeup artist', initials: 'ZO', bg: '#F6DCE0', fg: '#C1502E' },
+  { name: 'Kevin W.', specialty: 'Personal trainer', initials: 'KW', bg: '#DCE9E2', fg: '#1F4A3D' },
+];
+
 export default function HomeScreen() {
-  const { catalog, loading, error, refresh, refreshing, stale } = useCatalog();
+  const { catalog, loading, error, refresh, refreshing } = useCatalog();
   const router = useRouter();
+
   useEffect(() => {
     void track("page_viewed", {
       pagePath: "/",
@@ -30,11 +56,9 @@ export default function HomeScreen() {
       sourceSection: "home",
     });
   }, []);
+
   const providers = catalog?.providers ?? [];
-  const categoryIds = useMemo(
-    () => [...new Set(providers.map((provider) => provider.categoryId))],
-    [providers],
-  );
+
   const selectCategory = (categoryId: string) => {
     void track("search_submitted", {
       pagePath: "/",
@@ -63,119 +87,42 @@ export default function HomeScreen() {
       .filter((p): p is NonNullable<typeof p> => Boolean(p));
   }, [recentlyViewedIds, providers]);
 
-  const browseChips = useMemo(() => {
-    const chipsMap = new Map<string, string>();
-    for (const p of providers) {
-      if (!p.cover || p.cover.startsWith("provider-placeholder")) continue;
-      const label = p.mainOffering || p.subcategory;
-      if (label && !chipsMap.has(label)) {
-        chipsMap.set(label, p.cover);
-      }
-      if (chipsMap.size >= 6) break;
-    }
-    return Array.from(chipsMap.entries()).map(([label, cover]) => ({ label, cover }));
-  }, [providers]);
-
-  const bookable = useMemo(() => providers.filter(p => !p.limitedListing && p.bookingEnabled), [providers]);
-  const directories = useMemo(() => providers.filter(p => p.limitedListing), [providers]);
-
-  // Find most common area for directory carousel
-  const mostCommonArea = useMemo(() => {
-    const areaCounts = directories.reduce((acc, p) => {
-      if (p.area) acc[p.area] = (acc[p.area] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    const sorted = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
-    return sorted.length > 0 && sorted[0][1] >= 3 ? sorted[0][0] : null;
-  }, [directories]);
-
-  const nearArea = useMemo(() => {
-    if (!mostCommonArea) return [];
-    return directories.filter(p => p.area === mostCommonArea).slice(0, 8);
-  }, [directories, mostCommonArea]);
-
-  const categoryCounts = useMemo(() => {
+  // Derive categories with counts
+  const categoryData = useMemo(() => {
     const counts: Record<string, number> = {};
     counts["all"] = providers.length;
     for (const p of providers) {
       counts[p.categoryId] = (counts[p.categoryId] || 0) + 1;
     }
-    return counts;
+
+    const rawCats = [
+      { id: 'all', label: 'All', icon: ICONS.all, fg: '#1C1A17', bg: '#fff', border: '1.5px solid rgba(28,26,23,0.15)' },
+      { id: 'hair', label: 'Hair', icon: ICONS.hair, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'barber', label: 'Barber', icon: ICONS.barber, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'nails', label: 'Nails', icon: ICONS.nails, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'makeup', label: 'Makeup', icon: ICONS.makeup, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'spa', label: 'Spa', icon: ICONS.spa, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'gym', label: 'Gym', icon: ICONS.gym, fg: '#1F4A3D', bg: '#DCE9E2', border: 'none' },
+      { id: 'tattoo', label: 'Tattoos', icon: ICONS.tattoo, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+    ];
+
+    return rawCats.map(c => ({
+      ...c,
+      count: counts[c.id] || 0,
+    }));
   }, [providers]);
 
-  const renderBookable = () => {
-    if (bookable.length === 0) return null;
-    return (
-      <View style={styles.shelf}>
-        <View style={styles.sectionHeading}>
-          <Text style={styles.heading}>Bookable now</Text>
-          <Pressable onPress={() => router.push({ pathname: "/(tabs)/search", params: { type: "bookable" } })}>
-            <Text style={styles.seeAll}>See all</Text>
-          </Pressable>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-          {bookable.map(p => <ProviderCard key={p.id} provider={p} size="large" />)}
-        </ScrollView>
-      </View>
-    );
-  };
+  const newListings = useMemo(() => {
+    return [...providers].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 6);
+  }, [providers]);
 
-  const renderDirectoryBlock = () => {
-    return (
-      <View style={styles.shelf}>
-        <Pressable
-          style={styles.directoryBanner}
-          onPress={() => router.push({ pathname: "/(tabs)/search", params: { type: "directory" } })}
-        >
-          <Text style={styles.directoryBannerTitle}>{providers.length} beauty businesses across Nairobi</Text>
-          <Text style={styles.directoryBannerCopy}>Limited details until each one joins.</Text>
-          <Text style={styles.directoryBannerCta}>View directory ›</Text>
-        </Pressable>
-        {nearArea.length > 0 ? (
-          <View style={{ marginTop: spacing.md }}>
-            <View style={styles.sectionHeading}>
-              <Text style={styles.heading}>Near {mostCommonArea}</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-              {nearArea.map(p => <ProviderCard key={p.id} provider={p} size="dense" />)}
-            </ScrollView>
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
-  const renderBrowseChips = () => {
-    if (browseChips.length === 0) return null;
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-        {browseChips.map((chip, i) => (
-          <Pressable key={i} style={styles.chip} onPress={() => router.push({ pathname: "/(tabs)/search", params: { q: chip.label } })}>
-            <Image source={{ uri: resolveMediaUrl(chip.cover) || "" }} style={styles.chipImage} contentFit="cover" />
-            <View style={styles.chipScrim} />
-            <Text style={styles.chipText}>{chip.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-    );
-  };
-
-  const renderRecentlyViewed = () => {
-    if (recentlyViewed.length === 0) return null;
-    return (
-      <View style={styles.shelf}>
-        <View style={styles.sectionHeading}>
-          <Text style={styles.heading}>Recently viewed</Text>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-          {recentlyViewed.map(p => <ProviderCard key={p.id} provider={p} size="dense" />)}
-        </ScrollView>
-      </View>
-    );
-  };
+  const nearbyVenues = useMemo(() => {
+    return [...providers].filter(p => !p.limitedListing).slice(0, 5);
+  }, [providers]);
 
   if (loading && !catalog) return <LoadingState />;
   if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
@@ -183,195 +130,443 @@ export default function HomeScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refresh}
-            tintColor={colors.clay}
+            tintColor="#C1502E"
           />
         }
         contentContainerStyle={styles.content}
       >
-        <View style={styles.topbar}>
-          <View style={styles.topbarSpacer} />
-          <View style={styles.topbarLeft}>
-            <Image
-              source={require("../../assets/icons/logo.png")}
-              style={styles.brandLogo}
-              contentFit="contain"
-            />
-            <Text style={styles.location}>⌖ Nairobi</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.logoIcon}>
+              <Text style={styles.logoIconText}>K</Text>
+            </View>
+            <Text style={styles.logoText}>KiliPicks</Text>
           </View>
-          <View style={styles.topbarActions}>
-            <Pressable
-              style={styles.searchFab}
-              onPress={() => router.push("/search-overlay")}
-              accessibilityLabel="Search"
-            >
-              <Text style={styles.searchFabIcon}>⌕</Text>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.searchBtn} onPress={() => router.push("/search-overlay")}>
+              <Text style={styles.searchIcon}>⌕</Text>
             </Pressable>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>K</Text>
+            <View style={styles.avatarBtn}>
+              <Text style={styles.avatarIcon}>👤</Text>
             </View>
           </View>
         </View>
-        {stale ? (
-          <View style={styles.staleBanner}>
-            <Text style={styles.staleText}>
-              Showing saved results from earlier — pull to refresh
-            </Text>
-          </View>
-        ) : null}
+        <Text style={styles.locationText}>Nairobi</Text>
 
-        {renderBrowseChips()}
+        {/* Hero Categories */}
+        <View style={styles.heroRow}>
+          <Pressable style={[styles.heroCard, { backgroundColor: '#5B1830' }]} onPress={() => selectCategory("all")}>
+            <Image source={require("../../assets/images/spa_massage_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <LinearGradient colors={['rgba(165,51,90,0.15)', 'rgba(43,13,24,0.45)', 'rgba(43,13,24,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
+            <View style={styles.heroIconBox}>
+              <Image source={require("../../assets/icons/massage.png")} style={{width:16,height:16,tintColor:'#fff'}} />
+            </View>
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.heroTitle}>Beauty and personal care</Text>
+              <Text style={styles.heroSubtitle}>Explore beauty ›</Text>
+            </View>
+          </Pressable>
 
-        <View style={[styles.sectionHeading, { marginTop: browseChips.length > 0 ? spacing.lg : spacing.md }]}>
-          <View>
-            <Text style={styles.heading}>Explore beauty</Text>
-            <Text style={styles.sectionCopy}>Browse by what you need</Text>
-          </View>
+          <Pressable style={[styles.heroCard, { backgroundColor: '#153E2E' }]} onPress={() => selectCategory("gym")}>
+            <Image source={require("../../assets/images/mens_grooming_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <LinearGradient colors={['rgba(43,107,82,0.15)', 'rgba(11,33,26,0.45)', 'rgba(11,33,26,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
+            <View style={styles.heroIconBox}>
+              <Image source={require("../../assets/icons/weightlifting.png")} style={{width:16,height:16,tintColor:'#fff'}} />
+            </View>
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.heroTitle}>Fitness and wellness</Text>
+              <Text style={styles.heroSubtitle}>View category ›</Text>
+            </View>
+          </Pressable>
         </View>
-        <CategoryGrid categoryIds={categoryIds} counts={categoryCounts} onSelect={selectCategory} />
 
-        {renderRecentlyViewed()}
+        {/* Coming Soon */}
+        <Text style={styles.sectionSubtitle}>More of Nairobi, coming soon</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.comingSoonScroll}>
+          {COMING_SOON.map((item, idx) => (
+            <View key={idx} style={styles.comingSoonCard}>
+              <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <LinearGradient colors={['rgba(28,26,23,0.05)', 'rgba(28,26,23,0.55)']} style={StyleSheet.absoluteFill} />
+              <View style={styles.comingSoonOverlay}>
+                <View style={styles.comingSoonBadge}><Text style={styles.comingSoonBadgeText}>Coming soon</Text></View>
+                <Text style={styles.comingSoonTitle}>• {item.name}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
 
-        {bookable.length > 0 ? renderBookable() : renderDirectoryBlock()}
-
-        {bookable.length > 0 ? renderDirectoryBlock() : null}
-
-        <View style={styles.trust}>
-          <Text style={styles.trustTitle}>
-            Built for confident local choices
-          </Text>
-          <Text style={styles.trustCopy}>
-            Unsigned businesses show only basic discovery information. Services,
-            prices and booking appear only when a business partners with
-            KiliPicks.
-          </Text>
+        {/* Explore Beauty */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Explore beauty</Text>
+          <Text style={styles.sectionSubtitleDark}>Browse by what you need</Text>
         </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreScroll}>
+          {categoryData.map(cat => (
+            <Pressable key={cat.id} style={styles.exploreItem} onPress={() => selectCategory(cat.id)}>
+              <View style={[styles.exploreIconBox, { backgroundColor: cat.bg, borderColor: cat.border !== 'none' ? 'rgba(28,26,23,0.15)' : 'transparent', borderWidth: cat.border !== 'none' ? 1.5 : 0 }]}>
+                {cat.icon && <Image source={cat.icon} style={{ width: 32, height: 32, tintColor: cat.fg }} />}
+              </View>
+              <Text style={styles.exploreItemText}>{cat.label} · {cat.count}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* New to KiliPicks */}
+        <Text style={styles.sectionTitleSpaced}>New to KiliPicks</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+          {newListings.map(item => (
+            <Pressable key={item.id} style={styles.newListingCard} onPress={() => router.push(`/provider/${item.id}`)}>
+              <View style={styles.newListingImageContainer}>
+                <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
+              </View>
+              <Text style={styles.listingTitle} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.listingSubtitle} numberOfLines={1}>{categoryLabel(item.categoryId)}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* Nearby Venues */}
+        <Text style={styles.sectionTitleSpaced}>Nearby venues</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+          {nearbyVenues.map(item => (
+            <Pressable key={item.id} style={styles.venueCard} onPress={() => router.push(`/provider/${item.id}`)}>
+              <View style={styles.venueImageContainer}>
+                <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              </View>
+              <Text style={styles.listingTitle} numberOfLines={1}>{item.name}</Text>
+              <View style={styles.venueMeta}>
+                <Text style={styles.listingSubtitle}>{categoryLabel(item.categoryId)} · {item.distance}</Text>
+                <Text style={styles.venueRating}>★ {item.rating || "New"}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* Nearby Professionals */}
+        <Text style={styles.sectionTitleSpaced}>Nearby professionals</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
+          {NEARBY_PROS.map((pro, idx) => (
+            <View key={idx} style={styles.proCard}>
+              <View style={[styles.proAvatar, { backgroundColor: pro.bg }]}>
+                <Text style={[styles.proInitials, { color: pro.fg }]}>{pro.initials}</Text>
+              </View>
+              <Text style={styles.listingTitle} numberOfLines={1}>{pro.name}</Text>
+              <Text style={styles.listingSubtitle} numberOfLines={1}>{pro.specialty}</Text>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Recently Viewed */}
+        {recentlyViewed.length > 0 && (
+          <>
+            <Text style={styles.sectionTitleSpaced}>Recently viewed</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentScroll}>
+              {recentlyViewed.map(item => (
+                <Pressable key={item.id} style={styles.recentCard} onPress={() => router.push(`/provider/${item.id}`)}>
+                  <View style={styles.recentImageContainer}>
+                    <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                  </View>
+                  <Text style={styles.recentTitle} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.recentSubtitle} numberOfLines={1}>{categoryLabel(item.categoryId)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
-  content: { paddingBottom: 42 },
-  topbar: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+  safe: { flex: 1, backgroundColor: "#FBF7EF" },
+  content: { paddingBottom: 40 },
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingTop: 18,
   },
-  topbarSpacer: {
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  logoIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: "#C1502E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoIconText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1C1A17",
+    letterSpacing: -0.3,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  searchBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    borderColor: "rgba(28,26,23,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  searchIcon: {
+    fontSize: 20,
+    color: "#1C1A17",
+  },
+  avatarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#C1502E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarIcon: {
+    fontSize: 16,
+    color: "#fff",
+  },
+  locationText: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    fontSize: 14,
+    color: "rgba(28,26,23,0.55)",
+  },
+  heroRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+  },
+  heroCard: {
     flex: 1,
+    height: 210,
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  topbarLeft: {
-    alignItems: "flex-start",
+  heroIconBox: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    width: 34,
+    height: 34,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 9,
+    alignItems: "center",
     justifyContent: "center",
-    marginLeft: "auto",
   },
-  brandLogo: {
-    width: 190,
-    height: 40,
-    marginLeft: -4,
-    marginTop: 2,
+  heroTextContainer: {
+    position: "absolute",
+    left: 16,
+    bottom: 16,
+    right: 16,
   },
-  location: {
-    color: colors.muted,
+  heroTitle: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  heroSubtitle: {
+    color: "rgba(255,255,255,0.85)",
     fontSize: 13,
-    marginTop: 4,
-    marginLeft: 3,
+    marginTop: 6,
   },
-  avatar: {
-    width: 42,
-    height: 42,
-    backgroundColor: colors.clay,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
+  sectionSubtitle: {
+    paddingHorizontal: 18,
+    paddingTop: 24,
+    fontSize: 15,
+    color: "rgba(28,26,23,0.55)",
   },
-  avatarText: { color: colors.white, fontSize: 17, fontWeight: "800" },
-  topbarActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  searchFab: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
-    alignItems: "center",
-    justifyContent: "center",
+  comingSoonScroll: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    gap: 10,
   },
-  searchFabIcon: { color: colors.clay, fontSize: 22 },
-  staleBanner: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.sand,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+  comingSoonCard: {
+    width: 130,
+    height: 120,
+    borderRadius: 14,
+    overflow: "hidden",
   },
-  staleText: { color: colors.muted, fontSize: 12 },
-  sectionHeading: {
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
-    flexDirection: "row",
-    alignItems: "flex-end",
+  comingSoonOverlay: {
+    ...StyleSheet.absoluteFill,
+    padding: 10,
     justifyContent: "space-between",
   },
-  heading: { color: colors.ink, fontSize: 25, fontWeight: "900" },
-  sectionCopy: { color: colors.muted, fontSize: 14, marginTop: 4 },
-  seeAll: { color: colors.clay, fontSize: 14, fontWeight: "800" },
-  cards: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    gap: spacing.md,
+  comingSoonBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  shelf: { marginTop: spacing.md },
-  directoryBanner: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    backgroundColor: colors.sand,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
+  comingSoonBadgeText: {
+    fontSize: 11,
+    color: "#1C1A17",
+    fontWeight: "600",
   },
-  directoryBannerTitle: { color: colors.ink, fontSize: 19, fontWeight: "900" },
-  directoryBannerCopy: { color: colors.inkMuted, fontSize: 15, marginTop: 4 },
-  directoryBannerCta: { color: colors.clay, fontSize: 15, fontWeight: "800", marginTop: 12 },
-  trust: {
-    margin: spacing.lg,
-    marginTop: spacing.xl,
-    backgroundColor: colors.successBg,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
+  comingSoonTitle: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  trustTitle: { color: colors.moss, fontSize: 19, fontWeight: "800" },
-  trustCopy: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 8 },
-  chipsScroll: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.sm,
+  sectionHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 28,
   },
-  chip: {
-    width: 110,
-    height: 70,
-    borderRadius: radii.md,
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#1C1A17",
+  },
+  sectionTitleSpaced: {
+    paddingHorizontal: 18,
+    paddingTop: 30,
+    fontSize: 19,
+    fontWeight: "700",
+    color: "#1C1A17",
+  },
+  sectionSubtitleDark: {
+    fontSize: 14,
+    color: "rgba(28,26,23,0.55)",
+    marginTop: 4,
+  },
+  exploreScroll: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    gap: 16,
+  },
+  exploreItem: {
+    alignItems: "center",
+    gap: 8,
+    width: 64,
+  },
+  exploreIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exploreItemText: {
+    fontSize: 12.5,
+    color: "#1C1A17",
+    textAlign: "center",
+  },
+  horizontalScroll: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    gap: 12,
+  },
+  newListingCard: {
+    width: 158,
+    gap: 8,
+  },
+  newListingImageContainer: {
+    height: 110,
+    borderRadius: 14,
     overflow: "hidden",
-    justifyContent: "flex-end",
-    padding: 8,
   },
-  chipImage: {
-    ...StyleSheet.absoluteFillObject,
+  newBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    backgroundColor: "#C1502E",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
   },
-  chipScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
+  newBadgeText: {
+    color: "#fff",
+    fontSize: 10.5,
+    fontWeight: "700",
   },
-  chipText: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: "800",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+  listingTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1C1A17",
+  },
+  listingSubtitle: {
+    fontSize: 12.5,
+    color: "rgba(28,26,23,0.55)",
+  },
+  venueCard: {
+    width: 170,
+    gap: 8,
+  },
+  venueImageContainer: {
+    height: 110,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  venueMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  venueRating: {
+    fontSize: 12.5,
+    color: "#1C1A17",
+  },
+  proCard: {
+    width: 104,
+    alignItems: "center",
+    gap: 8,
+  },
+  proAvatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proInitials: {
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  recentScroll: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 26,
+    gap: 12,
+  },
+  recentCard: {
+    width: 118,
+    gap: 6,
+  },
+  recentImageContainer: {
+    height: 80,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  recentTitle: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: "#1C1A17",
+  },
+  recentSubtitle: {
+    fontSize: 11,
+    color: "rgba(28,26,23,0.5)",
   },
 });

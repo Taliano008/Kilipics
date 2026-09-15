@@ -12,6 +12,13 @@
       "expo-image",
       "./plugins/withWhatsAppQuery.js",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "KiliPicks uses your photos to add pictures of your business.",
+          "cameraPermission": "KiliPicks uses your camera to take pictures of your business."
+        }
+      ],
+      [
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",

@@ -13,6 +13,11 @@ module.exports = defineConfig([
       "web-build/*",
       "backend/*",
       ".kilo/*",
+      // Design-mockup reference material (Inspo/*.html/.jsx are cited in
+      // merchant screen comments as "Matches: Inspo/xxx.html"), not app
+      // source. support.js is itself a generated build artifact ("do not
+      // edit" banner) bundled for previewing those mockups.
+      "Inspo/*",
     ],
   },
   {

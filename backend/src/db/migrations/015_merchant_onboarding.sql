@@ -1,0 +1,5 @@
+ALTER TABLE businesses
+ADD COLUMN onboarding_step INT NOT NULL DEFAULT 1,
+ADD COLUMN submitted_at DATETIME(3) NULL,
+ADD COLUMN travel_radius INT NULL DEFAULT 15,
+ADD COLUMN active_preset VARCHAR(100) NULL DEFAULT 'Mon – Fri, 9 – 6';

@@ -101,6 +101,8 @@ export default Sentry.wrap(function RootLayout() {
                     name="search-overlay"
                     options={{ presentation: "modal" }}
                   />
+                  {/* ── Merchant screens (sub-routes auto-discovered by file-system routing) ── */}
+                  <Stack.Screen name="merchant" />
                 </Stack>
               </UpgradeGate>
             </AuthProvider>

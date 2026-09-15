@@ -5,15 +5,24 @@ import { emailSchema, passwordSchema } from "../../lib/validation.js";
 import { hashPassword, verifyPassword } from "../../services/auth.js";
 import { consumerAuth } from "../../middleware/consumer-auth.js";
 import { issueConsumerToken, revokeConsumerToken, serializeConsumer } from "../../services/consumer-auth.js";
-import { createMerchant, findMerchantForUser, issueMerchantToken } from "../../services/merchant-auth.js";
+import {
+  createMerchant,
+  findBusinessIdForMerchant,
+  findMerchantForUser,
+  issueMerchantToken,
+  serializeMerchant,
+} from "../../services/merchant-auth.js";
 
-function serializeMerchantSummary(merchant) {
-  return {
-    id: merchant.id,
-    fullName: merchant.full_name,
-    email: merchant.email,
-    status: merchant.status,
-  };
+// Every place this router hands back a linked merchant's profile must carry
+// hasBusiness/businessId (see serializeMerchant) — the mobile client's
+// "Switch to seller" entry point (app/(tabs)/account.tsx) relies on
+// hasBusiness to decide whether to open onboarding or the dashboard
+// directly. Leaving it off here (as the old local serializeMerchantSummary
+// did) silently sent every returning merchant — even ones who'd finished
+// onboarding — through onboarding again on their next login or app reload.
+async function serializeLinkedMerchant(merchant) {
+  const businessId = await findBusinessIdForMerchant(merchant.id);
+  return serializeMerchant(merchant, businessId);
 }
 
 export default async function consumerAuthRoutes(app) {
@@ -25,6 +34,10 @@ export default async function consumerAuthRoutes(app) {
   app.post(
     "/signup",
     {
+      // Tighter than the global default — signup/login are the endpoints an
+      // attacker actually wants to hammer (credential stuffing, account
+      // enumeration), so they get their own stricter budget per IP.
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         body: {
           type: "object",
@@ -78,6 +91,7 @@ export default async function consumerAuthRoutes(app) {
   app.post(
     "/login",
     {
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         body: {
           type: "object",
@@ -113,9 +127,10 @@ export default async function consumerAuthRoutes(app) {
       let merchant = null;
       if (linkedMerchant) {
         const merchantPasswordMatches = await verifyPassword(password, linkedMerchant.password_hash);
+        const profile = await serializeLinkedMerchant(linkedMerchant);
         merchant = merchantPasswordMatches
-          ? { token: await issueMerchantToken(linkedMerchant.id), profile: serializeMerchantSummary(linkedMerchant) }
-          : { profile: serializeMerchantSummary(linkedMerchant), needsMerchantSignIn: true };
+          ? { token: await issueMerchantToken(linkedMerchant.id), profile }
+          : { profile, needsMerchantSignIn: true };
       }
 
       return {
@@ -137,7 +152,7 @@ export default async function consumerAuthRoutes(app) {
       consumer: serializeConsumer(user),
       // Shape matches signup/login's merchant field minus the token — /me
       // never issues a new session, only reports whether one could exist.
-      merchant: linkedMerchant ? { profile: serializeMerchantSummary(linkedMerchant) } : null,
+      merchant: linkedMerchant ? { profile: await serializeLinkedMerchant(linkedMerchant) } : null,
     };
   });
 
@@ -149,6 +164,7 @@ export default async function consumerAuthRoutes(app) {
     "/merchant",
     {
       preHandler: consumerAuth,
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: {
         body: {
           type: "object",

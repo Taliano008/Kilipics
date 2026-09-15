@@ -48,12 +48,15 @@ type AuthState = {
   status: AuthStatus;
   user: ConsumerProfile | null;
   merchant: MerchantProfile | null;
+  merchantToken: string | null;
+  consumerToken: string | null;
   merchantLinked: boolean;
   merchantNeedsSignIn: boolean;
   signUpWithEmail: (input: EmailSignUpInput) => Promise<void>;
   signInWithEmail: (input: { email: string; password: string }) => Promise<void>;
   signOut: () => Promise<void>;
   becomeMerchant: (input: { fullName: string; password: string }) => Promise<void>;
+  saveMerchantSession: (token: string, profile?: MerchantProfile) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -179,19 +182,57 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [consumer, consumerToken, persist],
   );
 
+  const saveMerchantSession = useCallback(
+    async (token: string, profile?: MerchantProfile) => {
+      setMerchantToken(token);
+      const updatedProfile = profile || merchant || {
+        id: "m_current",
+        fullName: consumer?.fullName || "Merchant Partner",
+        email: consumer?.email || "",
+        status: "active" as const,
+      };
+      setMerchant(updatedProfile);
+      setMerchantNeedsSignIn(false);
+      if (consumerToken && consumer) {
+        await persist({
+          consumerToken,
+          consumer,
+          merchantToken: token,
+          merchant: updatedProfile,
+        });
+      }
+    },
+    [consumer, consumerToken, merchant, persist],
+  );
+
   const value = useMemo(
     () => ({
       status,
       user: consumer,
       merchant,
+      merchantToken,
+      consumerToken,
       merchantLinked: merchant != null || merchantNeedsSignIn,
       merchantNeedsSignIn,
       signUpWithEmail,
       signInWithEmail,
       signOut,
       becomeMerchant,
+      saveMerchantSession,
     }),
-    [status, consumer, merchant, merchantNeedsSignIn, signUpWithEmail, signInWithEmail, signOut, becomeMerchant],
+    [
+      status,
+      consumer,
+      merchant,
+      merchantToken,
+      consumerToken,
+      merchantNeedsSignIn,
+      signUpWithEmail,
+      signInWithEmail,
+      signOut,
+      becomeMerchant,
+      saveMerchantSession,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

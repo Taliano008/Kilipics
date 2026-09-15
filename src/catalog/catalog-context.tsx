@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchCatalog } from "@/api/catalog";
 import { report } from "@/observability/report";
 import type { PublicCatalogSnapshot } from "@/types/catalog";
+import { MOCK_CATALOG } from "./mock-catalog-data";
 import {
   createContext,
   type PropsWithChildren,
@@ -51,7 +52,6 @@ export function CatalogProvider({ children }: PropsWithChildren) {
       try {
         let next: PublicCatalogSnapshot;
         if (isMockMode) {
-          const { MOCK_CATALOG } = require("./mock-catalog-data");
           next = MOCK_CATALOG;
           await new Promise(resolve => setTimeout(resolve, 300)); // Simulate delay
         } else {
