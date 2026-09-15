@@ -6,6 +6,7 @@ import { resolveMediaUrl } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { categoryLabel } from "@/utils/categories";
+import { savedIcon, starIcon, verifiedBadgeIcon, whatsappIcon } from "@/utils/icon-assets";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
@@ -36,6 +37,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const TAB_BAR_HEIGHT = 50;
 
+// whatsapp is the one channel with a real brand-icon asset (see
+// icon-assets.ts) — rendered specially below instead of through this map.
 const CONTACT_ICONS: Record<ContactChannel["kind"], string> = {
   whatsapp: "💬",
   call: "📞",
@@ -297,7 +300,8 @@ export default function ProviderDetailScreen() {
              </View>
           )}
           <View style={styles.verifiedHeroBadge}>
-            <Text style={styles.verifiedHeroText}>✓ Verified Business</Text>
+            <Image source={verifiedBadgeIcon} style={styles.verifiedHeroIcon} />
+            <Text style={styles.verifiedHeroText}>Verified Business</Text>
           </View>
         </View>
 
@@ -319,7 +323,7 @@ export default function ProviderDetailScreen() {
           </View>
 
           <View style={styles.ratingRow}>
-            <Text style={styles.star}>★</Text>
+            <Image source={starIcon} style={styles.star} />
             <Text style={styles.ratingScore}>{provider.rating?.toFixed(1) ?? "New"}</Text>
             <Text style={styles.reviewCount}>({provider.verifiedCount || 0} reviews)</Text>
             <Text style={styles.divider}>|</Text>
@@ -383,7 +387,11 @@ export default function ProviderDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={channel.label}
                   >
-                    <Text style={styles.contactChipIcon}>{CONTACT_ICONS[channel.kind]}</Text>
+                    {channel.kind === "whatsapp" ? (
+                      <Image source={whatsappIcon} style={styles.contactChipImage} />
+                    ) : (
+                      <Text style={styles.contactChipIcon}>{CONTACT_ICONS[channel.kind]}</Text>
+                    )}
                     <Text style={styles.contactChipText}>{channel.label}</Text>
                   </Pressable>
                 ))}
@@ -525,7 +533,11 @@ export default function ProviderDetailScreen() {
          <Text style={styles.bottomBarServices}>{services.length} services available</Text>
          <View style={styles.bottomBarActions}>
             <Pressable style={styles.btnSave} onPress={() => toggle(provider.id)}>
-               <Text style={styles.btnSaveIcon}>{saved ? "♥" : "♡"}</Text>
+               {saved ? (
+                 <Image source={savedIcon} style={styles.btnSaveImage} />
+               ) : (
+                 <Text style={styles.btnSaveIcon}>♡</Text>
+               )}
                <Text style={styles.btnSaveText}>Save</Text>
             </Pressable>
             <Pressable
@@ -599,11 +611,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 16,
     right: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "#2F5D4B",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
   },
+  verifiedHeroIcon: { width: 16, height: 16 },
   verifiedHeroText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   identity: { paddingHorizontal: 20, paddingTop: 20 },
   identityRow: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
@@ -616,7 +632,7 @@ const styles = StyleSheet.create({
   locationText: { fontSize: 14, color: "#3a3a3a" },
   distanceBadge: { backgroundColor: "#EAF5F0", color: "#2F5D4B", fontSize: 12, fontWeight: "600", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
-  star: { color: "#e8992a", fontSize: 16 },
+  star: { width: 15, height: 15 },
   ratingScore: { fontSize: 14, fontWeight: "700", color: "#3a3a3a" },
   reviewCount: { fontSize: 14, color: "#8a8a8a" },
   divider: { color: "#c9c9c9" },
@@ -654,6 +670,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   contactChipIcon: { fontSize: 15 },
+  contactChipImage: { width: 15, height: 15 },
   contactChipText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
   nearbySection: { marginTop: 30 },
   nearbyScroll: { gap: 14, paddingBottom: 4 },
@@ -709,6 +726,7 @@ const styles = StyleSheet.create({
   bottomBarActions: { flexDirection: "row", gap: 12, alignItems: "center" },
   btnSave: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#F7E9EC", paddingVertical: 14, paddingHorizontal: 20, borderRadius: 26 },
   btnSaveIcon: { color: "#3a3a3a", fontSize: 16 },
+  btnSaveImage: { width: 16, height: 16 },
   btnSaveText: { color: "#3a3a3a", fontSize: 14.5, fontWeight: "600" },
   btnBook: { flex: 1, backgroundColor: "#B3452B", borderRadius: 26, paddingVertical: 11, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
   btnBookContent: { alignItems: "center" },

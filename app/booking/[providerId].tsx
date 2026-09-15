@@ -24,7 +24,7 @@
 import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { useAuth } from "@/auth/auth-context";
-import { colors, radii, spacing } from "@/theme/tokens";
+import { colors, radii, shadow, spacing } from "@/theme/tokens";
 import { normalizeKenyanPhone } from "@/utils/phone";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -110,7 +110,7 @@ function ResultScreen({
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.resultWrap}>
         <View style={styles.resultIcon}>
-          <Text style={styles.resultCheck}>OK</Text>
+          <Text style={styles.resultCheck}>✓</Text>
         </View>
         <Text style={styles.resultTitle}>Request sent to KiliPicks</Text>
         <Text style={styles.resultBody}>
@@ -325,14 +325,16 @@ export default function BookingScreen() {
           <Text style={styles.headerTitle}>Check availability</Text>
         </View>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-          <Text style={styles.closeIcon}>x</Text>
+          <Text style={styles.closeIcon}>×</Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Disclosure banner — most important element, do not soften */}
         <View style={styles.disclosureBanner}>
-          <Text style={styles.disclosureIcon}>i</Text>
+          <View style={styles.disclosureIconWrap}>
+            <Text style={styles.disclosureIcon}>i</Text>
+          </View>
           <Text style={styles.disclosureText}>
             KiliPicks is testing this service. We&rsquo;ll manually contact the
             business and reply on WhatsApp. This is not a confirmed appointment
@@ -592,7 +594,7 @@ const styles = StyleSheet.create({
   },
   headerTitleWrap: { flex: 1, paddingRight: spacing.sm },
   headerEyebrow: {
-    color: colors.clay,
+    color: colors.inkMuted,
     fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -625,7 +627,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
-  disclosureIcon: { color: "#8B5A12", fontSize: 16, marginTop: 2 },
+  disclosureIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(139, 90, 18, 0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  disclosureIcon: { color: "#8B5A12", fontSize: 12, fontWeight: "800" },
   disclosureText: {
     color: "#8B5A12",
     fontSize: 13.5,
@@ -642,6 +653,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     borderWidth: 1,
     borderColor: colors.line,
+    ...shadow,
   },
   contextHeaderRow: {
     flexDirection: "row",
@@ -668,7 +680,7 @@ const styles = StyleSheet.create({
 
   // Section label
   sectionLabel: {
-    color: colors.clay,
+    color: colors.inkMuted,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.4,
@@ -748,6 +760,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: spacing.md,
     marginBottom: spacing.md,
+    ...shadow,
   },
   calendarNav: {
     flexDirection: "row",
@@ -757,7 +770,7 @@ const styles = StyleSheet.create({
   },
   navBtn: { paddingHorizontal: 6, paddingVertical: 4 },
   navArrow: { color: colors.ink, fontSize: 20, fontWeight: "700" },
-  navArrowDisabled: { color: colors.line },
+  navArrowDisabled: { color: colors.muted, opacity: 0.6 },
   monthLabel: { color: colors.ink, fontSize: 14, fontWeight: "800" },
   weekdayRow: { flexDirection: "row", marginBottom: 4 },
   weekdayLabel: {
@@ -778,8 +791,7 @@ const styles = StyleSheet.create({
   },
   calendarCellButton: { borderRadius: radii.sm },
   calendarCellToday: {
-    backgroundColor: colors.sand,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.clay,
   },
   calendarCellSelected: { backgroundColor: colors.clay },
@@ -838,7 +850,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: radii.sm,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.clay,
     alignItems: "center",

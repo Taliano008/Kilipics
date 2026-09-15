@@ -13,6 +13,7 @@ import {
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { categoryLabel as getCategoryLabel } from "@/utils/categories";
 import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { starIcon, verifiedBadgeIcon } from "@/utils/icon-assets";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -242,9 +243,7 @@ export default function MerchantProfile() {
                   {businessName.slice(0, 2).toUpperCase()}
                 </Text>
               </View>
-              <View style={s.logoBadge}>
-                <Text style={s.logoBadgeText}>✓</Text>
-              </View>
+              <Image source={verifiedBadgeIcon} style={s.logoBadge} />
             </View>
             <View style={s.heroInfo}>
               <Text style={s.heroName}>{businessName}</Text>
@@ -253,7 +252,7 @@ export default function MerchantProfile() {
               </Text>
               <View style={s.heroMeta}>
                 <View style={s.ratingChip}>
-                  <Text style={s.ratingStar}>★</Text>
+                  <Image source={starIcon} style={s.ratingStar} />
                   <Text style={s.ratingText}>{ratingVal}</Text>
                 </View>
                 <Text style={s.reviewCount}>
@@ -307,6 +306,8 @@ export default function MerchantProfile() {
           ))}
         </View>
 
+        {activeTab === "Overview" && (
+        <>
         {/* ── Status Banner ── */}
         <View style={s.pendingBanner}>
           <View
@@ -573,6 +574,30 @@ export default function MerchantProfile() {
             )}
           </View>
         </View>
+        </>
+        )}
+
+        {activeTab === "Reviews" && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Reviews</Text>
+            {hasRating || reviewCountVal > 0 ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: ms.xs }}>
+                <View style={s.ratingChip}>
+                  <Image source={starIcon} style={s.ratingStar} />
+                  <Text style={s.ratingText}>{ratingVal}</Text>
+                </View>
+                <Text style={s.reviewCount}>
+                  {reviewCountVal} review{reviewCountVal === 1 ? "" : "s"}
+                </Text>
+              </View>
+            ) : (
+              <Text style={s.aboutText}>
+                No reviews yet. Once customers start booking through KiliPicks, their reviews
+                will show up here.
+              </Text>
+            )}
+          </View>
+        )}
 
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -740,14 +765,13 @@ const s = StyleSheet.create({
   logoWrap:   { position: "relative" },
   logo:       { width: 64, height: 64, borderRadius: mr.xl, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
   logoText:   { color: mc.onPrimaryContainer, fontSize: 20, fontFamily: mf.bold },
-  logoBadge:  { position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: mc.secondary, alignItems: "center", justifyContent: "center" },
-  logoBadgeText: { color: mc.onSecondary, fontSize: 11, fontFamily: mf.bold },
+  logoBadge:  { position: "absolute", bottom: -4, right: -4, width: 20, height: 20 },
   heroInfo:   { flex: 1 },
   heroName:   { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
   heroSub:    { fontSize: 13, color: mc.onSurfaceVariant, marginTop: 2 },
   heroMeta:   { flexDirection: "row", alignItems: "center", gap: ms.xs, marginTop: 6, flexWrap: "wrap" },
   ratingChip: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: mc.surfaceContainerLow, paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full },
-  ratingStar: { fontSize: 14, color: "#e8992a" },
+  ratingStar: { width: 13, height: 13 },
   ratingText: { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   reviewCount: { fontSize: 13, color: mc.onSurfaceVariant },
   seeAll:     { fontSize: 13, fontFamily: mf.semibold, color: mc.primary },

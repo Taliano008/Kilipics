@@ -1,10 +1,20 @@
-import { Image } from "react-native";
+import { Image, Platform } from "react-native";
 import type { PublicCatalogProvider, PublicCatalogSnapshot } from "@/types/catalog";
 
-const braidsUri = Image.resolveAssetSource(require("../../assets/images/braids_cover.jpg")).uri;
-const bridalGlamUri = Image.resolveAssetSource(require("../../assets/images/bridal_glam_cover.jpg")).uri;
-const mensGroomingUri = Image.resolveAssetSource(require("../../assets/images/mens_grooming_cover.jpg")).uri;
-const spaMassageUri = Image.resolveAssetSource(require("../../assets/images/spa_massage_cover.jpg")).uri;
+// On native, `require("*.jpg")` returns an opaque numeric asset id that only
+// Image.resolveAssetSource() can turn into a URI. On web, Metro's asset
+// plugin already resolves the require to a { uri, width, height } object —
+// react-native-web's Image has no resolveAssetSource to call on it at all.
+function assetUri(mod: number | { uri: string }): string {
+  return Platform.OS === "web"
+    ? (mod as { uri: string }).uri
+    : Image.resolveAssetSource(mod as number).uri;
+}
+
+const braidsUri = assetUri(require("../../assets/images/braids_cover.jpg"));
+const bridalGlamUri = assetUri(require("../../assets/images/bridal_glam_cover.jpg"));
+const mensGroomingUri = assetUri(require("../../assets/images/mens_grooming_cover.jpg"));
+const spaMassageUri = assetUri(require("../../assets/images/spa_massage_cover.jpg"));
 
 const MOCK_PROVIDERS: PublicCatalogProvider[] = [
   // 4 Full/claimed, bookingEnabled: true

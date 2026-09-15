@@ -5,6 +5,7 @@ import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel } from "@/utils/categories";
+import { starIcon } from "@/utils/icon-assets";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -238,7 +239,10 @@ export default function HomeScreen() {
               <Text style={styles.listingTitle} numberOfLines={1}>{item.name}</Text>
               <View style={styles.venueMeta}>
                 <Text style={styles.listingSubtitle}>{categoryLabel(item.categoryId)} · {item.distance}</Text>
-                <Text style={styles.venueRating}>★ {item.rating || "New"}</Text>
+                <View style={styles.venueRatingRow}>
+                  <Image source={starIcon} style={styles.venueRatingIcon} />
+                  <Text style={styles.venueRating}>{item.rating || "New"}</Text>
+                </View>
               </View>
             </Pressable>
           ))}
@@ -524,6 +528,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  venueRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  venueRatingIcon: {
+    width: 12,
+    height: 12,
   },
   venueRating: {
     fontSize: 12.5,
