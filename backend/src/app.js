@@ -13,6 +13,7 @@ import merchantBusinessRoutes from "./routes/merchant/business.js";
 import merchantMediaRoutes from "./routes/merchant/media.js";
 import merchantServicesRoutes from "./routes/merchant/services.js";
 import publicCatalogRoutes from "./routes/public/catalog.js";
+import publicAvailabilityRequestRoutes from "./routes/public/availability-requests.js";
 import analyticsRoutes from "./routes/public/analytics.js";
 
 assertEnv();
@@ -85,6 +86,16 @@ app.setErrorHandler((err, request, reply) => {
     };
   }
 
+  // Fastify's own built-in errors (bad JSON body, unsupported content-type,
+  // payload too large, ...) carry a real statusCode/code and are almost
+  // always the client's fault (4xx) — respecting that instead of always
+  // falling through to 500 keeps the response honest and avoids masking a
+  // mundane client bug as a fake "internal_error".
+  if (err.statusCode && err.statusCode < 500) {
+    reply.code(err.statusCode);
+    return { error: err.code || "bad_request", message: err.message };
+  }
+
   request.log.error(err);
   reply.code(500);
   return { error: "internal_error", message: "Something went wrong." };
@@ -101,6 +112,7 @@ await app.register(merchantBusinessRoutes, { prefix: "/api/merchant/business" })
 await app.register(merchantMediaRoutes, { prefix: "/api/merchant/media" });
 await app.register(merchantServicesRoutes, { prefix: "/api/merchant/services" });
 await app.register(publicCatalogRoutes, { prefix: "/api/public" });
+await app.register(publicAvailabilityRequestRoutes, { prefix: "/api/public" });
 await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
 app.get("/healthz", async (request, reply) => {

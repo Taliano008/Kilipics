@@ -25,7 +25,7 @@ export async function getCatalogSnapshot() {
 // public_contacts, payment_settings, service_areas) into JS values already —
 // no manual JSON.parse needed here.
 
-function serializeProvider(row, serviceIdsByBusiness) {
+export function serializeProvider(row, serviceIdsByBusiness) {
   const provider = {
     id: row.id,
     slug: row.slug,
@@ -91,7 +91,7 @@ function serializeProvider(row, serviceIdsByBusiness) {
   return provider;
 }
 
-function serializeService(row) {
+export function serializeService(row) {
   const service = {
     id: row.id,
     providerId: row.business_id,

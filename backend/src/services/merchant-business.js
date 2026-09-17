@@ -1,6 +1,7 @@
-import { execute, queryOne } from "../db/connection.js";
+import { execute, query, queryOne } from "../db/connection.js";
 import { newId } from "../lib/ids.js";
-import { badRequest } from "../lib/http-errors.js";
+import { badRequest, notFound } from "../lib/http-errors.js";
+import { serializeProvider, serializeService } from "./catalog.js";
 
 // Mirrors the category taxonomy the rest of the catalog uses (see
 // src/utils/categories.ts on the mobile side) — categoryId values coming out
@@ -217,8 +218,14 @@ export async function saveStep3(merchantId, { photos, activePreset, days, hoursT
     throw badRequest("Step 1 and Step 2 must be completed before Step 3.");
   }
 
-  const gallery = Array.isArray(photos) ? photos : [];
-  const coverUrl = gallery.length > 0 ? (gallery[0].uri || gallery[0]) : existing.cover_url;
+  // `photos` comes from the client as { uri, label } objects (see
+  // GalleryPhoto in src/api/merchant.ts) — the public catalog schema
+  // requires gallery_urls to be plain strings, so unwrap .uri here rather
+  // than persisting the picker's object shape straight to the DB.
+  const gallery = (Array.isArray(photos) ? photos : [])
+    .map((p) => (typeof p === "string" ? p : p?.uri))
+    .filter((uri) => typeof uri === "string" && uri.length > 0);
+  const coverUrl = gallery.length > 0 ? gallery[0] : existing.cover_url;
   const galleryJson = JSON.stringify(gallery);
 
   let formattedHours = hoursText || "";
@@ -301,4 +308,26 @@ export async function updateBusiness(merchantId, updates) {
 
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
+}
+
+// Renders the merchant's own business through the exact same serializer the
+// public catalog uses, regardless of publication_status — this is what lets
+// app/provider/[id].tsx show a merchant a true preview of their listing
+// (including a still-in-review draft) without waiting for an admin publish.
+export async function getBusinessPreview(merchantId) {
+  const row = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
+  if (!row) {
+    throw notFound("business_not_found", "Complete onboarding before previewing your listing.");
+  }
+
+  const services = await query(
+    "SELECT * FROM services WHERE business_id = ? AND active = 1 ORDER BY sort_order ASC, created_at ASC",
+    [row.id],
+  );
+  const serviceIdsByBusiness = new Map([[row.id, services.map((s) => s.id)]]);
+
+  return {
+    provider: serializeProvider(row, serviceIdsByBusiness),
+    services: services.map(serializeService),
+  };
 }

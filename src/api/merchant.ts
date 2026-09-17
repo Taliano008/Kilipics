@@ -1,4 +1,5 @@
 import { AUTH_API_BASE_URL } from "@/config/env";
+import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
 
 export type DaySchedule = {
   name: string;
@@ -170,6 +171,19 @@ export function uploadMerchantPhoto(
 export function fetchMerchantBusiness(token: string) {
   return request<{ business: MerchantBusiness | null; merchantToken?: string | null }>(
     "/api/merchant/business",
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+}
+
+// Same PublicCatalogProvider/Service shape the consumer catalog uses, but
+// sourced live from the merchant's own business regardless of
+// publicationStatus — lets a merchant preview a still-in-review listing.
+export function fetchMerchantBusinessPreview(token: string) {
+  return request<{ provider: PublicCatalogProvider; services: PublicCatalogService[] }>(
+    "/api/merchant/business/preview",
     {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },

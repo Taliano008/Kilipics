@@ -152,7 +152,7 @@ export default function OnboardSubmitted() {
             </View>
             <View style={s.etaRow}>
               <Text style={s.etaIcon}>🕐</Text>
-              <Text style={s.etaText}>Estimated completion: Tomorrow, 5:00 PM</Text>
+              <Text style={s.etaText}>You can preview your storefront anytime from Profile</Text>
             </View>
           </View>
         </View>

@@ -1,6 +1,7 @@
 import { flexibleMerchantAuth } from "../../middleware/flexible-merchant-auth.js";
 import {
   findBusinessByMerchantId,
+  getBusinessPreview,
   saveStep1,
   saveStep2,
   saveStep3,
@@ -18,6 +19,14 @@ export default async function merchantBusinessRoutes(app) {
       business,
       merchantToken: request.merchant.newMerchantToken || null,
     };
+  });
+
+  // Preview: same shape the public catalog returns, but sourced live from
+  // this merchant's own business regardless of publication_status — powers
+  // the "Consumer view" preview in the seller dashboard.
+  app.get("/preview", async (request) => {
+    const preview = await getBusinessPreview(request.merchant.merchantId);
+    return { ...preview, merchantToken: request.merchant.newMerchantToken || null };
   });
 
   // Step 1: Save basic business details

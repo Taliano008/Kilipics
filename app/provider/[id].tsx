@@ -1,10 +1,13 @@
 import { track } from "@/analytics/events";
+import { useAuth } from "@/auth/auth-context";
 import { useCatalog } from "@/catalog/catalog-context";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { ProviderCard } from "@/components/ProviderCard";
 import { resolveMediaUrl } from "@/config/env";
+import { fetchMerchantBusinessPreview } from "@/api/merchant";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
+import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
 import { savedIcon, starIcon, verifiedBadgeIcon, whatsappIcon } from "@/utils/icon-assets";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -64,27 +67,88 @@ const REVIEWS = [
   { name: 'Brenda O.', initials: 'BO', avatarColor: '#2F5D4B', date: '1 month ago', stars: 4, text: 'Prices are fair for the quality. Will bring my daughter next time too.' },
 ];
 
+// Sentinel id used only by the merchant dashboard's "Consumer view" — see
+// src/components/merchant/DashboardHeader.tsx. Renders this same screen from
+// live merchant-owned data instead of the public catalog, so a merchant can
+// see exactly how their storefront will look before (or after) an admin
+// publishes it — the public catalog only ever contains published businesses.
+const PREVIEW_SENTINEL_ID = "me";
+
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const isPreview = id === PREVIEW_SENTINEL_ID;
+  const { merchantToken, consumerToken } = useAuth();
+  const activeMerchantToken = merchantToken || consumerToken;
   const { catalog, loading, error, refresh } = useCatalog();
   const { isSaved, toggle } = useSaved();
+
+  const [previewData, setPreviewData] = useState<{
+    provider: PublicCatalogProvider;
+    services: PublicCatalogService[];
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(isPreview);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const loadPreview = useCallback(() => {
+    if (!isPreview) return;
+    if (!activeMerchantToken) {
+      setPreviewLoading(false);
+      setPreviewError("Sign in as a merchant to preview your storefront.");
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewError(null);
+    fetchMerchantBusinessPreview(activeMerchantToken)
+      .then((res) => setPreviewData(res))
+      .catch((reason) =>
+        setPreviewError(
+          reason instanceof Error ? reason.message : "Unable to load your business preview",
+        ),
+      )
+      .finally(() => setPreviewLoading(false));
+  }, [isPreview, activeMerchantToken]);
+
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
   const provider = useMemo(
-    () => catalog?.providers.find((item) => item.id === id),
-    [catalog, id],
+    () =>
+      isPreview
+        ? previewData?.provider
+        : catalog?.providers.find((item) => item.id === id),
+    [isPreview, previewData, catalog, id],
   );
   const services = useMemo(
     () =>
-      (catalog?.services ?? []).filter(
-        (service) => service.providerId === id && service.active,
-      ),
-    [catalog, id],
+      isPreview
+        ? (previewData?.services ?? [])
+        : (catalog?.services ?? []).filter(
+            (service) => service.providerId === id && service.active,
+          ),
+    [isPreview, previewData, catalog, id],
   );
   const [contactChannels, setContactChannels] = useState<ContactChannel[]>([]);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
   const [activeSection, setActiveSection] = useState("");
+
+  // provider.hours is a real "Day: time" per-line string set during merchant
+  // onboarding step 3 (see backend/src/services/merchant-business.js
+  // saveStep3) — parse it into rows instead of showing fabricated Sat/Sun
+  // hours whenever the merchant already told us their actual schedule.
+  const weeklyHours = useMemo(() => {
+    if (!provider?.hours) return [];
+    return provider.hours
+      .split("\n")
+      .map((line) => {
+        const [day, ...rest] = line.split(":");
+        return { day: day?.trim(), time: rest.join(":").trim() };
+      })
+      .filter((row) => row.day && row.time);
+  }, [provider]);
 
   const cover = provider ? resolveMediaUrl(provider.cover) : null;
   const gallery = useMemo(
@@ -98,7 +162,7 @@ export default function ProviderDetailScreen() {
   );
 
   const nearbyProviders = useMemo(() => {
-    if (!catalog || !provider || provider.limitedListing) return [];
+    if (isPreview || !catalog || !provider || provider.limitedListing) return [];
     const others = catalog.providers.filter((p) => p.id !== provider.id);
     const sameCategory = others.filter(
       (p) => p.categoryId === provider.categoryId,
@@ -113,7 +177,7 @@ export default function ProviderDetailScreen() {
     }
     pool = pool.slice(0, 8);
     return pool.length >= 3 ? pool : [];
-  }, [catalog, provider]);
+  }, [isPreview, catalog, provider]);
 
   const tabs = useMemo(() => {
     if (!provider || provider.limitedListing) return [];
@@ -127,7 +191,7 @@ export default function ProviderDetailScreen() {
   }, [provider, services, gallery]);
 
   useEffect(() => {
-    if (provider) {
+    if (provider && !isPreview) {
       void track("merchant_profile_viewed", {
         pagePath: `/provider/${provider.id}`,
         pageTitle: provider.name,
@@ -144,7 +208,7 @@ export default function ProviderDetailScreen() {
         void AsyncStorage.setItem("kilipicks.recently_viewed", JSON.stringify(viewed));
       });
     }
-  }, [provider?.id]);
+  }, [provider?.id, isPreview]);
 
   useEffect(() => {
     if (!provider) return;
@@ -228,15 +292,28 @@ export default function ProviderDetailScreen() {
     );
   };
 
-  if (loading && !catalog) return <LoadingState />;
-  if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
-  if (!provider)
-    return (
-      <ErrorState
-        message="This business is no longer available in the public directory."
-        retry={() => router.back()}
-      />
-    );
+  if (isPreview) {
+    if (previewLoading && !previewData) return <LoadingState />;
+    if (previewError && !previewData)
+      return <ErrorState message={previewError} retry={loadPreview} />;
+    if (!provider)
+      return (
+        <ErrorState
+          message="Finish setting up your business to preview your storefront."
+          retry={() => router.back()}
+        />
+      );
+  } else {
+    if (loading && !catalog) return <LoadingState />;
+    if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
+    if (!provider)
+      return (
+        <ErrorState
+          message="This business is no longer available in the public directory."
+          retry={() => router.back()}
+        />
+      );
+  }
 
   const saved = isSaved(provider.id);
 
@@ -285,6 +362,16 @@ export default function ProviderDetailScreen() {
         scrollEventThrottle={32}
         contentContainerStyle={styles.content}
       >
+        {isPreview && (
+          <View style={styles.previewBanner}>
+            <Text style={styles.previewBannerText}>
+              {provider.publicationStatus === "published"
+                ? "Preview — this is how clients see your live listing."
+                : "Draft preview — not visible to clients yet. Your team reviews new listings before they go live."}
+            </Text>
+          </View>
+        )}
+
         {/* Hero Image */}
         <View style={styles.heroContainer}>
           {cover ? (
@@ -482,18 +569,22 @@ export default function ProviderDetailScreen() {
           <View style={styles.hoursSection} onLayout={registerOffset("hours")}>
              <Text style={styles.sectionTitle}>Opening Times</Text>
              <View style={styles.hoursCard}>
-                <View style={styles.hourRow}>
-                   <Text style={styles.hourDay}>Monday - Friday</Text>
-                   <Text style={styles.hourTime}>{provider.hours || "09:00 - 19:00"}</Text>
-                </View>
-                <View style={styles.hourRow}>
-                   <Text style={styles.hourDay}>Saturday</Text>
-                   <Text style={styles.hourTime}>08:00 - 20:00</Text>
-                </View>
-                <View style={[styles.hourRow, { borderBottomWidth: 0 }]}>
-                   <Text style={styles.hourDay}>Sunday</Text>
-                   <Text style={styles.hourTime}>Closed</Text>
-                </View>
+                {weeklyHours.length > 0 ? (
+                  weeklyHours.map((row, idx) => (
+                    <View
+                      key={row.day}
+                      style={[styles.hourRow, idx === weeklyHours.length - 1 && { borderBottomWidth: 0 }]}
+                    >
+                      <Text style={styles.hourDay}>{row.day}</Text>
+                      <Text style={styles.hourTime}>{row.time}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={[styles.hourRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.hourDay}>Hours not set yet</Text>
+                    <Text style={styles.hourTime}>Contact to confirm</Text>
+                  </View>
+                )}
              </View>
 
              <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Additional Information</Text>
@@ -587,6 +678,20 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     marginTop: 44, // Safe area push
     paddingBottom: 112,
+  },
+  previewBanner: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#3A2E1E",
+  },
+  previewBannerText: {
+    color: "#F5E9D3",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   heroContainer: {
     height: 300,
