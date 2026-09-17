@@ -5,35 +5,35 @@
 
 export const mc = {
   // ── Core ──────────────────────────────────────────────────────────────────
-  primary:                 "#99311f",
+  primary:                 "#a73400",
   onPrimary:               "#ffffff",
-  primaryContainer:        "#ba4934",
-  onPrimaryContainer:      "#ffedea",
-  primaryFixed:            "#ffdad3",
-  primaryFixedDim:         "#ffb4a5",
-  onPrimaryFixed:          "#3f0400",
-  onPrimaryFixedVariant:   "#852312",
-  inversePrimary:          "#ffb4a5",
+  primaryContainer:        "#cb4914",
+  onPrimaryContainer:      "#fffbff",
+  primaryFixed:            "#ffdbcf",
+  primaryFixedDim:         "#ffb59c",
+  onPrimaryFixed:          "#390c00",
+  onPrimaryFixedVariant:   "#822700",
+  inversePrimary:          "#ffb59c",
 
   // ── Secondary ─────────────────────────────────────────────────────────────
-  secondary:               "#416658",
+  secondary:               "#625d5a",
   onSecondary:             "#ffffff",
-  secondaryContainer:      "#c1e8d7",
-  onSecondaryContainer:    "#456a5c",
-  secondaryFixed:          "#c3ebda",
-  secondaryFixedDim:       "#a8cfbe",
-  onSecondaryFixed:        "#002117",
-  onSecondaryFixedVariant: "#294d41",
+  secondaryContainer:      "#e6ded9",
+  onSecondaryContainer:    "#67625e",
+  secondaryFixed:          "#e9e1dc",
+  secondaryFixedDim:       "#ccc5c0",
+  onSecondaryFixed:        "#1e1b18",
+  onSecondaryFixedVariant: "#4a4642",
 
   // ── Tertiary ──────────────────────────────────────────────────────────────
-  tertiary:                "#7a4b00",
+  tertiary:                "#006947",
   onTertiary:              "#ffffff",
-  tertiaryContainer:       "#9b6100",
-  onTertiaryContainer:     "#ffefe1",
-  tertiaryFixed:           "#ffddb9",
-  tertiaryFixedDim:        "#ffb962",
-  onTertiaryFixed:         "#2b1700",
-  onTertiaryFixedVariant:  "#663e00",
+  tertiaryContainer:       "#00855b",
+  onTertiaryContainer:     "#f5fff6",
+  tertiaryFixed:           "#6ffbbe",
+  tertiaryFixedDim:        "#4edea3",
+  onTertiaryFixed:         "#002113",
+  onTertiaryFixedVariant:  "#005236",
 
   // ── Error ─────────────────────────────────────────────────────────────────
   error:                   "#ba1a1a",
@@ -42,30 +42,30 @@ export const mc = {
   onErrorContainer:        "#93000a",
 
   // ── Surface ───────────────────────────────────────────────────────────────
-  surface:                 "#fef8f5",
-  onSurface:               "#1d1b1a",
-  surfaceBright:           "#fef8f5",
-  surfaceDim:              "#ded9d6",
-  surfaceVariant:          "#e7e1de",
-  onSurfaceVariant:        "#57423d",
+  surface:                 "#fcf9f4",
+  onSurface:               "#1c1c19",
+  surfaceBright:           "#fcf9f4",
+  surfaceDim:              "#dcdad5",
+  surfaceVariant:          "#e5e2dd",
+  onSurfaceVariant:        "#594139",
 
   surfaceContainerLowest:  "#ffffff",
-  surfaceContainerLow:     "#f8f2ef",
-  surfaceContainer:        "#f3edea",
-  surfaceContainerHigh:    "#ede7e4",
-  surfaceContainerHighest: "#e7e1de",
+  surfaceContainerLow:     "#f6f3ee",
+  surfaceContainer:        "#f0ede9",
+  surfaceContainerHigh:    "#ebe8e3",
+  surfaceContainerHighest: "#e5e2dd",
 
-  inverseSurface:          "#32302e",
-  inverseOnSurface:        "#f5f0ed",
+  inverseSurface:          "#31302d",
+  inverseOnSurface:        "#f3f0eb",
 
   // ── Outline ───────────────────────────────────────────────────────────────
-  outline:                 "#8b716c",
-  outlineVariant:          "#dec0ba",
+  outline:                 "#8d7168",
+  outlineVariant:          "#e1bfb5",
 
   // ── Misc ──────────────────────────────────────────────────────────────────
-  surfaceTint:             "#a63a27",
-  background:              "#fef8f5",
-  onBackground:            "#1d1b1a",
+  surfaceTint:             "#ab3600",
+  background:              "#fcf9f4",
+  onBackground:            "#1c1c19",
 } as const;
 
 /** Spacing scale matching the Inspo CSS custom properties */
@@ -86,6 +86,7 @@ export const mr = {
   md:   12,
   lg:   16,
   xl:   20,
+  "2xl": 24,
   full: 9999,
 } as const;
 
