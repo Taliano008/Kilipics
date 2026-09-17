@@ -8,11 +8,12 @@
  * It collects consumer contact info and sends an availability request to
  * the KiliPicks team, who then manually contacts the business.
  *
- * BACKEND NOTE: There is currently no endpoint to receive this request.
- * Either extend the existing bookings table with a status like
- * "availability_request", or create a dedicated table. Someone on the team
- * needs to set up the real notification path — right now nothing tells a
- * human that this request landed.
+ * BACKEND NOTE: POSTs to /api/public/availability-requests (see
+ * backend/src/routes/public/availability-requests.js), which persists to
+ * the dedicated `availability_requests` table. A human currently sees new
+ * requests via the AdminJS panel (backend/src/admin) — there is no
+ * real-time push notification (WhatsApp/SMS/email) yet, since none of
+ * those providers are configured. Someone still needs to check the panel.
  *
  * PRIVACY NOTE: This is the first screen collecting a real name and WhatsApp
  * number from a consumer. The consent checkbox links to the privacy notice.
@@ -22,6 +23,7 @@
  */
 
 import { track } from "@/analytics/events";
+import { submitAvailabilityRequest } from "@/api/availability-requests";
 import { useCatalog } from "@/catalog/catalog-context";
 import { useAuth } from "@/auth/auth-context";
 import { colors, radii, shadow, spacing } from "@/theme/tokens";
@@ -190,6 +192,7 @@ export default function BookingScreen() {
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const today = useMemo(() => startOfDay(new Date()), []);
 
@@ -243,41 +246,38 @@ export default function BookingScreen() {
     }
 
     setSubmitting(true);
+    setSubmitError(null);
 
-    const payload = {
-      providerId: provider.id,
-      providerName: provider.name,
-      serviceId: service.id,
-      serviceName: service.name,
-      consumerName: name.trim(),
-      whatsappNumber: normalizeKenyanPhone(phone) ?? phone,
-      preferredDate: selectedDate?.toISOString().slice(0, 10),
-      preferredTime,
-      notes: notes.trim(),
-    };
-
-    // TODO (backend): wire up a real endpoint.
-    // POST /api/availability-requests
-    // (or bookings with status="availability_request")
-    //
-    // Simulate a short network round-trip so the loading state
-    // is visible. Remove the setTimeout once the endpoint exists.
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    console.log("[availability_request]", payload);
-
-    void track("booking_started", {
-      merchantId: provider.id,
-      merchantName: provider.name,
-      pagePath: `/booking/${provider.id}`,
-      metadata: {
+    try {
+      await submitAvailabilityRequest({
+        businessId: provider.id,
         serviceId: service.id,
-        serviceName: service.name,
-        stage: "availability_request_submitted",
-      },
-    });
+        consumerName: name.trim(),
+        whatsappNumber: normalizeKenyanPhone(phone) ?? phone,
+        preferredDate: selectedDate?.toISOString().slice(0, 10) ?? "",
+        preferredTime,
+        notes: notes.trim(),
+      });
 
-    setSubmitting(false);
-    setSubmitted(true);
+      void track("booking_started", {
+        merchantId: provider.id,
+        merchantName: provider.name,
+        pagePath: `/booking/${provider.id}`,
+        metadata: {
+          serviceId: service.id,
+          serviceName: service.name,
+          stage: "availability_request_submitted",
+        },
+      });
+
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "We couldn't send that request. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }, [canSubmit, submitting, provider, service, name, phone, selectedDate, preferredTime, notes]);
 
   // Access gate
@@ -558,6 +558,7 @@ export default function BookingScreen() {
         </Pressable>
 
         {/* Submit */}
+        {submitError && <Text style={styles.submitError}>{submitError}</Text>}
         <Pressable
           style={[styles.submitBtn, !canSubmit && styles.submitDisabled]}
           onPress={handleSubmit}
@@ -873,6 +874,13 @@ const styles = StyleSheet.create({
   },
 
   // Submit button
+  submitError: {
+    color: colors.clay,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+    textAlign: "center",
+  },
   submitBtn: {
     backgroundColor: colors.clay,
     borderRadius: radii.md,

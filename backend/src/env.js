@@ -9,6 +9,13 @@ const PLACEHOLDER_VALUES = new Set([
 
 export const env = Object.freeze({
   port: Number(process.env.PORT) || 3000,
+  // Runs as its own Fastify instance/process (see src/admin/server.js), not
+  // mounted into the main API — @adminjs/fastify's session/cookie/formbody
+  // plugins are Fastify-5-only, while the main app is still on Fastify 4,
+  // and (separately) its own bundled multipart plugin collides with the
+  // main app's if both are registered on one instance. Keeping it a
+  // separate process sidesteps both problems entirely.
+  adminPort: Number(process.env.ADMIN_PORT) || 3050,
   nodeEnv: process.env.NODE_ENV || "development",
 
   dbHost: process.env.DB_HOST || "localhost",

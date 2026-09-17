@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "nodemon --watch src --ext js,json,sql src/app.js",
     "start": "node src/app.js",
+    "admin:dev": "nodemon --watch src --ext js,json,sql src/admin/server.js",
+    "admin:start": "node src/admin/server.js",
     "migrate": "node migrations.js",
     "migrate:status": "node migrations.js --status",
     "init:env": "node scripts/init-env.mjs",
@@ -18,18 +20,18 @@
     "check:open-now": "node scripts/check-open-now.mjs"
   },
   "dependencies": {
-    "fastify": "^4",
+    "@adminjs/fastify": "3.0.1",
+    "@adminjs/sql": "^2",
     "@fastify/cors": "^9",
-    "@fastify/static": "^7",
     "@fastify/multipart": "^8",
     "@fastify/rate-limit": "^9",
-    "mysql2": "^3",
-    "bcrypt": "^5",
-    "ulid": "^2",
+    "@fastify/static": "^7",
     "adminjs": "^7",
-    "@adminjs/fastify": "^4",
-    "@adminjs/sql": "^2",
-    "dotenv": "^16"
+    "bcrypt": "^5",
+    "dotenv": "^16",
+    "fastify": "^4",
+    "mysql2": "^3",
+    "ulid": "^2"
   },
   "devDependencies": {
     "nodemon": "^3"
