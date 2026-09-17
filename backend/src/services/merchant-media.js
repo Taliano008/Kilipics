@@ -13,9 +13,11 @@ import { env } from "../env.js";
 // HEIC to JPEG, but a future direct-camera or web upload path might not).
 const ALLOWED_MIME_TO_EXT = {
   "image/jpeg": "jpg",
+  "image/jpg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  "image/heif": "heic",
 };
 
 const ALLOWED_PURPOSES = new Set(["cover", "gallery", "look", "service"]);

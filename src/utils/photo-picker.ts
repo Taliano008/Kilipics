@@ -20,21 +20,29 @@ export type PhotoPickResult =
   | { status: "canceled" }
   | { status: "permission_denied" };
 
+// Some OEM camera apps/OS versions report nonstandard mime types (e.g.
+// "image/jpg" instead of "image/jpeg", or "image/heif" instead of
+// "image/heic") or omit mimeType entirely. The backend only whitelists the
+// canonical four types, so anything reported verbatim here needs
+// normalizing first or a real photo gets rejected as "unsupported format".
+function normalizeMimeType(mimeType: string | null | undefined, fallbackExt: string | undefined): string {
+  const raw = (mimeType || "").toLowerCase();
+  if (raw === "image/jpeg" || raw === "image/png" || raw === "image/webp" || raw === "image/heic") return raw;
+  if (raw === "image/jpg") return "image/jpeg";
+  if (raw === "image/heif") return "image/heic";
+  if (fallbackExt === "png") return "image/png";
+  if (fallbackExt === "webp") return "image/webp";
+  if (fallbackExt === "heic" || fallbackExt === "heif") return "image/heic";
+  return "image/jpeg";
+}
+
 function toPickedPhoto(asset: ImagePicker.ImagePickerAsset): PickedPhoto {
   const fallbackExt = asset.uri.split(".").pop()?.toLowerCase();
   const name =
     asset.fileName ||
     asset.uri.split("/").pop() ||
     `photo-${Date.now()}.${fallbackExt === "png" ? "png" : "jpg"}`;
-  const mimeType =
-    asset.mimeType ||
-    (fallbackExt === "png"
-      ? "image/png"
-      : fallbackExt === "webp"
-        ? "image/webp"
-        : fallbackExt === "heic"
-          ? "image/heic"
-          : "image/jpeg");
+  const mimeType = normalizeMimeType(asset.mimeType, fallbackExt);
   return { uri: asset.uri, name, mimeType };
 }
 
