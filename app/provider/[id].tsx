@@ -130,6 +130,17 @@ export default function ProviderDetailScreen() {
     loadPreview();
   }, [loadPreview]);
 
+  // The catalog context only fetches once per app session (see
+  // catalog-context.tsx) and this screen otherwise just reads whatever
+  // snapshot is already in memory — so a merchant's just-uploaded gallery
+  // or service photos won't show up here until something revalidates.
+  // Do that revalidation ourselves rather than relying on the visitor to
+  // have pulled-to-refresh elsewhere first.
+  useEffect(() => {
+    if (!isPreview) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreview, id]);
+
   const provider = useMemo(
     () =>
       isPreview
