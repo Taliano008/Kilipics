@@ -14,7 +14,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Sentry from "@sentry/react-native";
 
 Sentry.init({
-  dsn: "https://743083dead90d9d3c57d657aa756b762@o4512021410742272.ingest.de.sentry.io/4512021677408336",
+  // Set in .env (local) / EAS secrets (builds). Leaving it unset disables
+  // Sentry rather than crashing, so this is safe to omit in dev.
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
 
   // Adds more context data to events (IP address, cookies, user, etc.)
   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/

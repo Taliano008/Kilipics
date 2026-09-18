@@ -1,7 +1,6 @@
 node_modules/
 .env
 .adminjs/
-uploads/*
-!uploads/*/
-!uploads/*/.gitkeep
+uploads/**
+!uploads/**/.gitkeep
 *.log

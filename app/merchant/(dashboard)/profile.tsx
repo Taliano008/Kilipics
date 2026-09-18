@@ -35,6 +35,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -64,6 +65,7 @@ export default function ProfileScreen() {
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!activeToken) return;
@@ -73,6 +75,18 @@ export default function ProfileScreen() {
       .catch(() => {})
       .finally(() => setServicesLoading(false));
   }, [activeToken]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    refresh();
+    if (activeToken) {
+      try {
+        const res = await fetchMerchantServices(activeToken);
+        setServices(res.services);
+      } catch {}
+    }
+    setRefreshing(false);
+  };
 
   const showToast = (message: string) => {
     setToast(message);
@@ -191,7 +205,13 @@ export default function ProfileScreen() {
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Profile" />
       <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} tintColor={mc.primary} />
+          }
+        >
           <View style={s.hero}>
             {business?.coverUrl ? (
               <Image source={{ uri: business.coverUrl }} style={StyleSheet.absoluteFill} />
