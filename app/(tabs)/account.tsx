@@ -1,5 +1,7 @@
 import { track } from "@/analytics/events";
+import { uploadConsumerPhoto } from "@/api/auth";
 import { useAuth } from "@/auth/auth-context";
+import { CameraModal } from "@/components/CameraModal";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
@@ -7,11 +9,13 @@ import { colors, radii, spacing } from "@/theme/tokens";
 import {
   adminIcon,
   bookingIcon,
+  cameraIcon,
   ringingIcon,
   savedIcon,
   verifiedBadgeIcon,
   whatsappIcon,
 } from "@/utils/icon-assets";
+import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
@@ -20,6 +24,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   type ImageSourcePropType,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -77,12 +82,17 @@ function Row({
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { status, user, merchant, merchantNeedsSignIn, signOut, becomeMerchant } = useAuth();
+  const { status, user, merchant, merchantNeedsSignIn, signOut, becomeMerchant, consumerToken, updateProfile } =
+    useAuth();
   const [sellerFormOpen, setSellerFormOpen] = useState(false);
   const [sellerBusinessName, setSellerBusinessName] = useState("");
   const [sellerPassword, setSellerPassword] = useState("");
   const [sellerPending, setSellerPending] = useState(false);
   const [sellerMessage, setSellerMessage] = useState<string | null>(null);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [avatarCameraOpen, setAvatarCameraOpen] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const { ids } = useSaved();
   const savedCount = ids.size;
   const supportAvailable = SUPPORT_WHATSAPP_NUMBER.length > 0;
@@ -112,6 +122,42 @@ export default function AccountScreen() {
     } finally {
       setSellerPending(false);
     }
+  };
+
+  const appendAvatarPhoto = async (photo: { uri: string; name: string; mimeType: string }) => {
+    if (!consumerToken) return;
+    setUploadingAvatar(true);
+    try {
+      const uploaded = await uploadConsumerPhoto(consumerToken, photo);
+      await updateProfile(uploaded.consumer);
+      setAvatarModalOpen(false);
+    } catch (reason) {
+      report(reason, { scope: "update_profile_photo" });
+      setAvatarError(reason instanceof Error ? reason.message : "Couldn't upload that photo. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const pickAvatarFrom = async (source: "camera" | "library") => {
+    setAvatarError(null);
+    if (source === "camera") {
+      setAvatarCameraOpen(true);
+      return;
+    }
+    const result = await pickPhotoFromLibrary();
+    if (result.status === "canceled") return;
+    if (result.status === "permission_denied") {
+      setAvatarError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
+      return;
+    }
+    await appendAvatarPhoto(result.photo);
+  };
+
+  const handleAvatarPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    setAvatarCameraOpen(false);
+    const compressed = await compressPhoto(rawPhoto);
+    await appendAvatarPhoto(compressed);
   };
 
   return (
@@ -146,9 +192,25 @@ export default function AccountScreen() {
         ) : null}
         {status === "signed_in" && user ? (
           <View style={styles.profileHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(user.fullName)}</Text>
-            </View>
+            <Pressable
+              style={styles.avatarWrap}
+              onPress={() => {
+                setAvatarError(null);
+                setAvatarModalOpen(true);
+              }}
+              accessibilityLabel="Edit profile picture"
+            >
+              <View style={styles.avatar}>
+                {user.photoUrl ? (
+                  <Image source={{ uri: user.photoUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user.fullName)}</Text>
+                )}
+              </View>
+              <View style={styles.avatarEditBadge}>
+                <Image source={cameraIcon} style={styles.avatarEditIcon} />
+              </View>
+            </Pressable>
             <Text style={styles.signedInTitle}>{user.fullName}</Text>
             <Text style={styles.signedInEmail}>{user.email}</Text>
             <Text style={styles.signedInRole}>
@@ -332,6 +394,65 @@ export default function AccountScreen() {
 
         <Text style={styles.version}>KiliPicks {APP_VERSION}</Text>
       </ScrollView>
+
+      <Modal
+        visible={avatarModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setAvatarModalOpen(false);
+          setAvatarError(null);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.editCard}>
+            <View style={styles.formHeader}>
+              <Text style={styles.formTitle}>Update profile picture</Text>
+              <Pressable
+                style={styles.modalCloseBtn}
+                onPress={() => {
+                  setAvatarModalOpen(false);
+                  setAvatarError(null);
+                }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {avatarError ? <Text style={styles.message}>{avatarError}</Text> : null}
+
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Pressable
+                style={[styles.avatarModalBtn, uploadingAvatar && styles.disabled]}
+                disabled={uploadingAvatar}
+                onPress={() => void pickAvatarFrom("camera")}
+              >
+                <Text style={styles.avatarModalBtnText}>Take Photo</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.avatarModalBtn, styles.avatarModalBtnSecondary, uploadingAvatar && styles.disabled]}
+                disabled={uploadingAvatar}
+                onPress={() => void pickAvatarFrom("library")}
+              >
+                <Text style={[styles.avatarModalBtnText, styles.avatarModalBtnTextSecondary]}>From Library</Text>
+              </Pressable>
+            </View>
+
+            {uploadingAvatar ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.sm }}>
+                <ActivityIndicator color={colors.clay} size="small" />
+                <Text style={styles.rowCopy}>Uploading photo…</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <CameraModal
+        visible={avatarCameraOpen}
+        onClose={() => setAvatarCameraOpen(false)}
+        onPictureTaken={(photo) => void handleAvatarPictureTaken(photo)}
+      />
     </SafeAreaView>
   );
 }
@@ -373,6 +494,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingHorizontal: spacing.md,
   },
+  avatarWrap: { position: "relative" },
   avatar: {
     width: 84,
     height: 84,
@@ -380,8 +502,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sand,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  avatarImage: { width: 84, height: 84 },
   avatarText: { color: colors.clay, fontSize: 28, fontWeight: "900" },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.clay,
+    borderWidth: 2,
+    borderColor: colors.sand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarEditIcon: { width: 14, height: 14, tintColor: colors.white },
   signedInTitle: {
     color: colors.ink,
     fontSize: 20,
@@ -500,4 +638,38 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     textAlign: "center",
   },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.5)", justifyContent: "flex-end" },
+  editCard: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  formHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  formTitle: { color: colors.ink, fontSize: 16, fontWeight: "800" },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.sand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCloseText: { color: colors.ink, fontSize: 14, fontWeight: "700" },
+  avatarModalBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.clay,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarModalBtnSecondary: {
+    backgroundColor: colors.sand,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  avatarModalBtnText: { color: colors.white, fontSize: 14, fontWeight: "800" },
+  avatarModalBtnTextSecondary: { color: colors.ink },
 });

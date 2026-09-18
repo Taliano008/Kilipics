@@ -57,6 +57,7 @@ type AuthState = {
   signOut: () => Promise<void>;
   becomeMerchant: (input: { fullName: string; password: string }) => Promise<void>;
   saveMerchantSession: (token: string, profile?: MerchantProfile) => Promise<void>;
+  updateProfile: (profile: ConsumerProfile) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -205,6 +206,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [consumer, consumerToken, merchant, persist],
   );
 
+  const updateProfile = useCallback(
+    async (profile: ConsumerProfile) => {
+      if (!consumerToken) return;
+      await persist({ consumerToken, consumer: profile, merchantToken, merchant });
+    },
+    [consumerToken, merchantToken, merchant, persist],
+  );
+
   const value = useMemo(
     () => ({
       status,
@@ -219,6 +228,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       becomeMerchant,
       saveMerchantSession,
+      updateProfile,
     }),
     [
       status,
@@ -232,6 +242,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       becomeMerchant,
       saveMerchantSession,
+      updateProfile,
     ],
   );
 

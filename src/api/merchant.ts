@@ -36,6 +36,7 @@ export type MerchantBusiness = {
   positioning: string;
   about: string;
   coverUrl?: string | null;
+  logoUrl?: string | null;
   galleryUrls: string[];
   onboardingStep: number;
   submittedAt?: string | null;
@@ -147,7 +148,7 @@ import * as FileSystem from "expo-file-system/legacy";
 export async function uploadMerchantPhoto(
   token: string,
   photo: { uri: string; name: string; mimeType: string },
-  purpose?: "cover" | "gallery" | "look" | "service",
+  purpose?: "cover" | "gallery" | "look" | "service" | "logo",
 ) {
   const uploadResponse = await FileSystem.uploadAsync(
     `${AUTH_API_BASE_URL}/api/merchant/media/photos`,

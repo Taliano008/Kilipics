@@ -8,6 +8,7 @@ import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import { ApiError } from "./lib/http-errors.js";
 import consumerAuthRoutes from "./routes/auth/consumer.js";
+import consumerMediaRoutes from "./routes/consumer/media.js";
 import merchantAuthRoutes from "./routes/auth/merchant.js";
 import merchantBusinessRoutes from "./routes/merchant/business.js";
 import merchantMediaRoutes from "./routes/merchant/media.js";
@@ -107,6 +108,7 @@ app.setErrorHandler((err, request, reply) => {
 // them (a consumer creating a linked merchant identity), and it lives in the
 // consumer route tree since it requires a consumer session.
 await app.register(consumerAuthRoutes, { prefix: "/api/auth/consumer" });
+await app.register(consumerMediaRoutes, { prefix: "/api/consumer/media" });
 await app.register(merchantAuthRoutes, { prefix: "/api/auth/merchant" });
 await app.register(merchantBusinessRoutes, { prefix: "/api/merchant/business" });
 await app.register(merchantMediaRoutes, { prefix: "/api/merchant/media" });

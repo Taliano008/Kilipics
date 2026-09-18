@@ -6,6 +6,7 @@ export type ConsumerProfile = {
   id: string;
   fullName: string;
   email: string;
+  photoUrl?: string | null;
 };
 
 export type MerchantProfile = {
@@ -123,4 +124,44 @@ export function signOutMerchant(merchantToken: string) {
     method: "POST",
     headers: { Authorization: `Bearer ${merchantToken}` },
   });
+}
+
+// Separate from request<T>() on purpose: that helper always forces
+// Content-Type: application/json, which would break multipart here — the
+// runtime needs to set Content-Type itself (with the boundary) when the
+// body is a FormData. Mirrors uploadMerchantPhoto in src/api/merchant.ts.
+import * as FileSystem from "expo-file-system/legacy";
+
+export async function uploadConsumerPhoto(
+  consumerToken: string,
+  photo: { uri: string; name: string; mimeType: string },
+) {
+  const uploadResponse = await FileSystem.uploadAsync(
+    `${AUTH_API_BASE_URL}/api/consumer/media/photo`,
+    photo.uri,
+    {
+      fieldName: "photo",
+      httpMethod: "POST",
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      headers: { Authorization: `Bearer ${consumerToken}` },
+      mimeType: photo.mimeType,
+    },
+  );
+
+  let payload: ({ ok: true; consumer: ConsumerProfile } & ApiErrorPayload) | null = null;
+  try {
+    payload = JSON.parse(uploadResponse.body);
+  } catch {
+    // leave payload as null
+  }
+
+  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+    const error = new Error(
+      payload?.message ?? "We couldn't upload that photo. Please try again.",
+    ) as ApiError;
+    error.code = payload?.error;
+    throw error;
+  }
+
+  return payload as { ok: true; consumer: ConsumerProfile };
 }

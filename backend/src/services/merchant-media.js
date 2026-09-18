@@ -20,7 +20,7 @@ const ALLOWED_MIME_TO_EXT = {
   "image/heif": "heic",
 };
 
-const ALLOWED_PURPOSES = new Set(["cover", "gallery", "look", "service"]);
+const ALLOWED_PURPOSES = new Set(["cover", "gallery", "look", "service", "logo"]);
 
 // Saves one already-received multipart file part to disk under
 // uploadsDir/merchants/<merchantId>/ and records it in media_uploads.

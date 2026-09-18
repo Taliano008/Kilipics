@@ -66,6 +66,7 @@ export function serializeMerchantBusiness(row) {
     positioning: row.positioning || "",
     about: row.about || row.positioning || "",
     coverUrl: row.cover_url,
+    logoUrl: row.logo_url,
     galleryUrls: safeJson(row.gallery_urls, []),
     onboardingStep: row.onboarding_step ?? 1,
     submittedAt: row.submitted_at,
@@ -281,7 +282,7 @@ export async function updateBusiness(merchantId, updates) {
 
   const allowed = [
     "name", "about", "positioning", "hours", "phone", "email",
-    "full_address", "area", "cover_url", "gallery_urls", "booking_enabled"
+    "full_address", "area", "cover_url", "logo_url", "gallery_urls", "booking_enabled"
   ];
   const setClauses = [];
   const values = [];

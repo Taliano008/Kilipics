@@ -65,6 +65,10 @@ export default function ProfileScreen() {
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
+  const [logoModalOpen, setLogoModalOpen] = useState(false);
+  const [logoCameraOpen, setLogoCameraOpen] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -187,6 +191,44 @@ export default function ProfileScreen() {
     await appendGalleryPhoto(compressed);
   };
 
+  const appendLogoPhoto = async (photo: { uri: string; name: string; mimeType: string }) => {
+    if (!activeToken) return;
+    setUploadingLogo(true);
+    try {
+      const uploaded = await uploadMerchantPhoto(activeToken, photo, "logo");
+      await updateMerchantBusiness(activeToken, { logoUrl: uploaded.url });
+      refresh();
+      setLogoModalOpen(false);
+      showToast("Business logo updated");
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const addLogoPhotoFrom = async (source: "camera" | "library") => {
+    if (!activeToken) return;
+    setLogoError(null);
+    if (source === "camera") {
+      setLogoCameraOpen(true);
+      return;
+    }
+    const result = await pickPhotoFromLibrary();
+    if (result.status === "canceled") return;
+    if (result.status === "permission_denied") {
+      setLogoError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
+      return;
+    }
+    await appendLogoPhoto(result.photo);
+  };
+
+  const handleLogoPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    setLogoCameraOpen(false);
+    const compressed = await compressPhoto(rawPhoto);
+    await appendLogoPhoto(compressed);
+  };
+
   const removeGalleryPhoto = async (url: string) => {
     if (!activeToken) return;
     setRemovingGalleryUrl(url);
@@ -238,16 +280,30 @@ export default function ProfileScreen() {
           <View style={s.body}>
             <View style={s.card}>
               <View style={s.cardTopRow}>
-                <View style={s.avatarWrap}>
+                <Pressable
+                  style={s.avatarWrap}
+                  onPress={() => {
+                    setLogoError(null);
+                    setLogoModalOpen(true);
+                  }}
+                  accessibilityLabel="Edit business logo"
+                >
                   <View style={s.avatar}>
-                    <Text style={s.avatarText}>{initials}</Text>
+                    {business?.logoUrl ? (
+                      <Image source={{ uri: business.logoUrl }} style={StyleSheet.absoluteFill} />
+                    ) : (
+                      <Text style={s.avatarText}>{initials}</Text>
+                    )}
                   </View>
                   {business?.verified && (
                     <View style={s.verifiedDot}>
                       <MaterialIcons name="verified" size={14} color={mc.onTertiary} />
                     </View>
                   )}
-                </View>
+                  <View style={s.avatarEditBadge}>
+                    <MaterialIcons name="photo-camera" size={12} color={mc.onPrimary} />
+                  </View>
+                </Pressable>
                 <Pressable
                   style={s.editBtn}
                   onPress={() => {
@@ -709,6 +765,75 @@ export default function ProfileScreen() {
         onClose={() => setGalleryCameraOpen(false)}
         onPictureTaken={(photo) => void handleGalleryPictureTaken(photo)}
       />
+
+      <Modal
+        visible={logoModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setLogoModalOpen(false);
+          setLogoError(null);
+        }}
+      >
+        <View style={s.modalBackdrop}>
+          <View style={s.editCard}>
+            <View style={s.formHeader}>
+              <Text style={s.formTitle}>Update business logo</Text>
+              <Pressable
+                style={s.modalCloseBtn}
+                onPress={() => {
+                  setLogoModalOpen(false);
+                  setLogoError(null);
+                }}
+              >
+                <MaterialIcons name="close" size={16} color={mc.onSurface} />
+              </Pressable>
+            </View>
+
+            {logoError ? (
+              <Text style={{ color: mc.error, fontSize: 12.5, fontFamily: mf.medium }}>{logoError}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: "row", gap: ms.sm }}>
+              <Pressable
+                style={[s.formSubmit, { flex: 1, flexDirection: "row", gap: 6 }, uploadingLogo && { opacity: 0.6 }]}
+                disabled={uploadingLogo}
+                onPress={() => void addLogoPhotoFrom("camera")}
+              >
+                <MaterialIcons name="photo-camera" size={17} color={mc.onPrimary} />
+                <Text style={s.formSubmitText}>Take Photo</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  s.formSubmit,
+                  { flex: 1, flexDirection: "row", gap: 6, backgroundColor: mc.surfaceContainerHigh },
+                  uploadingLogo && { opacity: 0.6 },
+                ]}
+                disabled={uploadingLogo}
+                onPress={() => void addLogoPhotoFrom("library")}
+              >
+                <MaterialIcons name="photo-library" size={17} color={mc.onSurface} />
+                <Text style={[s.formSubmitText, { color: mc.onSurface }]}>From Library</Text>
+              </Pressable>
+            </View>
+
+            {uploadingLogo ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator color={mc.primary} size="small" />
+                <Text style={{ color: mc.onSurfaceVariant, fontSize: 12.5, fontFamily: mf.medium }}>
+                  Uploading photo…
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <CameraModal
+        visible={logoCameraOpen}
+        onClose={() => setLogoCameraOpen(false)}
+        onPictureTaken={(photo) => void handleLogoPictureTaken(photo)}
+      />
     </View>
   );
 }
@@ -796,8 +921,22 @@ const s = StyleSheet.create({
     backgroundColor: mc.primaryContainer,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   avatarText: { fontFamily: mf.extrabold, fontSize: 24, color: "#fff" },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: -2,
+    left: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: mc.primary,
+    borderWidth: 2,
+    borderColor: mc.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   verifiedDot: {
     position: "absolute",
     bottom: -4,

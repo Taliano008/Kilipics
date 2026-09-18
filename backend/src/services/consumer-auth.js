@@ -17,5 +17,5 @@ export async function verifyConsumerToken(rawToken) {
 }
 
 export function serializeConsumer(user) {
-  return { id: user.id, fullName: user.full_name, email: user.email };
+  return { id: user.id, fullName: user.full_name, email: user.email, photoUrl: user.photo_url };
 }
