@@ -6,7 +6,13 @@
 import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, saveMerchantStep2 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
-import { useRouter } from "expo-router";
+import {
+  adminIcon,
+  bookingIcon,
+  carIcon,
+  searchIcon,
+} from "@/utils/icon-assets";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,6 +32,8 @@ const MAP_IMAGE =
 
 export default function OnboardStep2() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isEditMode = mode === "edit";
   const { merchantToken, consumerToken, saveMerchantSession } = useAuth();
   const activeToken = merchantToken || consumerToken;
 
@@ -95,7 +103,11 @@ export default function OnboardStep2() {
         });
         if (res.merchantToken) await saveMerchantSession(res.merchantToken);
       }
-      router.push("/merchant/onboard/step3");
+      if (isEditMode) {
+        router.replace("/merchant/profile");
+      } else {
+        router.push("/merchant/onboard/step3");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save location. Please try again.");
     } finally {
@@ -110,7 +122,7 @@ export default function OnboardStep2() {
         <Pressable style={s.backBtn} onPress={() => router.back()}>
           <Text style={s.backIcon}>←</Text>
         </Pressable>
-        <Text style={s.headerTitle}>Set Business Location</Text>
+        <Text style={s.headerTitle}>{isEditMode ? "Edit Business Location" : "Set Business Location"}</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -121,26 +133,33 @@ export default function OnboardStep2() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Progress Bar ── */}
-        <View style={s.progressWrap}>
-          <View style={s.progressTop}>
-            <View style={s.stepCompletedRow}>
-              <Text style={s.stepCompletedText}>✓ Step 2 of 3: Location & Service Area</Text>
+        {!isEditMode && (
+          <View style={s.progressWrap}>
+            <View style={s.progressTop}>
+              <View style={s.stepCompletedRow}>
+                <Text style={s.stepCompletedText}>✓ Step 2 of 3: Location & Service Area</Text>
+              </View>
+              <Text style={s.progressPercent}>65% Done</Text>
             </View>
-            <Text style={s.progressPercent}>65% Done</Text>
+            <View style={s.progressTrack}>
+              <View style={[s.progressSeg, { backgroundColor: mc.secondary }]} />
+              <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
+              <View style={[s.progressSeg, { backgroundColor: mc.surfaceContainerHighest }]} />
+            </View>
           </View>
-          <View style={s.progressTrack}>
-            <View style={[s.progressSeg, { backgroundColor: mc.secondary }]} />
-            <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
-            <View style={[s.progressSeg, { backgroundColor: mc.surfaceContainerHighest }]} />
-          </View>
-        </View>
+        )}
 
         {/* ── Headline ── */}
         <View>
           <View style={s.geocodeBadge}>
-            <Text style={s.geocodeBadgeText}>
-              {address.trim() ? "✓ Location Specified" : "📍 Enter Location Details"}
-            </Text>
+            {address.trim() ? (
+              <Text style={s.geocodeBadgeText}>✓ Location Specified</Text>
+            ) : (
+              <>
+                <Image source={adminIcon} style={s.geocodeBadgeIcon} tintColor={mc.onSecondaryContainer} />
+                <Text style={s.geocodeBadgeText}>Enter Location Details</Text>
+              </>
+            )}
           </View>
           <Text style={s.headline}>Where do you operate?</Text>
           <Text style={s.subtext}>
@@ -150,7 +169,7 @@ export default function OnboardStep2() {
 
         {/* ── Address Search ── */}
         <View style={s.searchBar}>
-          <Text style={s.searchIcon}>🔍</Text>
+          <Image source={searchIcon} style={s.searchIconImage} tintColor={mc.onSurfaceVariant} />
           <TextInput
             style={s.searchInput}
             value={address}
@@ -179,24 +198,30 @@ export default function OnboardStep2() {
           <View style={s.mapOverlay} />
           {/* Validated badge */}
           <View style={s.mapBadge}>
-            <Text style={s.mapBadgeText}>
-              {address.trim() ? "✓ Location Set" : "📍 Enter Location"}
-            </Text>
+            {address.trim() ? (
+              <Text style={s.mapBadgeText}>✓ Location Set</Text>
+            ) : (
+              <View style={s.mapBadgeRow}>
+                <Image source={adminIcon} style={s.mapBadgeIcon} tintColor={mc.onSecondary} />
+                <Text style={s.mapBadgeText}>Enter Location</Text>
+              </View>
+            )}
           </View>
           {/* Center pin */}
           <View style={s.mapPinWrap} pointerEvents="none">
             <View style={s.mapPulseOuter} />
             <View style={s.mapPinContainer}>
               <View style={s.mapPin}>
-                <Text style={s.mapPinIcon}>🏪</Text>
+                <Image source={adminIcon} style={s.mapPinIcon} tintColor={mc.onPrimaryContainer} />
               </View>
               <View style={s.mapPinNeedle} />
             </View>
           </View>
           {/* Re-center */}
           <Pressable style={s.recenterBtn}>
+            <Image source={adminIcon} style={s.recenterIcon} tintColor={mc.onSurface} />
             <Text style={s.recenterText}>
-              📍 {address ? address.slice(0, 20) + (address.length > 20 ? "..." : "") : "Nairobi"}
+              {address ? address.slice(0, 20) + (address.length > 20 ? "..." : "") : "Nairobi"}
             </Text>
           </Pressable>
         </View>
@@ -209,7 +234,11 @@ export default function OnboardStep2() {
               style={[s.seg, serviceType === "physical" ? s.segActive : s.segInactive]}
               onPress={() => setServiceType("physical")}
             >
-              <Text style={s.segIcon}>🏬</Text>
+              <Image
+                source={adminIcon}
+                style={s.segIconImage}
+                tintColor={serviceType === "physical" ? mc.primary : mc.onSurfaceVariant}
+              />
               <Text style={[s.segText, serviceType === "physical" ? s.segTextActive : s.segTextInactive]}>
                 Physical Store
               </Text>
@@ -218,7 +247,11 @@ export default function OnboardStep2() {
               style={[s.seg, serviceType === "mobile" ? s.segActive : s.segInactive]}
               onPress={() => setServiceType("mobile")}
             >
-              <Text style={s.segIcon}>🚗</Text>
+              <Image
+                source={carIcon}
+                style={s.segIconImage}
+                tintColor={serviceType === "mobile" ? mc.primary : mc.onSurfaceVariant}
+              />
               <Text style={[s.segText, serviceType === "mobile" ? s.segTextActive : s.segTextInactive]}>
                 Mobile Service
               </Text>
@@ -230,7 +263,7 @@ export default function OnboardStep2() {
         <View style={s.card}>
           <View style={s.cardHeader}>
             <View style={s.cardHeaderLeft}>
-              <Text style={s.cardHeaderIcon}>📍</Text>
+              <Image source={adminIcon} style={s.cardHeaderIconImage} tintColor={mc.onSurface} />
               <Text style={s.cardHeaderTitle}>Business Address Details</Text>
             </View>
             <Pressable onPress={() => setIsEditingFields((v) => !v)}>
@@ -328,7 +361,7 @@ export default function OnboardStep2() {
           <View style={s.radiusHeader}>
             <View style={s.radiusHeaderLeft}>
               <View style={s.radarIcon}>
-                <Text style={s.radarIconText}>📡</Text>
+                <Image source={searchIcon} style={s.radarIconImage} tintColor={mc.secondary} />
               </View>
               <View>
                 <Text style={s.radiusTitle}>Travel Radius</Text>
@@ -374,7 +407,7 @@ export default function OnboardStep2() {
         {/* ── Pro Tip ── */}
         <View style={s.tipCard}>
           <View style={s.tipIconWrap}>
-            <Text style={s.tipIconText}>💡</Text>
+            <Image source={bookingIcon} style={s.tipIconImage} tintColor={mc.secondary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.tipTitle}>Pro tip for marketplace ranking</Text>
@@ -407,7 +440,7 @@ export default function OnboardStep2() {
           {saving ? (
             <ActivityIndicator color={mc.onPrimary} size="small" />
           ) : (
-            <Text style={s.ctaText}>Continue to Photos  →</Text>
+            <Text style={s.ctaText}>{isEditMode ? "Save Location" : "Continue to Photos  →"}</Text>
           )}
         </Pressable>
       </View>
@@ -435,6 +468,7 @@ const s = StyleSheet.create({
 
   // Headline
   geocodeBadge:     { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.full, backgroundColor: mc.secondaryContainer, marginBottom: ms.xs },
+  geocodeBadgeIcon: { width: 12, height: 12 },
   geocodeBadgeText: { color: mc.onSecondaryContainer, fontSize: 12, fontFamily: mf.semibold },
   headline:         { fontSize: 22, fontFamily: mf.bold, color: mc.onSurface, letterSpacing: -0.3 },
   subtext:          { fontSize: 14, color: mc.onSurfaceVariant, lineHeight: 20 },
@@ -442,6 +476,7 @@ const s = StyleSheet.create({
   // Search
   searchBar:   { flexDirection: "row", alignItems: "center", backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, paddingHorizontal: ms.sm, paddingVertical: 6, gap: ms.xs },
   searchIcon:  { fontSize: 18 },
+  searchIconImage: { width: 18, height: 18 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   clearIcon:   { fontSize: 16, color: mc.onSurfaceVariant, padding: 4 },
 
@@ -450,14 +485,17 @@ const s = StyleSheet.create({
   mapImage:    { width: "100%", height: "100%", position: "absolute" },
   mapOverlay:  { position: "absolute", bottom: 0, left: 0, right: 0, height: 80, backgroundColor: "rgba(0,0,0,0.25)" },
   mapBadge:    { position: "absolute", top: 12, left: 12, backgroundColor: mc.secondary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: mr.full },
+  mapBadgeRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  mapBadgeIcon: { width: 12, height: 12 },
   mapBadgeText: { color: mc.onSecondary, fontSize: 12, fontFamily: mf.semibold },
   mapPinWrap:  { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, alignItems: "center", justifyContent: "center" },
   mapPulseOuter: { position: "absolute", width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(186,73,52,0.15)" },
   mapPinContainer: { alignItems: "center" },
   mapPin:      { width: 40, height: 40, borderRadius: 20, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
-  mapPinIcon:  { fontSize: 20 },
+  mapPinIcon:  { width: 20, height: 20 },
   mapPinNeedle: { width: 10, height: 10, backgroundColor: mc.primaryContainer, transform: [{ rotate: "45deg" }], marginTop: -4 },
   recenterBtn: { position: "absolute", bottom: 12, right: 12, backgroundColor: mc.surfaceContainerLowest, paddingHorizontal: 10, paddingVertical: 6, borderRadius: mr.full, flexDirection: "row", alignItems: "center", gap: 4 },
+  recenterIcon: { width: 12, height: 12 },
   recenterText: { fontSize: 12, fontFamily: mf.semibold, color: mc.onSurface },
 
   // Business model
@@ -467,6 +505,7 @@ const s = StyleSheet.create({
   segActive:    { backgroundColor: mc.surfaceContainerLowest },
   segInactive:  { backgroundColor: "transparent" },
   segIcon:      { fontSize: 16 },
+  segIconImage: { width: 16, height: 16 },
   segText:      { fontSize: 13, fontFamily: mf.semibold },
   segTextActive:   { color: mc.primary },
   segTextInactive: { color: mc.onSurfaceVariant },
@@ -476,6 +515,7 @@ const s = StyleSheet.create({
   cardHeader:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.xs },
   cardHeaderIcon: { fontSize: 18 },
+  cardHeaderIconImage: { width: 18, height: 18 },
   cardHeaderTitle: { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   editLink:       { color: mc.primary, fontSize: 12, fontFamily: mf.semibold },
   addrField:      { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, paddingHorizontal: ms.sm, paddingVertical: 8 },
@@ -488,6 +528,7 @@ const s = StyleSheet.create({
   radiusHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.sm },
   radarIcon:        { width: 40, height: 40, borderRadius: 20, backgroundColor: mc.secondaryContainer, alignItems: "center", justifyContent: "center" },
   radarIconText:    { fontSize: 18 },
+  radarIconImage:   { width: 18, height: 18 },
   radiusTitle:      { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   radiusSubtitle:   { fontSize: 13, color: mc.onSurfaceVariant },
   toggle:           { width: 48, height: 24, borderRadius: mr.full, padding: 2, justifyContent: "center" },
@@ -514,6 +555,7 @@ const s = StyleSheet.create({
   tipCard:    { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, padding: ms.sm, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   tipIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: mc.secondaryFixed, alignItems: "center", justifyContent: "center" },
   tipIconText: { fontSize: 16 },
+  tipIconImage: { width: 16, height: 16 },
   tipTitle:   { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   tipBody:    { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18, marginTop: 2 },
 

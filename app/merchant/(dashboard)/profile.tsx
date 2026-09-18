@@ -18,6 +18,7 @@ import {
   type MerchantService,
 } from "@/api/merchant";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
+import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { categoryLabel } from "@/utils/categories";
@@ -51,6 +52,10 @@ export default function ProfileScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [aboutInput, setAboutInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
+  const [contactEditOpen, setContactEditOpen] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
 
   useEffect(() => {
     if (!activeToken) return;
@@ -73,6 +78,7 @@ export default function ProfileScreen() {
   const hasRating = business?.rating !== null && business?.rating !== undefined && (business?.rating ?? 0) > 0;
   const ratingVal = hasRating ? (business?.rating ?? 0).toFixed(1) : "New";
   const isPublished = business?.publicationStatus === "published";
+  const completeness = getBusinessCompleteness(business);
 
   const toggleServiceActive = async (svc: MerchantService) => {
     if (!activeToken) return;
@@ -99,6 +105,24 @@ export default function ProfileScreen() {
       showToast("Couldn't save changes. Try again.");
     } finally {
       setSavingAbout(false);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    if (!activeToken) return;
+    setSavingContact(true);
+    try {
+      await updateMerchantBusiness(activeToken, {
+        phone: phoneInput.trim(),
+        email: emailInput.trim(),
+      });
+      refresh();
+      setContactEditOpen(false);
+      showToast("Contact details updated");
+    } catch {
+      showToast("Couldn't save changes. Try again.");
+    } finally {
+      setSavingContact(false);
     }
   };
 
@@ -219,6 +243,39 @@ export default function ProfileScreen() {
               </Pressable>
             </LinearGradient>
 
+            {completeness.missing.length > 0 && (
+              <View style={s.completenessCard}>
+                <View style={s.completenessHeaderRow}>
+                  <MaterialIcons name="error-outline" size={18} color={mc.error} />
+                  <Text style={s.completenessTitle}>Finish setting up your listing</Text>
+                </View>
+                <Text style={s.completenessBody}>
+                  Clients can't see all of your details yet. Add the missing info below:
+                </Text>
+                {completeness.missing.map((field) => (
+                  <Pressable
+                    key={field.key}
+                    style={s.completenessRow}
+                    onPress={() => {
+                      if (field.key === "address") {
+                        router.push("/merchant/onboard/step2?mode=edit");
+                      } else if (field.key === "phone") {
+                        setPhoneInput(business?.phone || "");
+                        setEmailInput(business?.email || "");
+                        setContactEditOpen(true);
+                      } else {
+                        router.push("/merchant/onboard/step3?mode=edit");
+                      }
+                    }}
+                  >
+                    <MaterialIcons name="radio-button-unchecked" size={16} color={mc.error} />
+                    <Text style={s.completenessRowText}>{field.label}</Text>
+                    <MaterialIcons name="chevron-right" size={18} color={mc.secondary} />
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
             <View style={s.sectionHeaderRow}>
               <View style={s.sectionTitleRow}>
                 <Text style={s.sectionTitle}>Your Services</Text>
@@ -302,20 +359,31 @@ export default function ProfileScreen() {
 
             <AccountRow
               icon="store"
-              title="Business Hours & Location"
+              title="Business Hours & Photos"
               subtitle={
-                business?.fullAddress
-                  ? `${areaLabel} · ${business.hours ? business.hours.split("\n")[0] : "Hours not set"}`
-                  : "Not set yet"
+                business?.hours
+                  ? business.hours.split("\n")[0]
+                  : "Not set yet — tap to add"
               }
-              onPress={() => showToast("Editing hours & location is launching soon")}
+              onPress={() => router.push("/merchant/onboard/step3?mode=edit")}
+            />
+            <AccountRow
+              icon="place"
+              iconColor={mc.tertiaryContainer}
+              title="Business Location"
+              subtitle={business?.fullAddress ? `${areaLabel} · ${business.fullAddress}` : "Not set yet — tap to add"}
+              onPress={() => router.push("/merchant/onboard/step2?mode=edit")}
             />
             <AccountRow
               icon="call"
               iconColor={mc.tertiaryContainer}
               title="Personal details & WhatsApp"
               subtitle={business?.phone || "Not set yet"}
-              onPress={() => showToast("Editing personal details is launching soon")}
+              onPress={() => {
+                setPhoneInput(business?.phone || "");
+                setEmailInput(business?.email || "");
+                setContactEditOpen(true);
+              }}
             />
             <AccountRow
               icon="lock"
@@ -375,6 +443,54 @@ export default function ProfileScreen() {
               onPress={() => void handleSaveAbout()}
             >
               {savingAbout ? (
+                <ActivityIndicator color={mc.onPrimary} size="small" />
+              ) : (
+                <Text style={s.formSubmitText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={contactEditOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setContactEditOpen(false)}
+      >
+        <View style={s.modalBackdrop}>
+          <View style={s.editCard}>
+            <View style={s.formHeader}>
+              <Text style={s.formTitle}>Personal details & WhatsApp</Text>
+              <Pressable style={s.modalCloseBtn} onPress={() => setContactEditOpen(false)}>
+                <MaterialIcons name="close" size={16} color={mc.onSurface} />
+              </Pressable>
+            </View>
+            <Text style={s.editLabel}>Customer line / WhatsApp</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={phoneInput}
+              onChangeText={setPhoneInput}
+              placeholder="07XX XXX XXX"
+              placeholderTextColor={mc.outline}
+              keyboardType="phone-pad"
+            />
+            <Text style={s.editLabel}>Inquiry email</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={emailInput}
+              onChangeText={setEmailInput}
+              placeholder="concierge@brand.com"
+              placeholderTextColor={mc.outline}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Pressable
+              style={[s.formSubmit, savingContact && { opacity: 0.6 }]}
+              disabled={savingContact}
+              onPress={() => void handleSaveContact()}
+            >
+              {savingContact ? (
                 <ActivityIndicator color={mc.onPrimary} size="small" />
               ) : (
                 <Text style={s.formSubmitText}>Save</Text>
@@ -559,6 +675,26 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   proBtnText: { fontFamily: mf.bold, fontSize: 13, color: mc.primary },
+
+  completenessCard: {
+    backgroundColor: mc.errorContainer,
+    borderRadius: mr["2xl"],
+    padding: ms.md,
+    gap: 6,
+  },
+  completenessHeaderRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  completenessTitle: { fontFamily: mf.bold, fontSize: 14, color: mc.error },
+  completenessBody: { fontFamily: mf.regular, fontSize: 12, color: mc.onSurfaceVariant, marginBottom: 2 },
+  completenessRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: mc.surfaceContainerLowest,
+    borderRadius: mr.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  completenessRowText: { flex: 1, fontFamily: mf.medium, fontSize: 13, color: mc.onSurface },
 
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },

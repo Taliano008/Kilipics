@@ -48,7 +48,16 @@ export function serializeProvider(row, serviceIdsByBusiness) {
       area: row.area,
       city: "Nairobi",
       locationType: row.location_type,
-      serviceAreas: row.service_areas ?? [],
+      // The same `service_areas` column also stores a travel-radius config
+      // ({ enabled, radiusMiles }[]) written by merchant onboarding Step 2
+      // for "mobile" location-type businesses (see MerchantBusiness.serviceAreas
+      // in src/api/merchant.ts) — a different shape than this public field's
+      // array-of-area-name-strings contract. Until that's reconciled, drop
+      // anything that isn't already a string rather than shipping a payload
+      // that fails the client's schema for every mobile-type business.
+      serviceAreas: Array.isArray(row.service_areas)
+        ? row.service_areas.filter((area) => typeof area === "string")
+        : [],
       landmark: row.landmark ?? "",
       parkingAvailable: Boolean(row.parking_available),
     },

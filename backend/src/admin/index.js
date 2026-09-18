@@ -126,7 +126,10 @@ export async function buildAdmin() {
         resource: db.table("businesses"),
         options: {
           navigation: { name: "Accounts" },
-          listProperties: ["name", "category_id", "area", "publication_status", "booking_enabled", "created_at"],
+          listProperties: [
+            "name", "category_id", "area", "publication_status", "onboarding_step",
+            "submitted_at", "booking_enabled", "created_at",
+          ],
           editProperties: [
             "name", "category_id", "subcategory", "area", "phone", "email",
             "verified", "recommended", "featured", "booking_enabled",
@@ -154,10 +157,27 @@ export async function buildAdmin() {
               after: stripMerchantPasswordHash,
               handler: async (request, _response, context) => {
                 const { record, currentAdmin } = context;
+
+                // The consumer catalog only gates on publication_status
+                // (see backend/src/services/catalog.js) — nothing else stops
+                // an incomplete listing from going live. This doesn't block
+                // publish (an admin may have a good reason to override), it
+                // just surfaces what a client won't be able to see.
+                const missing = [];
+                if (!record.params.hours?.trim()) missing.push("hours");
+                if (!record.params.full_address?.trim()) missing.push("address");
+                if (!record.params.cover_url?.trim()) missing.push("cover photo");
+
                 await record.update({ publication_status: "published", limited_listing: 0 });
                 return {
                   record: record.toJSON(currentAdmin),
-                  notice: { message: "Business published.", type: "success" },
+                  notice: {
+                    message:
+                      missing.length > 0
+                        ? `Business published. Note: missing ${missing.join(", ")}.`
+                        : "Business published.",
+                    type: "success",
+                  },
                 };
               },
             },

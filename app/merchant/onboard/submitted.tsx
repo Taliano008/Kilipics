@@ -5,10 +5,20 @@
 import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, type MerchantBusiness } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import {
+  adminIcon,
+  bookingIcon,
+  ringingIcon,
+  searchIcon,
+  trayIcon,
+  verifiedBadgeIcon,
+} from "@/utils/icon-assets";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Animated,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -52,9 +62,9 @@ const TIMELINE = [
   },
 ];
 
-const WHILE_YOU_WAIT = [
-  { icon: "🍽", title: "Set up your Services tab", subtitle: "Add menu packages, offerings & transparent pricing" },
-  { icon: "👁", title: "Preview your Merchant Profile", subtitle: "See how your business appears to neighborhood clients" },
+const WHILE_YOU_WAIT: { icon: ImageSourcePropType; title: string; subtitle: string }[] = [
+  { icon: trayIcon, title: "Set up your Services tab", subtitle: "Add menu packages, offerings & transparent pricing" },
+  { icon: searchIcon, title: "Preview your Merchant Profile", subtitle: "See how your business appears to neighborhood clients" },
 ];
 
 export default function OnboardSubmitted() {
@@ -118,7 +128,7 @@ export default function OnboardSubmitted() {
               </View>
             </View>
             <View style={s.heroBadge}>
-              <Text style={s.heroBadgeText}>✓</Text>
+              <Image source={verifiedBadgeIcon} style={s.heroBadgeImage} />
             </View>
           </View>
           <Text style={s.stepCompleted}>Step Completed</Text>
@@ -142,7 +152,7 @@ export default function OnboardSubmitted() {
             </View>
             <View style={s.statusBody}>
               <View style={s.statusIcon}>
-                <Text style={s.statusIconText}>📋</Text>
+                <Image source={searchIcon} style={s.statusIconImage} tintColor={mc.onSurface} />
               </View>
               <Text style={s.statusText}>
                 Our marketplace curation team is currently verifying your
@@ -151,7 +161,7 @@ export default function OnboardSubmitted() {
               </Text>
             </View>
             <View style={s.etaRow}>
-              <Text style={s.etaIcon}>🕐</Text>
+              <Image source={bookingIcon} style={s.etaIconImage} tintColor={mc.onSurfaceVariant} />
               <Text style={s.etaText}>You can preview your storefront anytime from Profile</Text>
             </View>
           </View>
@@ -185,9 +195,11 @@ export default function OnboardSubmitted() {
                   </View>
                 ) : (
                   <View style={[s.timelineNode, { backgroundColor: mc.surfaceContainerHigh }]}>
-                    <Text style={s.timelineNodeIcon}>
-                      {i === 2 ? "📢" : "🏪"}
-                    </Text>
+                    <Image
+                      source={i === 2 ? ringingIcon : adminIcon}
+                      style={s.timelineNodeIconImage}
+                      tintColor={mc.onSurfaceVariant}
+                    />
                   </View>
                 )}
                 <View style={[s.timelineText, item.status === "pending" && { opacity: 0.65 }]}>
@@ -222,7 +234,7 @@ export default function OnboardSubmitted() {
             >
               <View style={s.whileCardLeft}>
                 <View style={s.whileCardIcon}>
-                  <Text style={s.whileCardIconText}>{item.icon}</Text>
+                  <Image source={item.icon} style={s.whileCardIconImage} tintColor={mc.onSurface} />
                 </View>
                 <View style={s.whileCardBody}>
                   <Text style={s.whileCardTitle}>{item.title}</Text>
@@ -243,7 +255,8 @@ export default function OnboardSubmitted() {
           style={s.ctaPrimary}
           onPress={() => router.replace("/merchant/profile")}
         >
-          <Text style={s.ctaPrimaryText}>🏬  Go to Merchant Profile</Text>
+          <Image source={adminIcon} style={s.ctaPrimaryIcon} tintColor={mc.onPrimary} />
+          <Text style={s.ctaPrimaryText}>Go to Merchant Profile</Text>
         </Pressable>
         <Pressable style={s.ctaSecondary} onPress={() => router.replace("/(tabs)/account")}>
           <Text style={s.ctaSecondaryText}>Manage Services</Text>
@@ -270,6 +283,7 @@ const s = StyleSheet.create({
   heroCheck:     { color: mc.onSecondary, fontSize: 28, fontFamily: mf.bold },
   heroBadge:     { position: "absolute", bottom: -4, right: -4, width: 28, height: 28, borderRadius: 14, backgroundColor: mc.primary, alignItems: "center", justifyContent: "center" },
   heroBadgeText: { color: mc.onPrimary, fontSize: 14, fontFamily: mf.bold },
+  heroBadgeImage: { width: 15, height: 15 },
   stepCompleted: { fontSize: 12, fontFamily: mf.bold, color: mc.primary, textTransform: "uppercase", letterSpacing: 1 },
   heroTitle:     { fontSize: 32, fontFamily: mf.bold, color: mc.onSurface, letterSpacing: -0.5, textAlign: "center" },
   heroSub:       { fontSize: 14, color: mc.onSurfaceVariant, textAlign: "center", lineHeight: 20, maxWidth: 280 },
@@ -286,10 +300,12 @@ const s = StyleSheet.create({
   statusBody:    { flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   statusIcon:    { width: 36, height: 36, borderRadius: mr.lg, backgroundColor: mc.surfaceContainerHighest, alignItems: "center", justifyContent: "center" },
   statusIconText: { fontSize: 18 },
+  statusIconImage: { width: 18, height: 18 },
   statusText:    { flex: 1, fontSize: 14, color: mc.onSurface, lineHeight: 20 },
   statusBold:    { fontFamily: mf.semibold, color: mc.primary },
   etaRow:        { flexDirection: "row", alignItems: "center", gap: 6 },
   etaIcon:       { fontSize: 14 },
+  etaIconImage:  { width: 14, height: 14 },
   etaText:       { fontSize: 12, color: mc.onSurfaceVariant },
 
   // Card
@@ -306,6 +322,7 @@ const s = StyleSheet.create({
   timelineNode: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", zIndex: 1 },
   timelineNodeText: { color: mc.onSecondary, fontSize: 16, fontFamily: mf.bold },
   timelineNodeIcon: { fontSize: 16 },
+  timelineNodeIconImage: { width: 16, height: 16 },
   timelineNodeOuter: { width: 32, height: 32, borderRadius: 16, backgroundColor: mc.surfaceContainerLowest, alignItems: "center", justifyContent: "center", zIndex: 1 },
   timelineNodeMid:   { width: 24, height: 24, borderRadius: 12, backgroundColor: mc.primaryFixed, alignItems: "center", justifyContent: "center" },
   timelineNodePulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: mc.primaryContainer },
@@ -325,6 +342,7 @@ const s = StyleSheet.create({
   whileCardLeft: { flexDirection: "row", alignItems: "center", gap: ms.sm, flex: 1 },
   whileCardIcon: { width: 48, height: 48, borderRadius: mr.xl, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
   whileCardIconText: { fontSize: 24 },
+  whileCardIconImage: { width: 24, height: 24 },
   whileCardBody: { flex: 1 },
   whileCardTitle: { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   whileCardSub:   { fontSize: 13, color: mc.onSurfaceVariant, marginTop: 2 },
@@ -332,7 +350,8 @@ const s = StyleSheet.create({
 
   // Footer
   footer:           { padding: ms.md, gap: ms.xs, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant },
-  ctaPrimary:       { height: 48, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
+  ctaPrimary:       { height: 48, borderRadius: mr.full, backgroundColor: mc.primaryContainer, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  ctaPrimaryIcon:   { width: 16, height: 16 },
   ctaPrimaryText:   { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
   ctaSecondary:     { height: 48, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
   ctaSecondaryText: { color: mc.onSurface, fontSize: 15, fontFamily: mf.semibold },

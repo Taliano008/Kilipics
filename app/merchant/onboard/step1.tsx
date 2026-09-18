@@ -8,6 +8,16 @@ import { fetchMerchantBusiness, saveMerchantStep1 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { CATALOG_CATEGORY_IDS, categoryLabel } from "@/utils/categories";
 import { normalizeKenyanPhone } from "@/utils/phone";
+import {
+  adminIcon,
+  bookingIcon,
+  cameraIcon,
+  phoneCallIcon,
+  searchIcon,
+  starIcon,
+  verifiedBadgeIcon,
+} from "@/utils/icon-assets";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -186,10 +196,14 @@ export default function OnboardStep1() {
           <View style={s.logoRow}>
             <View style={s.avatarWrap}>
               <View style={s.avatar}>
-                <Text style={s.avatarText}>{initials || "🏪"}</Text>
+                {initials ? (
+                  <Text style={s.avatarText}>{initials}</Text>
+                ) : (
+                  <Image source={adminIcon} style={s.avatarIconImage} tintColor={mc.onPrimaryContainer} />
+                )}
               </View>
               <View style={s.avatarBadge}>
-                <Text style={s.avatarBadgeText}>✦</Text>
+                <Image source={starIcon} style={s.avatarBadgeImage} />
               </View>
             </View>
             <View style={s.logoInfo}>
@@ -203,7 +217,8 @@ export default function OnboardStep1() {
                 Vector badge, storefront sign, or logo portrait.
               </Text>
               <Pressable style={s.uploadBtn}>
-                <Text style={s.uploadBtnText}>📷  Upload Mark / Photo</Text>
+                <Image source={cameraIcon} style={s.uploadBtnIcon} tintColor={mc.onSurface} />
+                <Text style={s.uploadBtnText}>Upload Mark / Photo</Text>
               </Pressable>
             </View>
           </View>
@@ -214,11 +229,12 @@ export default function OnboardStep1() {
           <View style={s.fieldHeaderRow}>
             <Text style={s.fieldLabel}>Official Trading Name</Text>
             <View style={s.availableRow}>
-              <Text style={s.availableText}>✓ Available</Text>
+              <Image source={verifiedBadgeIcon} style={s.availableIcon} />
+              <Text style={s.availableText}>Available</Text>
             </View>
           </View>
           <View style={s.inputRow}>
-            <Text style={s.inputIcon}>🏪</Text>
+            <Image source={adminIcon} style={s.inputIconImage} tintColor={mc.primary} />
             <TextInput
               style={s.textInput}
               value={businessName}
@@ -280,7 +296,7 @@ export default function OnboardStep1() {
             textAlignVertical="top"
           />
           <View style={s.tipRow}>
-            <Text style={s.tipIcon}>💡</Text>
+            <Image source={bookingIcon} style={s.tipIconImage} tintColor={mc.onSurfaceVariant} />
             <Text style={s.tipText}>
               Tip: Mention botanical formulas or sustainable practices.
             </Text>
@@ -292,13 +308,14 @@ export default function OnboardStep1() {
           <View style={s.fieldHeaderRow}>
             <Text style={s.fieldLabel}>Verified Direct Contacts</Text>
             <View style={s.clientVisibleBadge}>
-              <Text style={s.clientVisibleText}>🛡 Client Visible</Text>
+              <Image source={verifiedBadgeIcon} style={s.clientVisibleIcon} />
+              <Text style={s.clientVisibleText}>Client Visible</Text>
             </View>
           </View>
 
           <Text style={s.contactSubLabel}>Customer Line</Text>
           <View style={s.inputRow}>
-            <Text style={s.inputIcon}>📞</Text>
+            <Image source={phoneCallIcon} style={s.inputIconImage} tintColor={mc.primary} />
             <TextInput
               style={s.textInput}
               value={phone}
@@ -329,7 +346,7 @@ export default function OnboardStep1() {
         {/* ── Quality Banner ── */}
         <View style={s.qualityBanner}>
           <View style={s.qualityIcon}>
-            <Text style={s.qualityIconText}>🛡</Text>
+            <Image source={verifiedBadgeIcon} style={s.qualityIconImage} />
           </View>
           <View style={s.qualityBody}>
             <Text style={s.qualityTitle}>Artisan Standards Guarantee</Text>
@@ -343,16 +360,20 @@ export default function OnboardStep1() {
         {/* ── Live Preview Card ── */}
         <View style={s.previewCard}>
           <View style={s.previewHeader}>
-            <Text style={s.previewTitle}>🔍  Client Discovery Card Mockup</Text>
+            <View style={s.previewTitleRow}>
+              <Image source={searchIcon} style={s.previewTitleIcon} tintColor={mc.onSurface} />
+              <Text style={s.previewTitle}>Client Discovery Card Mockup</Text>
+            </View>
             <View style={s.livePreviewBadge}>
               <Text style={s.livePreviewText}>Live Preview</Text>
             </View>
           </View>
           <View style={s.previewMockup}>
             <View style={s.previewImagePlaceholder}>
-              <Text style={s.previewImageEmoji}>🌿</Text>
+              <Image source={cameraIcon} style={s.previewImageIcon} tintColor={mc.onSurfaceVariant} />
               <View style={s.verifiedPill}>
-                <Text style={s.verifiedPillText}>✓ KiliPicks Verified</Text>
+                <Image source={verifiedBadgeIcon} style={s.verifiedPillIcon} />
+                <Text style={s.verifiedPillText}>KiliPicks Verified</Text>
               </View>
             </View>
             <View style={s.previewInfo}>
@@ -433,15 +454,17 @@ const s = StyleSheet.create({
   avatarWrap:      { position: "relative" },
   avatar:          { width: 64, height: 64, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
   avatarText:      { color: mc.onPrimaryContainer, fontSize: 20, fontFamily: mf.bold },
+  avatarIconImage: { width: 26, height: 26 },
   avatarBadge:     { position: "absolute", bottom: -4, right: -4, width: 22, height: 22, borderRadius: mr.full, backgroundColor: mc.secondary, alignItems: "center", justifyContent: "center" },
-  avatarBadgeText: { color: mc.onSecondary, fontSize: 12 },
+  avatarBadgeImage: { width: 12, height: 12 },
   logoInfo:        { flex: 1, gap: 4 },
   logoLabelRow:    { flexDirection: "row", alignItems: "center", gap: ms.xs },
   logoLabel:       { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   requiredBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryContainer },
   requiredText:    { fontSize: 11, fontFamily: mf.bold, color: mc.onSecondaryContainer },
   logoHint:        { fontSize: 13, color: mc.onSurfaceVariant },
-  uploadBtn:       { marginTop: 4, alignSelf: "flex-start", paddingHorizontal: ms.sm, paddingVertical: 6, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh },
+  uploadBtn:       { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: ms.sm, paddingVertical: 6, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh },
+  uploadBtnIcon:   { width: 14, height: 14 },
   uploadBtnText:   { fontSize: 12, fontFamily: mf.semibold, color: mc.onSurface },
 
   // Field
@@ -449,9 +472,11 @@ const s = StyleSheet.create({
   fieldLabel:      { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   fieldSubLabel:   { fontSize: 11, fontFamily: mf.medium, color: mc.onSurfaceVariant },
   availableRow:    { flexDirection: "row", alignItems: "center", gap: 3 },
+  availableIcon:   { width: 12, height: 12 },
   availableText:   { fontSize: 12, fontFamily: mf.semibold, color: mc.secondary },
   inputRow:        { flexDirection: "row", alignItems: "center", backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, paddingHorizontal: ms.md, paddingVertical: 12, gap: ms.xs },
   inputIcon:       { fontSize: 16, color: mc.primary },
+  inputIconImage:  { width: 16, height: 16 },
   textInput:       { flex: 1, fontSize: 16, fontFamily: mf.regular, color: mc.onSurface },
   fieldHint:       { fontSize: 13, color: mc.onSurfaceVariant },
   contactSubLabel: { fontSize: 11, fontFamily: mf.semibold, color: mc.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -470,16 +495,19 @@ const s = StyleSheet.create({
   charCount: { fontSize: 12, fontFamily: mf.bold },
   tipRow:    { flexDirection: "row", alignItems: "center", gap: 4 },
   tipIcon:   { fontSize: 14 },
+  tipIconImage: { width: 14, height: 14 },
   tipText:   { fontSize: 13, color: mc.onSurfaceVariant },
 
   // Contacts
-  clientVisibleBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryFixed },
+  clientVisibleBadge: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryFixed },
+  clientVisibleIcon:  { width: 11, height: 11 },
   clientVisibleText:  { fontSize: 11, fontFamily: mf.bold, color: mc.onSecondaryFixed },
 
   // Quality banner
   qualityBanner: { backgroundColor: mc.surfaceContainer, borderRadius: mr.xl, padding: ms.md, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   qualityIcon:   { width: 32, height: 32, borderRadius: mr.full, backgroundColor: mc.tertiaryFixed, alignItems: "center", justifyContent: "center", marginTop: 2 },
   qualityIconText: { fontSize: 16 },
+  qualityIconImage: { width: 16, height: 16 },
   qualityBody:   { flex: 1, gap: 2 },
   qualityTitle:  { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   qualityText:   { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18 },
@@ -487,13 +515,17 @@ const s = StyleSheet.create({
   // Preview card
   previewCard:         { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, overflow: "hidden" },
   previewHeader:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: ms.md },
+  previewTitleRow:     { flexDirection: "row", alignItems: "center", gap: 6 },
+  previewTitleIcon:    { width: 14, height: 14 },
   previewTitle:        { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   livePreviewBadge:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryFixed },
   livePreviewText:     { fontSize: 11, fontFamily: mf.bold, color: mc.secondary },
   previewMockup:       { marginHorizontal: ms.md, marginBottom: ms.md, backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, overflow: "hidden" },
   previewImagePlaceholder: { height: 120, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
   previewImageEmoji:   { fontSize: 48 },
-  verifiedPill:        { position: "absolute", top: 8, right: 8, backgroundColor: mc.secondary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.full },
+  previewImageIcon:    { width: 36, height: 36 },
+  verifiedPill:        { position: "absolute", top: 8, right: 8, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: mc.secondary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.full },
+  verifiedPillIcon:    { width: 12, height: 12 },
   verifiedPillText:    { color: mc.onSecondary, fontSize: 11, fontFamily: mf.semibold },
   previewInfo:         { padding: ms.md },
   previewBizName:      { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },

@@ -4,12 +4,22 @@ import { SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { colors, radii, spacing } from "@/theme/tokens";
+import {
+  adminIcon,
+  bookingIcon,
+  ringingIcon,
+  savedIcon,
+  verifiedBadgeIcon,
+  whatsappIcon,
+} from "@/utils/icon-assets";
 import Constants from "expo-constants";
+import { Image } from "expo-image";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +30,45 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const APP_VERSION = Constants.expoConfig?.version ?? "0.0.0";
+
+function getInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0] ?? "";
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? "" : "";
+  return (first + last).toUpperCase();
+}
+
+function Row({
+  icon,
+  title,
+  copy,
+  disabled,
+  onPress,
+}: {
+  icon: ImageSourcePropType;
+  title: string;
+  copy: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.rowCard, disabled && styles.rowDisabled]}
+      disabled={disabled}
+      onPress={onPress}
+    >
+      <View style={styles.rowIconWrap}>
+        <Image source={icon} style={styles.rowIcon} />
+      </View>
+      <View style={styles.rowFill}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowCopy}>{copy}</Text>
+      </View>
+      <Text style={styles.rowArrow}>›</Text>
+    </Pressable>
+  );
+}
 
 export default function AccountScreen() {
   const router = useRouter();
@@ -63,7 +112,18 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Account</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Account</Text>
+          {status === "signed_in" ? (
+            <Pressable
+              style={styles.bellButton}
+              onPress={() => router.push("/notifications")}
+              accessibilityLabel="Notifications"
+            >
+              <Image source={ringingIcon} style={styles.bellIcon} />
+            </Pressable>
+          ) : null}
+        </View>
 
         {status === "signed_out" ? (
           <Pressable
@@ -80,12 +140,15 @@ export default function AccountScreen() {
           </Pressable>
         ) : null}
         {status === "signed_in" && user ? (
-          <View style={styles.signedInCard}>
-            <View>
+          <View style={styles.profileCard}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(user.fullName)}</Text>
+            </View>
+            <View style={styles.rowFill}>
               <Text style={styles.signedInTitle}>{user.fullName}</Text>
               <Text style={styles.signedInCopy}>{user.email}</Text>
               <Text style={styles.signedInCopy}>
-                {merchant ? "Customer and business owner" : "Customer account"}
+                {merchant ? "Customer and business owner" : "KiliPicks customer"}
               </Text>
             </View>
             <Pressable
@@ -99,8 +162,23 @@ export default function AccountScreen() {
         ) : null}
 
         <Text style={styles.sectionTitle}>Your account</Text>
-        <Pressable
-          style={styles.rowCard}
+        <Row
+          icon={bookingIcon}
+          title="My Bookings"
+          copy="Availability requests you've sent"
+          onPress={() => {
+            void track("page_viewed", {
+              pagePath: "/activity",
+              pageTitle: "Activity",
+              sourceSection: "account",
+            });
+            router.push("/activity");
+          }}
+        />
+        <Row
+          icon={savedIcon}
+          title="Saved"
+          copy={savedCount === 0 ? "Nothing saved yet" : `${savedCount} saved`}
           onPress={() => {
             void track("page_viewed", {
               pagePath: "/saved",
@@ -109,15 +187,13 @@ export default function AccountScreen() {
             });
             router.push("/saved");
           }}
-        >
-          <View>
-            <Text style={styles.rowTitle}>Your saved places</Text>
-            <Text style={styles.rowCopy}>
-              {savedCount === 0 ? "Nothing saved yet" : `${savedCount} saved`}
-            </Text>
-          </View>
-          <Text style={styles.rowArrow}>›</Text>
-        </Pressable>
+        />
+        <Row
+          icon={ringingIcon}
+          title="Notifications"
+          copy="You're all caught up"
+          onPress={() => router.push("/notifications")}
+        />
 
         <Pressable
           style={styles.rowCard}
@@ -129,13 +205,26 @@ export default function AccountScreen() {
               // profile has been created — landing that merchant on the
               // dashboard produces an empty, half-broken Overview screen.
               // Route them into onboarding until a business actually exists.
-              router.push(merchant.hasBusiness ? "/merchant/profile" : "/merchant/onboard/step1");
+              // And a business can exist without onboarding ever having been
+              // submitted (abandoned mid-flow) — send those merchants back
+              // to the next incomplete step instead of the dashboard too.
+              if (!merchant.hasBusiness) {
+                router.push("/merchant/onboard/step1");
+              } else if (!merchant.onboardingSubmitted) {
+                const nextStep = Math.min((merchant.onboardingStep ?? 1) + 1, 3);
+                router.push(`/merchant/onboard/step${nextStep}` as never);
+              } else {
+                router.push("/merchant/profile");
+              }
               return;
             }
             setSellerMessage(null);
             setSellerFormOpen((open) => !open);
           }}
         >
+          <View style={styles.rowIconWrap}>
+            <Image source={adminIcon} style={styles.rowIcon} />
+          </View>
           <View style={styles.rowFill}>
             <Text style={styles.rowTitle}>
               {merchant
@@ -207,11 +296,12 @@ export default function AccountScreen() {
         ) : null}
 
         <Text style={styles.sectionTitle}>Support</Text>
-        <Pressable
-          style={[styles.rowCard, !supportAvailable && styles.rowDisabled]}
+        <Row
+          icon={whatsappIcon}
+          title="Get help"
+          copy={supportAvailable ? "Chat with us on WhatsApp" : "Coming soon"}
           disabled={!supportAvailable}
           onPress={() => {
-            if (!supportAvailable) return;
             const url = `whatsapp://send?phone=${SUPPORT_WHATSAPP_NUMBER.replace(/^\+/, "")}`;
             void Linking.canOpenURL(url).then((ok) => {
               if (!ok) return;
@@ -220,27 +310,13 @@ export default function AccountScreen() {
               );
             });
           }}
-        >
-          <View>
-            <Text style={styles.rowTitle}>Get help</Text>
-            <Text style={styles.rowCopy}>
-              {supportAvailable
-                ? "Chat with us on WhatsApp"
-                : "Coming soon"}
-            </Text>
-          </View>
-          <Text style={styles.rowArrow}>›</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.rowCard}
+        />
+        <Row
+          icon={verifiedBadgeIcon}
+          title="Privacy notice"
+          copy="How your data is handled"
           onPress={() => router.push("/privacy")}
-        >
-          <View>
-            <Text style={styles.rowTitle}>Privacy notice</Text>
-          </View>
-          <Text style={styles.rowArrow}>›</Text>
-        </Pressable>
+        />
 
         <Text style={styles.version}>KiliPicks {APP_VERSION}</Text>
       </ScrollView>
@@ -251,7 +327,23 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.sand },
   content: { padding: spacing.lg, paddingBottom: 48 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellIcon: { width: 18, height: 18 },
   signInCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -264,7 +356,9 @@ const styles = StyleSheet.create({
   signInTitle: { color: colors.white, fontSize: 17, fontWeight: "800" },
   signInCopy: { color: "#F9EDEF", fontSize: 13, marginTop: 4 },
   signInArrow: { color: colors.white, fontSize: 26 },
-  signedInCard: {
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.white,
     borderRadius: radii.lg,
     borderWidth: 1,
@@ -273,6 +367,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     gap: spacing.md,
   },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.sand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: colors.clay, fontSize: 18, fontWeight: "900" },
   signedInTitle: { color: colors.ink, fontSize: 17, fontWeight: "800" },
   signedInCopy: { color: colors.muted, fontSize: 13, marginTop: 4 },
   signOutButton: {
@@ -295,6 +398,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  rowIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.md,
+    backgroundColor: colors.sand,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  rowIcon: { width: 18, height: 18 },
   rowFill: { flex: 1, paddingRight: spacing.md },
   rowTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
   rowCopy: { color: colors.muted, fontSize: 13, marginTop: 4 },

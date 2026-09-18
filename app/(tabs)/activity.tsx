@@ -2,6 +2,8 @@ import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
 import { EmptyState } from "@/components/ScreenState";
 import { colors, radii, spacing } from "@/theme/tokens";
+import { bookingIcon } from "@/utils/icon-assets";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -25,7 +27,7 @@ export default function ActivityScreen() {
       </View>
       <View style={styles.body}>
         <EmptyState
-          icon="🗓️"
+          icon={<Image source={bookingIcon} style={styles.emptyIcon} />}
           title="No activity"
           copy={
             status === "signed_in"
@@ -58,6 +60,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
   body: { flex: 1, justifyContent: "center", padding: spacing.lg },
+  emptyIcon: { width: 40, height: 40, marginBottom: spacing.xs },
   primary: {
     marginTop: spacing.md,
     backgroundColor: colors.clay,

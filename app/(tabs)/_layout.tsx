@@ -31,12 +31,12 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => <Icon symbol="⌕" active={focused} />,
         }}
       />
+      {/* Saved still lives at /saved (linked from Account) — hidden from the
+          thumb zone, not removed, so existing router.push("/saved") calls
+          keep working. */}
       <Tabs.Screen
         name="saved"
-        options={{
-          title: "Saved",
-          tabBarIcon: ({ focused }) => <Icon symbol="♡" active={focused} />,
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="activity"

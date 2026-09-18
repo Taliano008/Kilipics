@@ -9,7 +9,18 @@ import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
-import { savedIcon, starIcon, verifiedBadgeIcon, whatsappIcon } from "@/utils/icon-assets";
+import {
+  cardPaymentIcon,
+  clapperIcon,
+  gridIcon,
+  instagramIcon,
+  phoneCallIcon,
+  ringingIcon,
+  savedIcon,
+  starIcon,
+  verifiedBadgeIcon,
+  whatsappIcon,
+} from "@/utils/icon-assets";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
@@ -26,6 +37,7 @@ import {
   useState,
 } from "react";
 import {
+  type ImageSourcePropType,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -40,22 +52,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const TAB_BAR_HEIGHT = 50;
 
-// whatsapp is the one channel with a real brand-icon asset (see
-// icon-assets.ts) — rendered specially below instead of through this map.
-const CONTACT_ICONS: Record<ContactChannel["kind"], string> = {
-  whatsapp: "💬",
-  call: "📞",
-  website: "🌐",
-  instagram: "📸",
-  tiktok: "🎵",
-  email: "✉️",
+// website and tiktok have no brand-icon asset in assets/icons — grid and
+// clapper are the closest stand-ins available (a grid of links, a video
+// clapperboard) rather than shipping an emoji fallback.
+const CONTACT_ICONS: Record<ContactChannel["kind"], ImageSourcePropType> = {
+  whatsapp: whatsappIcon,
+  call: phoneCallIcon,
+  website: gridIcon,
+  instagram: instagramIcon,
+  tiktok: clapperIcon,
+  email: ringingIcon,
 };
 
 const PERKS = [
   { icon: '✓', label: 'Clean & Safe' },
   { icon: '◎', label: 'Professional Stylists' },
-  { icon: '★', label: 'Premium Products' },
-  { icon: '♡', label: 'Great Vibes' },
+  { icon: starIcon, label: 'Premium Products' },
+  { icon: savedIcon, label: 'Great Vibes' },
 ];
 
 const REVIEWS = [
@@ -414,11 +427,17 @@ export default function ProviderDetailScreen() {
             <Text style={styles.ratingScore}>{provider.rating?.toFixed(1) ?? "New"}</Text>
             <Text style={styles.reviewCount}>({provider.verifiedCount || 0} reviews)</Text>
             <Text style={styles.divider}>|</Text>
-            <Text style={styles.priceVerified}>✓ Price Verified</Text>
+            <View style={styles.priceVerifiedRow}>
+              <Image source={verifiedBadgeIcon} style={styles.priceVerifiedIcon} />
+              <Text style={styles.priceVerified}>Price Verified</Text>
+            </View>
           </View>
 
           <View style={styles.badgesRow}>
-            <View style={styles.badgeTested}><Text style={styles.badgeTestedText}>✓ KiliPicks Tested</Text></View>
+            <View style={[styles.badgeTested, styles.badgeTestedRow]}>
+              <Image source={verifiedBadgeIcon} style={styles.badgeTestedIcon} />
+              <Text style={styles.badgeTestedText}>KiliPicks Tested</Text>
+            </View>
             <View style={styles.badgeFeatured}><Text style={styles.badgeFeaturedText}>Featured</Text></View>
           </View>
         </View>
@@ -454,7 +473,11 @@ export default function ProviderDetailScreen() {
              <View style={styles.perksCol}>
                 {PERKS.map((perk, idx) => (
                   <View key={idx} style={styles.perkRow}>
-                    <Text style={styles.perkIcon}>{perk.icon}</Text>
+                    {typeof perk.icon === "string" ? (
+                      <Text style={styles.perkIcon}>{perk.icon}</Text>
+                    ) : (
+                      <Image source={perk.icon} style={styles.perkImage} />
+                    )}
                     <Text style={styles.perkText}>{perk.label}</Text>
                   </View>
                 ))}
@@ -474,11 +497,7 @@ export default function ProviderDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={channel.label}
                   >
-                    {channel.kind === "whatsapp" ? (
-                      <Image source={whatsappIcon} style={styles.contactChipImage} />
-                    ) : (
-                      <Text style={styles.contactChipIcon}>{CONTACT_ICONS[channel.kind]}</Text>
-                    )}
+                    <Image source={CONTACT_ICONS[channel.kind]} style={styles.contactChipImage} />
                     <Text style={styles.contactChipText}>{channel.label}</Text>
                   </Pressable>
                 ))}
@@ -594,7 +613,7 @@ export default function ProviderDetailScreen() {
                    <Text style={styles.infoText}>Instant confirmation</Text>
                 </View>
                 <View style={styles.infoRow}>
-                   <View style={styles.infoIconBox}><Text style={styles.infoIcon}>💳</Text></View>
+                   <View style={styles.infoIconBox}><Image source={cardPaymentIcon} style={styles.infoIconImage} /></View>
                    <Text style={styles.infoText}>Pay by app</Text>
                 </View>
              </View>
@@ -624,11 +643,10 @@ export default function ProviderDetailScreen() {
          <Text style={styles.bottomBarServices}>{services.length} services available</Text>
          <View style={styles.bottomBarActions}>
             <Pressable style={styles.btnSave} onPress={() => toggle(provider.id)}>
-               {saved ? (
-                 <Image source={savedIcon} style={styles.btnSaveImage} />
-               ) : (
-                 <Text style={styles.btnSaveIcon}>♡</Text>
-               )}
+               <Image
+                 source={savedIcon}
+                 style={[styles.btnSaveImage, !saved && styles.btnSaveImageInactive]}
+               />
                <Text style={styles.btnSaveText}>Save</Text>
             </Pressable>
             <Pressable
@@ -741,9 +759,13 @@ const styles = StyleSheet.create({
   ratingScore: { fontSize: 14, fontWeight: "700", color: "#3a3a3a" },
   reviewCount: { fontSize: 14, color: "#8a8a8a" },
   divider: { color: "#c9c9c9" },
+  priceVerifiedRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  priceVerifiedIcon: { width: 14, height: 14 },
   priceVerified: { color: "#2F5D4B", fontSize: 14, fontWeight: "600" },
   badgesRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   badgeTested: { backgroundColor: "#F7E9EC", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  badgeTestedRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  badgeTestedIcon: { width: 13, height: 13 },
   badgeTestedText: { color: "#B3452B", fontSize: 12.5, fontWeight: "600" },
   badgeFeatured: { backgroundColor: "#FFF3D9", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
   badgeFeaturedText: { color: "#8B5A12", fontSize: 12.5, fontWeight: "600" },
@@ -760,6 +782,7 @@ const styles = StyleSheet.create({
   perksCol: { flex: 1, gap: 14, paddingTop: 2 },
   perkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   perkIcon: { color: "#B3452B", fontSize: 15, width: 16, textAlign: "center" },
+  perkImage: { width: 15, height: 15 },
   perkText: { fontSize: 12.5, fontWeight: "500", color: "#3a3a3a", flexShrink: 1 },
   contactSection: { marginTop: 24 },
   contactRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
@@ -774,7 +797,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 22,
   },
-  contactChipIcon: { fontSize: 15 },
   contactChipImage: { width: 15, height: 15 },
   contactChipText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
   nearbySection: { marginTop: 30 },
@@ -825,6 +847,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   infoIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(179,69,43,0.12)", alignItems: "center", justifyContent: "center" },
   infoIcon: { color: "#B3452B", fontSize: 15 },
+  infoIconImage: { width: 16, height: 16 },
   infoText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.07)", paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 8 },
   bottomBarServices: { fontSize: 11.5, color: "#8a8a8a", fontWeight: "500" },
@@ -832,6 +855,7 @@ const styles = StyleSheet.create({
   btnSave: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#F7E9EC", paddingVertical: 14, paddingHorizontal: 20, borderRadius: 26 },
   btnSaveIcon: { color: "#3a3a3a", fontSize: 16 },
   btnSaveImage: { width: 16, height: 16 },
+  btnSaveImageInactive: { opacity: 0.35 },
   btnSaveText: { color: "#3a3a3a", fontSize: 14.5, fontWeight: "600" },
   btnBook: { flex: 1, backgroundColor: "#B3452B", borderRadius: 26, paddingVertical: 11, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
   btnBookContent: { alignItems: "center" },

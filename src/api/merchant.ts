@@ -36,7 +36,7 @@ export type MerchantBusiness = {
   positioning: string;
   about: string;
   coverUrl?: string | null;
-  galleryUrls: GalleryPhoto[];
+  galleryUrls: string[];
   onboardingStep: number;
   submittedAt?: string | null;
   publicationStatus: "draft" | "published" | "hidden" | "archived";
@@ -135,37 +135,41 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 // Content-Type: application/json, which would break multipart here — the
 // runtime needs to set Content-Type itself (with the boundary) when the
 // body is a FormData.
-export function uploadMerchantPhoto(
+import * as FileSystem from "expo-file-system";
+
+export async function uploadMerchantPhoto(
   token: string,
   photo: { uri: string; name: string; mimeType: string },
   purpose?: "cover" | "gallery" | "look" | "service",
 ) {
-  const formData = new FormData();
-  // React Native's fetch/FormData accepts this { uri, name, type } shape
-  // for file fields — not a real Blob, but that's the documented RN idiom.
-  formData.append(
-    "photo",
-    { uri: photo.uri, name: photo.name, type: photo.mimeType } as unknown as Blob,
-  );
-  if (purpose) formData.append("purpose", purpose);
-
-  return fetch(`${AUTH_API_BASE_URL}/api/merchant/media/photos`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: formData,
-  }).then(async (response) => {
-    const payload = (await response.json().catch(() => null)) as
-      | ({ ok: true; url: string; merchantToken?: string | null } & ApiErrorPayload)
-      | null;
-    if (!response.ok) {
-      const error = new Error(
-        payload?.message ?? "We couldn't upload that photo. Please try again.",
-      ) as ApiError;
-      error.code = payload?.error;
-      throw error;
+  const uploadResponse = await FileSystem.uploadAsync(
+    `${AUTH_API_BASE_URL}/api/merchant/media/photos`,
+    photo.uri,
+    {
+      fieldName: "photo",
+      httpMethod: "POST",
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      parameters: purpose ? { purpose } : undefined,
+      mimeType: photo.mimeType,
     }
-    return payload as { ok: true; url: string; merchantToken?: string | null };
-  });
+  );
+
+  const payload = (await JSON.parse(uploadResponse.body).catch(() => null)) as
+    | ({ ok: true; url: string; merchantToken?: string | null } & ApiErrorPayload)
+    | null;
+
+  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+    const error = new Error(
+      payload?.message ?? "We couldn't upload that photo. Please try again.",
+    ) as ApiError;
+    error.code = payload?.error;
+    throw error;
+  }
+  
+  return payload as { ok: true; url: string; merchantToken?: string | null };
 }
 
 export function fetchMerchantBusiness(token: string) {

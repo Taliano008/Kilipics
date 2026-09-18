@@ -4,6 +4,7 @@ import { useSaved } from "@/saved/saved-context";
 import { colors, radii, shadow, spacing } from "@/theme/tokens";
 import type { PublicCatalogProvider } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
+import { savedIcon, starIcon } from "@/utils/icon-assets";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -102,7 +103,14 @@ export function ProviderCard({
             });
           }}
         >
-          <Text style={[styles.saveText, isDense && styles.denseSaveText]}>{isSaved(provider.id) ? "♥" : "♡"}</Text>
+          <Image
+            source={savedIcon}
+            style={[
+              styles.saveImage,
+              isDense && styles.denseSaveImage,
+              !isSaved(provider.id) && styles.saveImageInactive,
+            ]}
+          />
         </Pressable>
       </View>
       
@@ -123,7 +131,10 @@ export function ProviderCard({
         ) : (
           <View style={[styles.claimedInfo, isDense && styles.denseClaimedInfo]}>
             {provider.rating ? (
-              <Text style={[styles.rating, isDense && styles.denseRating]}>★ {provider.rating.toFixed(1)}</Text>
+              <View style={styles.ratingRow}>
+                <Image source={starIcon} style={styles.ratingIcon} />
+                <Text style={[styles.rating, isDense && styles.denseRating]}>{provider.rating.toFixed(1)}</Text>
+              </View>
             ) : null}
             <Text style={[styles.price, isDense && styles.densePrice]} numberOfLines={1}>
               {provider.startingPrice
@@ -182,8 +193,9 @@ const styles = StyleSheet.create({
     borderRadius: 21,
   },
   denseSave: { right: 8, top: 8, width: 32, height: 32, borderRadius: 16 },
-  saveText: { color: colors.clay, fontSize: 27, lineHeight: 29 },
-  denseSaveText: { fontSize: 20, lineHeight: 22 },
+  saveImage: { width: 20, height: 20 },
+  denseSaveImage: { width: 16, height: 16 },
+  saveImageInactive: { opacity: 0.35 },
   body: { padding: spacing.md, gap: 5 },
   denseBody: { padding: spacing.sm, gap: 2 },
   eyebrow: {
@@ -210,6 +222,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   denseClaimedInfo: { marginTop: 2, gap: 1 },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  ratingIcon: { width: 13, height: 13 },
   rating: {
     color: colors.ink,
     fontSize: 14,

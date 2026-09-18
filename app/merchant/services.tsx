@@ -24,6 +24,7 @@ import {
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { CATALOG_CATEGORY_IDS, categoryLabel } from "@/utils/categories";
 import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { cameraIcon, gridIcon } from "@/utils/icon-assets";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -366,7 +367,7 @@ export default function MerchantServicesScreen() {
                           {p.imageUrl ? (
                             <Image source={{ uri: p.imageUrl }} style={s.previewImage} />
                           ) : (
-                            <Text style={s.previewImagePlaceholder}>✂</Text>
+                            <Image source={cameraIcon} style={s.previewImagePlaceholder} />
                           )}
                         </View>
                         <View style={{ padding: 9 }}>
@@ -438,7 +439,7 @@ export default function MerchantServicesScreen() {
                           {svc.imageUrl ? (
                             <Image source={{ uri: svc.imageUrl }} style={s.rowThumbImage} />
                           ) : (
-                            <Text style={s.rowThumbText}>✂</Text>
+                            <Image source={cameraIcon} style={s.rowThumbText} />
                           )}
                         </View>
                         <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => openEdit(svc)}>
@@ -535,7 +536,7 @@ export default function MerchantServicesScreen() {
                   <Image source={{ uri: draft.imageUrl }} style={s.photoBoxImage} />
                 ) : (
                   <View style={s.photoBoxEmpty}>
-                    <Text style={s.photoBoxEmptyIcon}>📷</Text>
+                    <Image source={cameraIcon} style={s.photoBoxEmptyIconImage} />
                     <Text style={s.photoBoxEmptyText}>No photo yet</Text>
                   </View>
                 )}
@@ -546,7 +547,8 @@ export default function MerchantServicesScreen() {
                   disabled={uploadingPhoto}
                   onPress={() => void addPhoto("camera")}
                 >
-                  <Text style={s.photoActionBtnText}>📷 Take Photo</Text>
+                  <Image source={cameraIcon} style={[s.photoActionBtnIcon, { tintColor: mc.onPrimary }]} />
+                  <Text style={s.photoActionBtnText}>Take Photo</Text>
                 </Pressable>
                 <Pressable
                   style={[
@@ -557,8 +559,9 @@ export default function MerchantServicesScreen() {
                   disabled={uploadingPhoto}
                   onPress={() => void addPhoto("library")}
                 >
+                  <Image source={gridIcon} style={[s.photoActionBtnIcon, { tintColor: mc.onSurface }]} />
                   <Text style={[s.photoActionBtnText, { color: mc.onSurface }]}>
-                    🖼 From Library
+                    From Library
                   </Text>
                 </Pressable>
               </View>
@@ -846,7 +849,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   previewImage: { width: "100%", height: "100%" },
-  previewImagePlaceholder: { fontSize: 22, color: mc.outline },
+  previewImagePlaceholder: { width: 22, height: 22, tintColor: mc.outline },
   previewName: { fontSize: 12, fontFamily: mf.semibold, color: mc.onSurface },
   previewPrice: { fontSize: 11, color: mc.onSurfaceVariant, marginTop: 2 },
   previewCta: {
@@ -909,7 +912,7 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   rowThumbImage: { width: "100%", height: "100%" },
-  rowThumbText: { fontSize: 18, color: mc.outline },
+  rowThumbText: { width: 18, height: 18, tintColor: mc.outline },
   rowName: { fontSize: 14, fontFamily: mf.bold, color: mc.onSurface, marginBottom: 2 },
   rowMeta: { fontSize: 12.5, color: mc.onSurfaceVariant, marginBottom: 6 },
   rowTag: { fontSize: 11, fontFamily: mf.semibold },
@@ -1004,7 +1007,8 @@ const s = StyleSheet.create({
   },
   photoBoxImage: { width: "100%", height: "100%" },
   photoBoxEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6 },
-  photoBoxEmptyIcon: { fontSize: 24 },
+  photoBoxEmptyIconImage: { width: 26, height: 26, tintColor: mc.outline },
+  photoActionBtnIcon: { width: 15, height: 15 },
   photoBoxEmptyText: { fontSize: 13, color: mc.onSurfaceVariant, fontFamily: mf.medium },
   photoActionBtn: {
     flex: 1,

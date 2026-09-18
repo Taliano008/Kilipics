@@ -15,6 +15,8 @@ export type MerchantProfile = {
   status: "active" | "suspended";
   hasBusiness?: boolean;
   businessId?: string;
+  onboardingStep?: number;
+  onboardingSubmitted?: boolean;
 };
 
 // A linked merchant identity, never merged into the consumer's own record.

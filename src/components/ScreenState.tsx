@@ -43,7 +43,7 @@ export function EmptyState({
 }: PropsWithChildren<{ icon?: ReactNode; title: string; copy: string }>) {
   return (
     <View style={styles.empty}>
-      {icon ? <Text style={styles.icon}>{icon}</Text> : null}
+      {typeof icon === "string" ? <Text style={styles.icon}>{icon}</Text> : icon}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.copy}>{copy}</Text>
       {children}

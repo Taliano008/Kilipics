@@ -5,7 +5,7 @@ import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel } from "@/utils/categories";
-import { starIcon } from "@/utils/icon-assets";
+import { adminIcon, starIcon } from "@/utils/icon-assets";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,17 +26,17 @@ const ICONS = {
   hair: require("../../assets/icons/massage.png"),
   barber: require("../../assets/icons/barber.png"),
   nails: require("../../assets/icons/nail-artist.png"),
-  makeup: require("../../assets/icons/tray.png"),
+  makeup: require("../../assets/images/Beauty.webp"),
   spa: require("../../assets/icons/sauna.png"),
-  gym: require("../../assets/icons/weightlifting.png"),
+  gym: require("../../assets/images/gym.webp"),
   tattoo: require("../../assets/icons/tattoo.png"),
 };
 
 // Mock data
 const COMING_SOON = [
-  { name: 'Restaurants', image: require("../../assets/images/braids_cover.jpg") },
-  { name: 'Events', image: require("../../assets/images/bridal_glam_cover.jpg") },
-  { name: 'Weddings', image: require("../../assets/images/mens_grooming_cover.jpg") },
+  { name: 'Restaurants', image: require("../../assets/images/Restaurant.webp") },
+  { name: 'Events', image: require("../../assets/images/event.webp") },
+  { name: 'Weddings', image: require("../../assets/images/wedding.webp") },
 ];
 
 const NEARBY_PROS = [
@@ -148,9 +148,9 @@ export default function HomeScreen() {
             <Pressable style={styles.searchBtn} onPress={() => router.push("/search-overlay")}>
               <Text style={styles.searchIcon}>⌕</Text>
             </Pressable>
-            <View style={styles.avatarBtn}>
-              <Text style={styles.avatarIcon}>👤</Text>
-            </View>
+            <Pressable style={styles.avatarBtn} onPress={() => router.push("/(tabs)/account")}>
+              <Image source={adminIcon} style={styles.avatarIconImage} tintColor="#fff" />
+            </Pressable>
           </View>
         </View>
         <Text style={styles.locationText}>Nairobi</Text>
@@ -161,7 +161,7 @@ export default function HomeScreen() {
             <Image source={require("../../assets/images/spa_massage_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient colors={['rgba(165,51,90,0.15)', 'rgba(43,13,24,0.45)', 'rgba(43,13,24,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.heroIconBox}>
-              <Image source={require("../../assets/icons/massage.png")} style={{width:16,height:16,tintColor:'#fff'}} />
+              <Image source={require("../../assets/images/Beauty.webp")} style={{width:16,height:16,tintColor:'#fff'}} />
             </View>
             <View style={styles.heroTextContainer}>
               <Text style={styles.heroTitle}>Beauty and personal care</Text>
@@ -173,7 +173,7 @@ export default function HomeScreen() {
             <Image source={require("../../assets/images/mens_grooming_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient colors={['rgba(43,107,82,0.15)', 'rgba(11,33,26,0.45)', 'rgba(11,33,26,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.heroIconBox}>
-              <Image source={require("../../assets/icons/weightlifting.png")} style={{width:16,height:16,tintColor:'#fff'}} />
+              <Image source={require("../../assets/images/gym.webp")} style={{width:16,height:16,tintColor:'#fff'}} />
             </View>
             <View style={styles.heroTextContainer}>
               <Text style={styles.heroTitle}>Fitness and wellness</Text>
@@ -345,9 +345,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarIcon: {
-    fontSize: 16,
-    color: "#fff",
+  avatarIconImage: {
+    width: 18,
+    height: 18,
   },
   locationText: {
     paddingHorizontal: 18,

@@ -11,7 +11,8 @@ import {
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
-import { useRouter } from "expo-router";
+import { bookingIcon, cameraIcon, gridIcon, searchIcon } from "@/utils/icon-assets";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -53,8 +54,32 @@ const DEFAULT_DAYS = [
   { name: "Sun", open: false, from: "", to: "" },
 ];
 
+// Reconstructs the day-toggle UI state from the "Day: from – to" / "Day:
+// Closed" text saveStep3 writes to businesses.hours (see
+// backend/src/services/merchant-business.js saveStep3) — without this,
+// re-opening this screen to edit hours a merchant already saved would show
+// DEFAULT_DAYS and silently overwrite their real schedule on save.
+function parseDaysFromHours(hoursText: string): typeof DEFAULT_DAYS | null {
+  if (!hoursText?.trim()) return null;
+  const lines = hoursText.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length !== DEFAULT_DAYS.length) return null;
+  const parsed = lines.map((line, i) => {
+    const [namePart, ...rest] = line.split(":");
+    const name = namePart.trim() || DEFAULT_DAYS[i].name;
+    const value = rest.join(":").trim();
+    if (!value || value.toLowerCase() === "closed") {
+      return { name, open: false, from: "", to: "" };
+    }
+    const [from, to] = value.split("–").map((p) => p.trim());
+    return { name, open: true, from: from || "9:00 AM", to: to || "6:00 PM" };
+  });
+  return parsed;
+}
+
 export default function OnboardStep3() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const isEditMode = mode === "edit";
   const { merchantToken, consumerToken, saveMerchantSession } = useAuth();
   const activeToken = merchantToken || consumerToken;
 
@@ -76,11 +101,21 @@ export default function OnboardStep3() {
         if (res.merchantToken) void saveMerchantSession(res.merchantToken);
         if (res.business) {
           if (Array.isArray(res.business.galleryUrls) && res.business.galleryUrls.length > 0) {
-            setPhotos(res.business.galleryUrls);
+            // The backend persists gallery_urls as plain strings (see
+            // saveStep3 in merchant-business.js), not { uri, label } objects,
+            // so normalize on hydrate or every photo tile renders blank and
+            // gets dropped on the next save.
+            setPhotos(
+              res.business.galleryUrls.map((g, idx) =>
+                typeof g === "string" ? { uri: g, label: `Space ${idx + 1}` } : g,
+              ),
+            );
           }
           if (res.business.activePreset) {
             setActivePreset(res.business.activePreset);
           }
+          const parsedDays = parseDaysFromHours(res.business.hours);
+          if (parsedDays) setDays(parsedDays);
         }
       })
       .catch(() => {});
@@ -131,10 +166,15 @@ export default function OnboardStep3() {
           activePreset,
           days,
         });
-        const res = await submitMerchantOnboarding(activeToken);
-        if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+        // Onboarding was already submitted the first time this business
+        // reached this screen — editing afterward shouldn't re-run
+        // submitMerchantOnboarding, just persist the updated hours/photos.
+        if (!isEditMode) {
+          const res = await submitMerchantOnboarding(activeToken);
+          if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+        }
       }
-      router.push("/merchant/onboard/submitted");
+      router.replace(isEditMode ? "/merchant/profile" : "/merchant/onboard/submitted");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit onboarding. Please try again.");
     } finally {
@@ -165,7 +205,7 @@ export default function OnboardStep3() {
         <Pressable style={s.backBtn} onPress={() => router.back()}>
           <Text style={s.backIcon}>←</Text>
         </Pressable>
-        <Text style={s.headerTitle}>Add Photos And Hours</Text>
+        <Text style={s.headerTitle}>{isEditMode ? "Edit Photos & Hours" : "Add Photos And Hours"}</Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -175,29 +215,34 @@ export default function OnboardStep3() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Progress ── */}
-        <View style={s.progressWrap}>
-          <View style={s.progressTop}>
-            <Text style={s.stepLabel}>Step 3 of 3</Text>
-            <Text style={s.stepSub}>Final Polish</Text>
+        {!isEditMode && (
+          <View style={s.progressWrap}>
+            <View style={s.progressTop}>
+              <Text style={s.stepLabel}>Step 3 of 3</Text>
+              <Text style={s.stepSub}>Final Polish</Text>
+            </View>
+            <View style={s.progressTrack}>
+              <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
+              <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
+              <View style={[s.progressSeg, { backgroundColor: mc.primary }]} />
+            </View>
           </View>
-          <View style={s.progressTrack}>
-            <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
-            <View style={[s.progressSeg, { backgroundColor: mc.primaryContainer }]} />
-            <View style={[s.progressSeg, { backgroundColor: mc.primary }]} />
-          </View>
-        </View>
+        )}
 
         {/* ── Headline ── */}
         <View>
           <View style={s.headlineRow}>
             <Text style={s.headline}>Photos & Hours</Text>
-            <View style={s.optionalBadge}>
-              <Text style={s.optionalText}>Optional</Text>
-            </View>
+            {!isEditMode && (
+              <View style={s.optionalBadge}>
+                <Text style={s.optionalText}>Optional</Text>
+              </View>
+            )}
           </View>
           <Text style={s.subtext}>
-            Bring your space to life for neighborhood visitors. You can always
-            refine these details after launch.
+            {isEditMode
+              ? "Update your storefront photos and weekly hours — clients see these on your live listing."
+              : "Bring your space to life for neighborhood visitors. You can always refine these details after launch."}
           </Text>
         </View>
 
@@ -205,7 +250,7 @@ export default function OnboardStep3() {
         <View style={s.section}>
           <View style={s.sectionHeader}>
             <View style={s.sectionHeaderLeft}>
-              <Text style={s.sectionIcon}>📷</Text>
+              <Image source={cameraIcon} style={s.sectionIconImage} tintColor={mc.onSurface} />
               <Text style={s.sectionTitle}>Storefront & Portfolio</Text>
             </View>
             <Text style={s.photoCount}>{photos.length} / 8 added</Text>
@@ -251,7 +296,7 @@ export default function OnboardStep3() {
               }}
               onPress={() => setShowAddModal(true)}
             >
-              <Text style={{ fontSize: 24, marginBottom: 4 }}>📷</Text>
+              <Image source={cameraIcon} style={{ width: 24, height: 24, marginBottom: 4, tintColor: mc.onSurfaceVariant }} />
               <Text style={{ fontFamily: mf.semibold, fontSize: 14, color: mc.onSurface }}>
                 No photos added yet
               </Text>
@@ -262,7 +307,7 @@ export default function OnboardStep3() {
           )}
           {/* Pro tip */}
           <View style={s.proTipRow}>
-            <Text style={s.proTipIcon}>📈</Text>
+            <Image source={searchIcon} style={s.proTipIconImage} tintColor={mc.onSurfaceVariant} />
             <Text style={s.proTipText}>
               <Text style={s.proTipBold}>Pro tip: </Text>
               Listings with 3+ real workspace photos see{" "}
@@ -276,7 +321,7 @@ export default function OnboardStep3() {
         <View style={s.section}>
           <View style={s.sectionHeader}>
             <View style={s.sectionHeaderLeft}>
-              <Text style={s.sectionIcon}>🕐</Text>
+              <Image source={bookingIcon} style={s.sectionIconImage} tintColor={mc.onSurface} />
               <Text style={s.sectionTitle}>Weekly Operating Hours</Text>
             </View>
           </View>
@@ -386,13 +431,15 @@ export default function OnboardStep3() {
 
       {/* ── Sticky Footer ── */}
       <View style={s.footer}>
-        <Pressable
-          style={s.skipBtn}
-          disabled={submitting}
-          onPress={handleSkip}
-        >
-          <Text style={s.skipText}>Skip for now</Text>
-        </Pressable>
+        {!isEditMode && (
+          <Pressable
+            style={s.skipBtn}
+            disabled={submitting}
+            onPress={handleSkip}
+          >
+            <Text style={s.skipText}>Skip for now</Text>
+          </Pressable>
+        )}
         <Pressable
           style={[s.cta, submitting && { opacity: 0.7 }]}
           disabled={submitting}
@@ -401,7 +448,7 @@ export default function OnboardStep3() {
           {submitting ? (
             <ActivityIndicator color={mc.onPrimary} size="small" />
           ) : (
-            <Text style={s.ctaText}>Submit for Review  ✓</Text>
+            <Text style={s.ctaText}>{isEditMode ? "Save Changes" : "Submit for Review  ✓"}</Text>
           )}
         </Pressable>
       </View>
@@ -443,14 +490,16 @@ export default function OnboardStep3() {
                 disabled={uploadingPhoto}
                 onPress={() => void addPhotoFrom("camera")}
               >
-                <Text style={s.modalAddBtnText}>📷 Take Photo</Text>
+                <Image source={cameraIcon} style={s.modalAddBtnIcon} tintColor={mc.onPrimary} />
+                <Text style={s.modalAddBtnText}>Take Photo</Text>
               </Pressable>
               <Pressable
                 style={[s.modalAddBtn, { flex: 1, flexDirection: "row", justifyContent: "center", gap: 6, backgroundColor: mc.surfaceContainerHigh }, uploadingPhoto && { opacity: 0.6 }]}
                 disabled={uploadingPhoto}
                 onPress={() => void addPhotoFrom("library")}
               >
-                <Text style={[s.modalAddBtnText, { color: mc.onSurface }]}>🖼 From Library</Text>
+                <Image source={gridIcon} style={s.modalAddBtnIcon} tintColor={mc.onSurface} />
+                <Text style={[s.modalAddBtnText, { color: mc.onSurface }]}>From Library</Text>
               </Pressable>
             </View>
             {uploadingPhoto ? (
@@ -552,6 +601,7 @@ const s = StyleSheet.create({
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.xs },
   sectionIcon:   { fontSize: 18 },
+  sectionIconImage: { width: 18, height: 18 },
   sectionTitle:  { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   sectionHint:   { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18 },
   photoCount:    { fontSize: 12, fontFamily: mf.semibold, color: mc.primary },
@@ -575,6 +625,7 @@ const s = StyleSheet.create({
   // Pro tip
   proTipRow:       { flexDirection: "row", alignItems: "flex-start", gap: ms.xs, backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, padding: ms.sm },
   proTipIcon:      { fontSize: 16 },
+  proTipIconImage: { width: 16, height: 16 },
   proTipText:      { flex: 1, fontSize: 12, color: mc.onSurfaceVariant, lineHeight: 16 },
   proTipBold:      { fontFamily: mf.bold, color: mc.onSurface },
   proTipHighlight: { fontFamily: mf.semibold, color: mc.secondary },
@@ -626,6 +677,7 @@ const s = StyleSheet.create({
   modalSectionLabel: { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurfaceVariant },
   modalInput:    { backgroundColor: mc.surfaceContainerHigh, borderRadius: mr.md, padding: ms.sm, fontSize: 14, fontFamily: mf.regular, color: mc.onSurface },
   modalAddBtn:   { backgroundColor: mc.primary, borderRadius: mr.full, paddingVertical: 12, alignItems: "center", marginTop: 4 },
+  modalAddBtnIcon: { width: 15, height: 15 },
   modalAddBtnText: { color: mc.onPrimary, fontFamily: mf.semibold, fontSize: 14 },
   presetGrid:    { flexDirection: "row", gap: ms.sm, marginTop: 4 },
   presetItem:    { flex: 1, backgroundColor: mc.surfaceContainerLow, borderRadius: mr.md, overflow: "hidden", alignItems: "center", paddingBottom: 6 },

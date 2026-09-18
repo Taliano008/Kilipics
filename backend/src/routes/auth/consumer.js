@@ -22,7 +22,7 @@ import {
 // onboarding — through onboarding again on their next login or app reload.
 async function serializeLinkedMerchant(merchant) {
   const businessId = await findBusinessIdForMerchant(merchant.id);
-  return serializeMerchant(merchant, businessId);
+  return await serializeMerchant(merchant, businessId);
 }
 
 export default async function consumerAuthRoutes(app) {

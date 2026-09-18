@@ -37,14 +37,30 @@ export async function findMerchantForUser(userId) {
   return queryOne("SELECT * FROM merchants WHERE owner_user_id = ?", [userId]);
 }
 
-export function serializeMerchant(merchant, businessId) {
+// Async because, when a business exists, this looks up its onboarding
+// progress — the mobile client's "Switch to seller" entry point
+// (app/(tabs)/account.tsx) needs onboardingStep/onboardingSubmitted
+// alongside hasBusiness to route a merchant back into onboarding at the
+// step they left off at, rather than dumping them into a half-empty
+// dashboard the moment a businesses row exists at all.
+export async function serializeMerchant(merchant, businessId) {
+  const onboarding = businessId
+    ? await queryOne("SELECT onboarding_step, submitted_at FROM businesses WHERE id = ?", [businessId])
+    : null;
+
   return {
     id: merchant.id,
     fullName: merchant.full_name,
     email: merchant.email,
     status: merchant.status,
     hasBusiness: Boolean(businessId),
-    ...(businessId ? { businessId } : {}),
+    ...(businessId
+      ? {
+          businessId,
+          onboardingStep: onboarding?.onboarding_step ?? 1,
+          onboardingSubmitted: Boolean(onboarding?.submitted_at),
+        }
+      : {}),
   };
 }
 
@@ -79,5 +95,5 @@ export async function createMerchant({ fullName, email, password, ownerUserId = 
 
   const token = await issueMerchantToken(id);
   const merchant = await queryOne("SELECT * FROM merchants WHERE id = ?", [id]);
-  return { token, merchant: serializeMerchant(merchant, null) };
+  return { token, merchant: await serializeMerchant(merchant, null) };
 }

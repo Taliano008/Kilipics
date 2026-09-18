@@ -76,7 +76,7 @@ export default async function merchantAuthRoutes(app) {
       const token = await issueMerchantToken(merchant.id);
       const businessId = await findBusinessIdForMerchant(merchant.id);
 
-      return { token, merchant: serializeMerchant(merchant, businessId) };
+      return { token, merchant: await serializeMerchant(merchant, businessId) };
     },
   );
 
@@ -87,6 +87,6 @@ export default async function merchantAuthRoutes(app) {
 
   app.get("/me", { preHandler: merchantAuth }, async (request) => {
     const merchant = await queryOne("SELECT * FROM merchants WHERE id = ?", [request.merchant.merchantId]);
-    return { merchant: serializeMerchant(merchant, request.merchant.businessId) };
+    return { merchant: await serializeMerchant(merchant, request.merchant.businessId) };
   });
 }
