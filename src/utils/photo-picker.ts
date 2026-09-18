@@ -36,7 +36,7 @@ function normalizeMimeType(mimeType: string | null | undefined, fallbackExt: str
   return "image/jpeg";
 }
 
-function toPickedPhoto(asset: ImagePicker.ImagePickerAsset): PickedPhoto {
+function toPickedPhoto(asset: { uri: string; fileName?: string | null; mimeType?: string }): PickedPhoto {
   const fallbackExt = asset.uri.split(".").pop()?.toLowerCase();
   const name =
     asset.fileName ||
@@ -46,7 +46,7 @@ function toPickedPhoto(asset: ImagePicker.ImagePickerAsset): PickedPhoto {
   return { uri: asset.uri, name, mimeType };
 }
 
-async function compressPhoto(asset: ImagePicker.ImagePickerAsset): Promise<PickedPhoto> {
+export async function compressPhoto(asset: { uri: string; width: number; height: number; mimeType?: string }): Promise<PickedPhoto> {
   try {
     const longEdge = Math.max(asset.width, asset.height);
     let context = ImageManipulator.ImageManipulator.manipulate(asset.uri);
@@ -76,18 +76,6 @@ export async function pickPhotoFromLibrary(): Promise<PhotoPickResult> {
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
-    quality: 0.8,
-    allowsEditing: false,
-  });
-  if (result.canceled || result.assets.length === 0) return { status: "canceled" };
-  return { status: "picked", photo: await compressPhoto(result.assets[0]) };
-}
-
-export async function takePhotoWithCamera(): Promise<PhotoPickResult> {
-  const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) return { status: "permission_denied" };
-
-  const result = await ImagePicker.launchCameraAsync({
     quality: 0.8,
     allowsEditing: false,
   });

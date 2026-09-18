@@ -25,7 +25,23 @@ export async function getCatalogSnapshot() {
 // public_contacts, payment_settings, service_areas) into JS values already —
 // no manual JSON.parse needed here.
 
-export function serializeProvider(row, serviceIdsByBusiness) {
+// Merges a business's own gallery_urls with its active services' image_url
+// so every photo a merchant has uploaded anywhere — Storefront & Portfolio
+// photos or per-service photos — shows up in the public gallery, not just
+// the ones added through the onboarding photo grid.
+function mergeGallery(galleryUrls, serviceImageUrls) {
+  const seen = new Set();
+  const merged = [];
+  for (const url of [...(galleryUrls ?? []), ...(serviceImageUrls ?? [])]) {
+    if (typeof url === "string" && url.length > 0 && !seen.has(url)) {
+      seen.add(url);
+      merged.push(url);
+    }
+  }
+  return merged;
+}
+
+export function serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness = new Map()) {
   const provider = {
     id: row.id,
     slug: row.slug,
@@ -83,7 +99,7 @@ export function serializeProvider(row, serviceIdsByBusiness) {
     bookingMethod: row.booking_method,
     recommended: Boolean(row.recommended),
     featured: Boolean(row.featured),
-    gallery: row.gallery_urls ?? [],
+    gallery: mergeGallery(row.gallery_urls, serviceImagesByBusiness.get(row.id)),
     publicContacts: row.public_contacts ?? {},
   };
 
@@ -172,16 +188,23 @@ async function buildCatalogSnapshot() {
   }
 
   const serviceIdsByBusiness = new Map();
+  const serviceImagesByBusiness = new Map();
   for (const service of services) {
     const list = serviceIdsByBusiness.get(service.business_id) ?? [];
     list.push(service.id);
     serviceIdsByBusiness.set(service.business_id, list);
+
+    if (service.image_url) {
+      const images = serviceImagesByBusiness.get(service.business_id) ?? [];
+      images.push(service.image_url);
+      serviceImagesByBusiness.set(service.business_id, images);
+    }
   }
 
   const appConfig = await getAppConfig();
 
   return {
-    providers: businesses.map((row) => serializeProvider(row, serviceIdsByBusiness)),
+    providers: businesses.map((row) => serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness)),
     services: services.map(serializeService),
     availability: availability.map(serializeAvailability),
     managedMerchantIds: [],

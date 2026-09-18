@@ -1,7 +1,7 @@
 import { execute, query, queryOne } from "../db/connection.js";
 import { newId } from "../lib/ids.js";
 import { badRequest, notFound } from "../lib/http-errors.js";
-import { serializeProvider, serializeService } from "./catalog.js";
+import { invalidateCatalogCache, serializeProvider, serializeService } from "./catalog.js";
 
 // Mirrors the category taxonomy the rest of the catalog uses (see
 // src/utils/categories.ts on the mobile side) — categoryId values coming out
@@ -121,6 +121,7 @@ export async function saveStep1(merchantId, { name, category, description, phone
        WHERE id = ?`,
       [trimmedName, categoryId, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, existing.id]
     );
+    invalidateCatalogCache();
     const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
     return serializeMerchantBusiness(updated);
   }
@@ -177,6 +178,7 @@ export async function saveStep1(merchantId, { name, category, description, phone
            WHERE id = ?`,
           [trimmedName, categoryId, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, winner.id]
         );
+        invalidateCatalogCache();
         const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [winner.id]);
         return serializeMerchantBusiness(updated);
       }
@@ -184,6 +186,7 @@ export async function saveStep1(merchantId, { name, category, description, phone
     throw err;
   }
 
+  invalidateCatalogCache();
   const created = await queryOne("SELECT * FROM businesses WHERE id = ?", [id]);
   return serializeMerchantBusiness(created);
 }
@@ -208,6 +211,7 @@ export async function saveStep2(merchantId, { address, area, locationType, radiu
     [fullAddress, neighborhood, locType, travelRad, serviceAreasJson, existing.id]
   );
 
+  invalidateCatalogCache();
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
 }
@@ -243,6 +247,7 @@ export async function saveStep3(merchantId, { photos, activePreset, days, hoursT
     [galleryJson, coverUrl, formattedHours, activePreset || "Mon – Fri, 9 – 6", existing.id]
   );
 
+  invalidateCatalogCache();
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
 }
@@ -263,6 +268,7 @@ export async function submitOnboarding(merchantId) {
     [existing.id]
   );
 
+  invalidateCatalogCache();
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
 }
@@ -304,6 +310,7 @@ export async function updateBusiness(merchantId, updates) {
   if (setClauses.length > 0) {
     values.push(existing.id);
     await execute(`UPDATE businesses SET ${setClauses.join(", ")} WHERE id = ?`, values);
+    invalidateCatalogCache();
   }
 
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
@@ -325,9 +332,12 @@ export async function getBusinessPreview(merchantId) {
     [row.id],
   );
   const serviceIdsByBusiness = new Map([[row.id, services.map((s) => s.id)]]);
+  const serviceImagesByBusiness = new Map([
+    [row.id, services.map((s) => s.image_url).filter(Boolean)],
+  ]);
 
   return {
-    provider: serializeProvider(row, serviceIdsByBusiness),
+    provider: serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness),
     services: services.map(serializeService),
   };
 }

@@ -32,10 +32,10 @@ const app = Fastify({
       removeAdditional: false,
     },
   },
-  // Raised from the original 5MB so a single multipart photo upload (raw
-  // phone-camera JPEGs commonly run 4-8MB) fits under Fastify's own request
-  // body cap, on top of @fastify/multipart's own fileSize limit below.
-  bodyLimit: 12 * 1024 * 1024,
+  // Kept a bit above @fastify/multipart's own 5MB fileSize limit below, to
+  // leave room for multipart boundary/field overhead around the file part
+  // itself rather than the body cap tripping first with a less useful error.
+  bodyLimit: 6 * 1024 * 1024,
 });
 
 await app.register(cors, {
@@ -56,7 +56,7 @@ await app.register(rateLimit, {
 // parser itself rejects an oversized upload with a clean error instead of
 // the connection just dying mid-stream.
 await app.register(multipart, {
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 
 // Serves merchant-uploaded photos back out at env.uploadsBaseUrl (see

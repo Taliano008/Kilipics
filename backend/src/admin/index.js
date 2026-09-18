@@ -79,6 +79,21 @@ export async function buildAdmin() {
     },
     resources: [
       {
+        resource: db.table("users"),
+        options: {
+          navigation: { name: "Accounts" },
+          listProperties: ["first_name", "last_name", "email", "created_at"],
+          properties: {
+            password_hash: HIDDEN,
+          },
+          actions: {
+            ...SCRUB_PASSWORD_HOOKS,
+            new: { isAccessible: false },
+            delete: { isAccessible: false },
+          },
+        },
+      },
+      {
         resource: db.table("merchants"),
         options: {
           navigation: { name: "Accounts" },
@@ -168,7 +183,13 @@ export async function buildAdmin() {
                 if (!record.params.full_address?.trim()) missing.push("address");
                 if (!record.params.cover_url?.trim()) missing.push("cover photo");
 
-                await record.update({ publication_status: "published", limited_listing: 0 });
+                // booking_enabled defaults to 0 and nothing else in this flow
+                // ever flips it — without setting it here too, a freshly
+                // published business stays stuck behind the "must be a
+                // signed KiliPicks partner" gate in app/booking/[providerId].tsx
+                // even after an admin publishes it, with no visible admin
+                // signal that a second field still needs editing.
+                await record.update({ publication_status: "published", limited_listing: 0, booking_enabled: 1 });
                 return {
                   record: record.toJSON(currentAdmin),
                   notice: {

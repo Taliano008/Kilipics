@@ -44,29 +44,34 @@ function Row({
   title,
   copy,
   disabled,
+  isLast,
   onPress,
 }: {
   icon: ImageSourcePropType;
   title: string;
   copy: string;
   disabled?: boolean;
+  isLast?: boolean;
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      style={[styles.rowCard, disabled && styles.rowDisabled]}
-      disabled={disabled}
-      onPress={onPress}
-    >
-      <View style={styles.rowIconWrap}>
-        <Image source={icon} style={styles.rowIcon} />
-      </View>
-      <View style={styles.rowFill}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowCopy}>{copy}</Text>
-      </View>
-      <Text style={styles.rowArrow}>›</Text>
-    </Pressable>
+    <View>
+      <Pressable
+        style={[styles.groupRow, disabled && styles.rowDisabled]}
+        disabled={disabled}
+        onPress={onPress}
+      >
+        <View style={styles.rowIconWrap}>
+          <Image source={icon} style={styles.rowIcon} />
+        </View>
+        <View style={styles.rowFill}>
+          <Text style={styles.rowTitle}>{title}</Text>
+          <Text style={styles.rowCopy}>{copy}</Text>
+        </View>
+        <Text style={styles.rowArrow}>›</Text>
+      </Pressable>
+      {isLast ? null : <View style={styles.divider} />}
+    </View>
   );
 }
 
@@ -140,17 +145,15 @@ export default function AccountScreen() {
           </Pressable>
         ) : null}
         {status === "signed_in" && user ? (
-          <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{getInitials(user.fullName)}</Text>
             </View>
-            <View style={styles.rowFill}>
-              <Text style={styles.signedInTitle}>{user.fullName}</Text>
-              <Text style={styles.signedInCopy}>{user.email}</Text>
-              <Text style={styles.signedInCopy}>
-                {merchant ? "Customer and business owner" : "KiliPicks customer"}
-              </Text>
-            </View>
+            <Text style={styles.signedInTitle}>{user.fullName}</Text>
+            <Text style={styles.signedInEmail}>{user.email}</Text>
+            <Text style={styles.signedInRole}>
+              {merchant ? "Customer · Business owner" : "Customer"}
+            </Text>
             <Pressable
               style={styles.signOutButton}
               onPress={() => void signOut()}
@@ -161,162 +164,171 @@ export default function AccountScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Your account</Text>
-        <Row
-          icon={bookingIcon}
-          title="My Bookings"
-          copy="Availability requests you've sent"
-          onPress={() => {
-            void track("page_viewed", {
-              pagePath: "/activity",
-              pageTitle: "Activity",
-              sourceSection: "account",
-            });
-            router.push("/activity");
-          }}
-        />
-        <Row
-          icon={savedIcon}
-          title="Saved"
-          copy={savedCount === 0 ? "Nothing saved yet" : `${savedCount} saved`}
-          onPress={() => {
-            void track("page_viewed", {
-              pagePath: "/saved",
-              pageTitle: "Saved",
-              sourceSection: "account",
-            });
-            router.push("/saved");
-          }}
-        />
-        <Row
-          icon={ringingIcon}
-          title="Notifications"
-          copy="You're all caught up"
-          onPress={() => router.push("/notifications")}
-        />
+        <Text style={styles.sectionTitle}>Account</Text>
+        <View style={styles.groupCard}>
+          <Row
+            icon={bookingIcon}
+            title="My Bookings"
+            copy="Availability requests you've sent"
+            onPress={() => {
+              void track("page_viewed", {
+                pagePath: "/activity",
+                pageTitle: "Activity",
+                sourceSection: "account",
+              });
+              router.push("/activity");
+            }}
+          />
+          <Row
+            icon={savedIcon}
+            title="Saved"
+            copy={savedCount === 0 ? "Nothing saved yet" : `${savedCount} saved`}
+            onPress={() => {
+              void track("page_viewed", {
+                pagePath: "/saved",
+                pageTitle: "Saved",
+                sourceSection: "account",
+              });
+              router.push("/saved");
+            }}
+          />
+          <Row
+            icon={ringingIcon}
+            title="Notifications"
+            copy="You're all caught up"
+            isLast
+            onPress={() => router.push("/notifications")}
+          />
+        </View>
 
-        <Pressable
-          style={styles.rowCard}
-          onPress={() => {
-            if (status !== "signed_in") return router.push("/auth");
-            if (merchant) {
-              // A merchant identity can exist (e.g. right after the quick
-              // "Switch to seller" form below) before the actual business
-              // profile has been created — landing that merchant on the
-              // dashboard produces an empty, half-broken Overview screen.
-              // Route them into onboarding until a business actually exists.
-              // And a business can exist without onboarding ever having been
-              // submitted (abandoned mid-flow) — send those merchants back
-              // to the next incomplete step instead of the dashboard too.
-              if (!merchant.hasBusiness) {
-                router.push("/merchant/onboard/step1");
-              } else if (!merchant.onboardingSubmitted) {
-                const nextStep = Math.min((merchant.onboardingStep ?? 1) + 1, 3);
-                router.push(`/merchant/onboard/step${nextStep}` as never);
-              } else {
-                router.push("/merchant/profile");
+        <Text style={styles.sectionTitle}>Business</Text>
+        <View style={styles.groupCard}>
+          <Pressable
+            style={styles.groupRow}
+            onPress={() => {
+              if (status !== "signed_in") return router.push("/auth");
+              if (merchant) {
+                // A merchant identity can exist (e.g. right after the quick
+                // "Switch to seller" form below) before the actual business
+                // profile has been created — landing that merchant on the
+                // dashboard produces an empty, half-broken Overview screen.
+                // Route them into onboarding until a business actually exists.
+                // And a business can exist without onboarding ever having been
+                // submitted (abandoned mid-flow) — send those merchants back
+                // to the next incomplete step instead of the dashboard too.
+                if (!merchant.hasBusiness) {
+                  router.push("/merchant/onboard/step1");
+                } else if (!merchant.onboardingSubmitted) {
+                  const nextStep = Math.min((merchant.onboardingStep ?? 1) + 1, 3);
+                  router.push(`/merchant/onboard/step${nextStep}` as never);
+                } else {
+                  router.push("/merchant/profile");
+                }
+                return;
               }
-              return;
-            }
-            setSellerMessage(null);
-            setSellerFormOpen((open) => !open);
-          }}
-        >
-          <View style={styles.rowIconWrap}>
-            <Image source={adminIcon} style={styles.rowIcon} />
-          </View>
-          <View style={styles.rowFill}>
-            <Text style={styles.rowTitle}>
-              {merchant
-                ? "Merchant access enabled"
-                : merchantNeedsSignIn
-                  ? "Business account needs sign-in"
-                  : "Switch to seller"}
+              setSellerMessage(null);
+              setSellerFormOpen((open) => !open);
+            }}
+          >
+            <View style={styles.rowIconWrap}>
+              <Image source={adminIcon} style={styles.rowIcon} />
+            </View>
+            <View style={styles.rowFill}>
+              <Text style={styles.rowTitle}>
+                {merchant
+                  ? "Merchant Dashboard"
+                  : merchantNeedsSignIn
+                    ? "Business account needs sign-in"
+                    : "Switch to seller"}
+              </Text>
+              <Text style={styles.rowCopy}>
+                {merchant
+                  ? "Manage your business"
+                  : merchantNeedsSignIn
+                    ? "Your business password was changed separately — a dedicated sign-in is coming soon"
+                    : "List your business on KiliPicks"}
+              </Text>
+            </View>
+            <Text style={styles.rowArrow}>
+              {merchant ? "›" : sellerFormOpen ? "⌄" : "›"}
             </Text>
-            <Text style={styles.rowCopy}>
-              {merchant
-                ? "Open your Business Dashboard →"
-                : merchantNeedsSignIn
-                  ? "Your business password was changed separately — a dedicated sign-in is coming soon"
-                  : "List your business on KiliPicks"}
-            </Text>
-          </View>
-          <Text style={styles.rowArrow}>
-            {merchant ? "›" : sellerFormOpen ? "⌄" : "›"}
-          </Text>
-        </Pressable>
+          </Pressable>
 
-        {sellerFormOpen && !merchant ? (
-          <View style={styles.sellerForm}>
-            <Text style={styles.label}>Business name</Text>
-            <TextInput
-              style={styles.input}
-              value={sellerBusinessName}
-              onChangeText={setSellerBusinessName}
-              placeholder="Your business name"
-              placeholderTextColor={colors.muted}
-              autoCapitalize="words"
-              editable={!sellerPending}
-            />
-            <Text style={styles.label}>Business password</Text>
-            <TextInput
-              style={styles.input}
-              value={sellerPassword}
-              onChangeText={setSellerPassword}
-              placeholder="At least 8 characters"
-              placeholderTextColor={colors.muted}
-              secureTextEntry
-              textContentType="newPassword"
-              editable={!sellerPending}
-            />
-            <Text style={styles.sellerHint}>
-              This creates a separate business account under your email — its own password, kept apart from your
-              customer sign-in.
-            </Text>
-            {sellerMessage ? <Text style={styles.message}>{sellerMessage}</Text> : null}
-            <Pressable
-              style={[styles.sellerSubmit, sellerPending && styles.disabled]}
-              disabled={sellerPending}
-              onPress={submitBecomeSeller}
-            >
-              {sellerPending ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <Text style={styles.sellerSubmitText}>Create business account</Text>
-              )}
-            </Pressable>
-            {/* Quick-start: go directly to merchant onboarding UI */}
-            <Pressable
-              style={styles.onboardBtn}
-              onPress={() => router.push("/merchant/onboard/step1")}
-            >
-              <Text style={styles.onboardBtnText}>Set up my business profile →</Text>
-            </Pressable>
-          </View>
-        ) : null}
+          {sellerFormOpen && !merchant ? (
+            <View style={styles.sellerForm}>
+              <Text style={styles.label}>Business name</Text>
+              <TextInput
+                style={styles.input}
+                value={sellerBusinessName}
+                onChangeText={setSellerBusinessName}
+                placeholder="Your business name"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="words"
+                editable={!sellerPending}
+              />
+              <Text style={styles.label}>Business password</Text>
+              <TextInput
+                style={styles.input}
+                value={sellerPassword}
+                onChangeText={setSellerPassword}
+                placeholder="At least 8 characters"
+                placeholderTextColor={colors.muted}
+                secureTextEntry
+                textContentType="newPassword"
+                editable={!sellerPending}
+              />
+              <Text style={styles.sellerHint}>
+                This creates a separate business account under your email — its own password, kept apart from your
+                customer sign-in.
+              </Text>
+              {sellerMessage ? <Text style={styles.message}>{sellerMessage}</Text> : null}
+              <Pressable
+                style={[styles.sellerSubmit, sellerPending && styles.disabled]}
+                disabled={sellerPending}
+                onPress={submitBecomeSeller}
+              >
+                {sellerPending ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <Text style={styles.sellerSubmitText}>Create business account</Text>
+                )}
+              </Pressable>
+              {/* Quick-start: go directly to merchant onboarding UI */}
+              <Pressable
+                style={styles.onboardBtn}
+                onPress={() => router.push("/merchant/onboard/step1")}
+              >
+                <Text style={styles.onboardBtnText}>Set up my business profile →</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
 
         <Text style={styles.sectionTitle}>Support</Text>
-        <Row
-          icon={whatsappIcon}
-          title="Get help"
-          copy={supportAvailable ? "Chat with us on WhatsApp" : "Coming soon"}
-          disabled={!supportAvailable}
-          onPress={() => {
-            const url = `whatsapp://send?phone=${SUPPORT_WHATSAPP_NUMBER.replace(/^\+/, "")}`;
-            void Linking.canOpenURL(url).then((ok) => {
-              if (!ok) return;
-              void Linking.openURL(url).catch((reason) =>
-                report(reason, { scope: "support_whatsapp_open" }),
-              );
-            });
-          }}
-        />
-        <Row
-          icon={verifiedBadgeIcon}
-          title="Privacy notice"
-          copy="How your data is handled"
-          onPress={() => router.push("/privacy")}
-        />
+        <View style={styles.groupCard}>
+          <Row
+            icon={whatsappIcon}
+            title="Get help"
+            copy={supportAvailable ? "Chat with us on WhatsApp" : "Coming soon"}
+            disabled={!supportAvailable}
+            onPress={() => {
+              const url = `whatsapp://send?phone=${SUPPORT_WHATSAPP_NUMBER.replace(/^\+/, "")}`;
+              void Linking.canOpenURL(url).then((ok) => {
+                if (!ok) return;
+                void Linking.openURL(url).catch((reason) =>
+                  report(reason, { scope: "support_whatsapp_open" }),
+                );
+              });
+            }}
+          />
+          <Row
+            icon={verifiedBadgeIcon}
+            title="Privacy notice"
+            copy="How your data is handled"
+            isLast
+            onPress={() => router.push("/privacy")}
+          />
+        </View>
 
         <Text style={styles.version}>KiliPicks {APP_VERSION}</Text>
       </ScrollView>
@@ -356,73 +368,91 @@ const styles = StyleSheet.create({
   signInTitle: { color: colors.white, fontSize: 17, fontWeight: "800" },
   signInCopy: { color: "#F9EDEF", fontSize: 13, marginTop: 4 },
   signInArrow: { color: colors.white, fontSize: 26 },
-  profileCard: {
-    flexDirection: "row",
+  profileHeader: {
     alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: spacing.lg,
     marginTop: spacing.lg,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: colors.sand,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: colors.clay, fontSize: 18, fontWeight: "900" },
-  signedInTitle: { color: colors.ink, fontSize: 17, fontWeight: "800" },
-  signedInCopy: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  avatarText: { color: colors.clay, fontSize: 28, fontWeight: "900" },
+  signedInTitle: {
+    color: colors.ink,
+    fontSize: 20,
+    fontWeight: "800",
+    marginTop: spacing.md,
+    textAlign: "center",
+  },
+  signedInEmail: {
+    color: colors.muted,
+    fontSize: 14,
+    marginTop: 4,
+    textAlign: "center",
+    width: "100%",
+  },
+  signedInRole: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 6,
+    textAlign: "center",
+  },
   signOutButton: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     borderWidth: 1,
     borderColor: colors.clay,
     borderRadius: radii.pill,
-    paddingHorizontal: 14,
+    paddingHorizontal: 18,
     paddingVertical: 8,
+    marginTop: spacing.md,
   },
   signOutText: { color: colors.clay, fontSize: 13, fontWeight: "800" },
-  rowCard: {
+  groupCard: {
+    backgroundColor: colors.white,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginTop: spacing.sm,
+    overflow: "hidden",
+  },
+  groupRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+    minHeight: 76,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.line,
+    marginLeft: spacing.lg + 36 + spacing.md,
   },
   rowIconWrap: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: radii.md,
     backgroundColor: colors.sand,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.md,
   },
-  rowIcon: { width: 18, height: 18 },
+  rowIcon: { width: 17, height: 17 },
   rowFill: { flex: 1, paddingRight: spacing.md },
-  rowTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
+  rowTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   rowCopy: { color: colors.muted, fontSize: 13, marginTop: 4 },
   rowArrow: { color: colors.muted, fontSize: 22 },
   rowDisabled: { opacity: 0.55 },
   sellerForm: {
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderTopWidth: 0,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
     padding: spacing.lg,
-    marginTop: -spacing.lg + 1,
     gap: 4,
   },
   label: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: spacing.sm, marginBottom: 6 },

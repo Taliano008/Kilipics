@@ -10,7 +10,8 @@ import {
   uploadMerchantPhoto,
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
-import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
+import { CameraModal } from "@/components/CameraModal";
 import { bookingIcon, cameraIcon, gridIcon, searchIcon } from "@/utils/icon-assets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -85,6 +86,7 @@ export default function OnboardStep3() {
 
   const [photos, setPhotos] = useState<{ uri: string; label: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -121,23 +123,61 @@ export default function OnboardStep3() {
       .catch(() => {});
   }, [activeToken, saveMerchantSession]);
 
+  const applyPreset = (preset: string) => {
+    setActivePreset(preset);
+    if (preset === "Mon – Fri, 9 – 6") {
+      setDays([
+        { name: "Mon", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Tue", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Wed", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Thu", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Fri", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Sat", open: false, from: "10:00 AM", to: "4:00 PM" },
+        { name: "Sun", open: false, from: "", to: "" },
+      ]);
+    } else if (preset === "7 Days a Week") {
+      setDays([
+        { name: "Mon", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Tue", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Wed", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Thu", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Fri", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Sat", open: true, from: "9:00 AM", to: "6:00 PM" },
+        { name: "Sun", open: true, from: "9:00 AM", to: "6:00 PM" },
+      ]);
+    }
+  };
+
   const toggleDay = (i: number) => {
+    setActivePreset("Custom Hours");
     setDays((prev) =>
-      prev.map((d, idx) => (idx === i ? { ...d, open: !d.open } : d))
+      prev.map((d, idx) => {
+        if (idx !== i) return d;
+        const willOpen = !d.open;
+        return {
+          ...d,
+          open: willOpen,
+          // Supply default times if toggling on from empty
+          from: willOpen && !d.from ? "9:00 AM" : d.from,
+          to: willOpen && !d.to ? "6:00 PM" : d.to,
+        };
+      })
     );
   };
 
   const addPhotoFrom = async (source: "camera" | "library") => {
     if (!activeToken) return;
     setPhotoPickError(null);
-    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
+
+    if (source === "camera") {
+      setShowCameraModal(true);
+      return;
+    }
+
+    const result = await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setPhotoPickError(
-        source === "camera"
-          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
-          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
-      );
+      setPhotoPickError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
 
@@ -151,6 +191,23 @@ export default function OnboardStep3() {
       setPhotoPickError(
         err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.",
       );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    if (!activeToken) return;
+    setShowCameraModal(false);
+    setUploadingPhoto(true);
+    try {
+      const compressed = await compressPhoto(rawPhoto);
+      const res = await uploadMerchantPhoto(activeToken, compressed, "gallery");
+      if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+      setPhotos((prev) => [...prev, { uri: res.url, label: `Space ${prev.length + 1}` }]);
+      setShowAddModal(false);
+    } catch (err) {
+      setPhotoPickError(err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -343,7 +400,7 @@ export default function OnboardStep3() {
                   s.presetChip,
                   activePreset === p ? s.presetChipActive : s.presetChipInactive,
                 ]}
-                onPress={() => setActivePreset(p)}
+                onPress={() => applyPreset(p)}
               >
                 <Text
                   style={[
@@ -388,11 +445,29 @@ export default function OnboardStep3() {
                   {d.open ? (
                     <>
                       <View style={s.timeChip}>
-                        <Text style={s.timeChipText}>{d.from}</Text>
+                        <TextInput
+                          style={s.timeChipText}
+                          value={d.from}
+                          onChangeText={(val) => {
+                            setActivePreset("Custom Hours");
+                            setDays((prev) =>
+                              prev.map((day, idx) => (idx === i ? { ...day, from: val } : day))
+                            );
+                          }}
+                        />
                       </View>
                       <Text style={s.timeDash}>–</Text>
                       <View style={s.timeChip}>
-                        <Text style={s.timeChipText}>{d.to}</Text>
+                        <TextInput
+                          style={s.timeChipText}
+                          value={d.to}
+                          onChangeText={(val) => {
+                            setActivePreset("Custom Hours");
+                            setDays((prev) =>
+                              prev.map((day, idx) => (idx === i ? { ...day, to: val } : day))
+                            );
+                          }}
+                        />
                       </View>
                     </>
                   ) : (
@@ -568,6 +643,13 @@ export default function OnboardStep3() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Custom Camera Modal ── */}
+      <CameraModal
+        visible={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onPictureTaken={handlePictureTaken}
+      />
     </SafeAreaView>
   );
 }

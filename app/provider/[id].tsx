@@ -48,7 +48,10 @@ import {
   View,
   Share,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const TAB_BAR_HEIGHT = 50;
 
@@ -90,6 +93,7 @@ const PREVIEW_SENTINEL_ID = "me";
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isPreview = id === PREVIEW_SENTINEL_ID;
   const { merchantToken, consumerToken } = useAuth();
   const activeMerchantToken = merchantToken || consumerToken;
@@ -143,6 +147,7 @@ export default function ProviderDetailScreen() {
     [isPreview, previewData, catalog, id],
   );
   const [contactChannels, setContactChannels] = useState<ContactChannel[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
@@ -167,9 +172,13 @@ export default function ProviderDetailScreen() {
   const gallery = useMemo(
     () =>
       provider
-        ? [provider.cover, ...provider.gallery]
-            .map(resolveMediaUrl)
-            .filter((item): item is string => Boolean(item))
+        ? Array.from(
+            new Set(
+              [provider.cover, ...provider.gallery]
+                .map(resolveMediaUrl)
+                .filter((item): item is string => Boolean(item)),
+            ),
+          )
         : [],
     [provider],
   );
@@ -197,7 +206,7 @@ export default function ProviderDetailScreen() {
     const list: { key: string; label: string }[] = [];
     list.push({ key: "overview", label: "Overview" });
     if (services.length > 0) list.push({ key: "services", label: "Services" });
-    if (gallery.length > 1) list.push({ key: "photos", label: "Photos" });
+    if (gallery.length > 0) list.push({ key: "photos", label: "Photos" });
     list.push({ key: "reviews", label: "Reviews" });
     list.push({ key: "hours", label: "Hours" });
     return list;
@@ -329,6 +338,14 @@ export default function ProviderDetailScreen() {
   }
 
   const saved = isSaved(provider.id);
+  const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
+  const ctaLabel = selectedService
+    ? `Check availability · ${
+        selectedService.priceType === "contact_for_price"
+          ? "Quote"
+          : `KES ${selectedService.price.toLocaleString()}`
+      }`
+    : "Check availability";
 
   const bookService = (serviceId: string) => {
     void track("booking_cta_clicked", {
@@ -505,33 +522,47 @@ export default function ProviderDetailScreen() {
             </View>
           )}
 
-          {/* Popular Services */}
+          {/* Services */}
           {services.length > 0 && (
              <View style={styles.servicesSection} onLayout={registerOffset("services")}>
-                <View style={styles.sectionHeaderRow}>
-                   <Text style={styles.sectionTitle}>Popular Services</Text>
-                   <Text style={styles.seeAllText}>View all ›</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.servicesScroll}>
-                   {services.slice(0, 5).map(service => (
-                     <Pressable key={service.id} style={styles.serviceCard} onPress={() => bookService(service.id)}>
-                        <View style={styles.serviceCardImage}><Text style={{color:'rgba(0,0,0,0.35)', fontSize: 10}}>photo</Text></View>
-                        <View style={styles.serviceCardBody}>
-                           <Text style={styles.serviceCardTitle} numberOfLines={2}>{service.name}</Text>
-                           <Text style={styles.serviceCardPrice}>{service.priceType === "contact_for_price" ? "Quote" : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`}</Text>
-                           <View style={styles.serviceCardFooter}>
-                              <Text style={styles.serviceCardTime}>⏱ {service.durationMinutes ? `${service.durationMinutes} min` : "Varies"}</Text>
-                              <View style={styles.serviceCardArrow}><Text style={styles.serviceCardArrowText}>→</Text></View>
+                <Text style={styles.sectionTitle}>Services</Text>
+                <View style={styles.serviceList}>
+                   {services.map((service) => {
+                      const isSelected = service.id === selectedServiceId;
+                      const priceLabel = service.priceType === "contact_for_price"
+                        ? "Quote"
+                        : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`;
+                      const serviceImage = resolveMediaUrl(service.imageUrl);
+                      return (
+                        <View key={service.id} style={[styles.serviceRow, isSelected && styles.serviceRowSelected]}>
+                           {serviceImage ? (
+                             <Image source={{ uri: serviceImage }} style={styles.serviceRowImage} contentFit="cover" />
+                           ) : (
+                             <View style={styles.serviceRowImagePlaceholder} />
+                           )}
+                           <View style={styles.serviceRowInfo}>
+                              <Text style={styles.serviceRowName} numberOfLines={1}>{service.name}</Text>
+                              <Text style={styles.serviceRowMeta}>
+                                 {priceLabel} · {service.durationMinutes ? `${service.durationMinutes} mins` : "Varies"}
+                              </Text>
                            </View>
+                           <Pressable
+                             style={[styles.selectServiceBtn, isSelected && styles.selectServiceBtnActive]}
+                             onPress={() => setSelectedServiceId(isSelected ? null : service.id)}
+                           >
+                              <Text style={[styles.selectServiceBtnText, isSelected && styles.selectServiceBtnTextActive]}>
+                                 {isSelected ? "Selected" : "Select service"}
+                              </Text>
+                           </Pressable>
                         </View>
-                     </Pressable>
-                   ))}
-                </ScrollView>
+                      );
+                   })}
+                </View>
              </View>
           )}
 
           {/* Gallery Grid */}
-          {gallery.length > 1 && (
+          {gallery.length > 0 && (
              <View style={styles.gallerySection} onLayout={registerOffset("photos")}>
                 <Text style={styles.sectionTitle}>Gallery</Text>
                 <View style={styles.galleryGrid}>
@@ -638,33 +669,26 @@ export default function ProviderDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Bar */}
-      <View style={styles.bottomBar}>
-         <Text style={styles.bottomBarServices}>{services.length} services available</Text>
-         <View style={styles.bottomBarActions}>
-            <Pressable style={styles.btnSave} onPress={() => toggle(provider.id)}>
-               <Image
-                 source={savedIcon}
-                 style={[styles.btnSaveImage, !saved && styles.btnSaveImageInactive]}
-               />
-               <Text style={styles.btnSaveText}>Save</Text>
-            </Pressable>
-            <Pressable
-              style={styles.btnBook}
-              onPress={() => {
-                const target = services.find((s) => s.bookingEnabled) ?? services[0];
-                if (target) {
-                  bookService(target.id);
-                } else {
-                  scrollToSection("services");
-                }
-              }}
-            >
-               <View style={styles.btnBookContent}>
-                  <Text style={styles.btnBookTitle}>Book Appointment</Text>
-               </View>
-            </Pressable>
-         </View>
+      {/* Floating Bottom Bar */}
+      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
+         <Pressable style={styles.btnSave} onPress={() => toggle(provider.id)}>
+            <Image
+              source={savedIcon}
+              style={[styles.btnSaveImage, !saved && styles.btnSaveImageInactive]}
+            />
+         </Pressable>
+         <Pressable
+           style={styles.btnBook}
+           onPress={() => {
+             if (selectedService) {
+               bookService(selectedService.id);
+             } else {
+               scrollToSection("services");
+             }
+           }}
+         >
+            <Text style={styles.btnBookTitle} numberOfLines={1}>{ctaLabel}</Text>
+         </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -804,16 +828,32 @@ const styles = StyleSheet.create({
   servicesSection: { marginTop: 28 },
   sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 },
   seeAllText: { color: "#B3452B", fontSize: 14, fontWeight: "600" },
-  servicesScroll: { gap: 14, paddingBottom: 4 },
-  serviceCard: { width: 156, backgroundColor: "#fff", borderRadius: 14, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  serviceCardImage: { height: 100, backgroundColor: "#EDE4D8", alignItems: "center", justifyContent: "center" },
-  serviceCardBody: { padding: 12 },
-  serviceCardTitle: { fontSize: 13.5, fontWeight: "700", color: "#1a1a1a" },
-  serviceCardPrice: { fontSize: 12, color: "#6b6b6b", marginTop: 4 },
-  serviceCardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 },
-  serviceCardTime: { fontSize: 11.5, color: "#8a8a8a" },
-  serviceCardArrow: { width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(179,69,43,0.12)", alignItems: "center", justifyContent: "center" },
-  serviceCardArrowText: { color: "#B3452B", fontSize: 13 },
+  serviceList: { gap: 10, marginTop: 14 },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  serviceRowSelected: { borderColor: "#B3452B", borderWidth: 1.5 },
+  serviceRowImage: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#EDE4D8" },
+  serviceRowImagePlaceholder: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#EDE4D8" },
+  serviceRowInfo: { flex: 1 },
+  serviceRowName: { fontSize: 14.5, fontWeight: "700", color: "#1a1a1a" },
+  serviceRowMeta: { fontSize: 12.5, color: "#6b6b6b", marginTop: 3 },
+  selectServiceBtn: { backgroundColor: "#F7E9EC", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
+  selectServiceBtnActive: { backgroundColor: "#B3452B" },
+  selectServiceBtnText: { fontSize: 12.5, fontWeight: "700", color: "#B3452B" },
+  selectServiceBtnTextActive: { color: "#fff" },
   gallerySection: { marginTop: 28 },
   galleryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   galleryGridItem: { width: "23%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#EDE4D8", overflow: "hidden" },
@@ -849,15 +889,46 @@ const styles = StyleSheet.create({
   infoIcon: { color: "#B3452B", fontSize: 15 },
   infoIconImage: { width: 16, height: 16 },
   infoText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
-  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.07)", paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 8 },
-  bottomBarServices: { fontSize: 11.5, color: "#8a8a8a", fontWeight: "500" },
-  bottomBarActions: { flexDirection: "row", gap: 12, alignItems: "center" },
-  btnSave: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#F7E9EC", paddingVertical: 14, paddingHorizontal: 20, borderRadius: 26 },
-  btnSaveIcon: { color: "#3a3a3a", fontSize: 16 },
-  btnSaveImage: { width: 16, height: 16 },
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  btnSave: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F7E9EC",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  btnSaveImage: { width: 20, height: 20 },
   btnSaveImageInactive: { opacity: 0.35 },
-  btnSaveText: { color: "#3a3a3a", fontSize: 14.5, fontWeight: "600" },
-  btnBook: { flex: 1, backgroundColor: "#B3452B", borderRadius: 26, paddingVertical: 11, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
-  btnBookContent: { alignItems: "center" },
-  btnBookTitle: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  btnBook: {
+    flex: 1,
+    height: 56,
+    backgroundColor: "#B3452B",
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    shadowColor: "#B3452B",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  btnBookTitle: { color: "#fff", fontSize: 15.5, fontWeight: "700" },
 });

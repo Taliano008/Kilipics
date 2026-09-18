@@ -1,12 +1,15 @@
 import { colors } from "@/theme/tokens";
 import { Tabs } from "expo-router";
 import { StyleSheet, Text } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const Icon = ({ symbol, active }: { symbol: string; active: boolean }) => (
   <Text style={[styles.icon, active && styles.activeIcon]}>{symbol}</Text>
 );
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -14,7 +17,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.clay,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: styles.label,
-        tabBarStyle: styles.bar,
+        tabBarStyle: [styles.bar, { paddingBottom: insets.bottom }],
       }}
     >
       <Tabs.Screen

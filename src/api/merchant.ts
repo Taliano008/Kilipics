@@ -108,11 +108,18 @@ type ApiErrorPayload = { message?: string; error?: string; fields?: string[] };
 type ApiError = Error & { code?: string; fields?: string[] };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const baseHeaders: Record<string, string> = {
+    Accept: "application/json",
+  };
+  
+  if (options.body) {
+    baseHeaders["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${AUTH_API_BASE_URL}${path}`, {
     ...options,
     headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
+      ...baseHeaders,
       ...options.headers,
     },
   });
@@ -135,7 +142,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 // Content-Type: application/json, which would break multipart here — the
 // runtime needs to set Content-Type itself (with the boundary) when the
 // body is a FormData.
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 export async function uploadMerchantPhoto(
   token: string,
@@ -157,9 +164,13 @@ export async function uploadMerchantPhoto(
     }
   );
 
-  const payload = (await JSON.parse(uploadResponse.body).catch(() => null)) as
-    | ({ ok: true; url: string; merchantToken?: string | null } & ApiErrorPayload)
-    | null;
+  let payload = null;
+  try {
+    payload = JSON.parse(uploadResponse.body) as 
+      | ({ ok: true; url: string; merchantToken?: string | null } & ApiErrorPayload);
+  } catch (e) {
+    // leave payload as null
+  }
 
   if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
     const error = new Error(

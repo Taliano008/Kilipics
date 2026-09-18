@@ -50,12 +50,12 @@ export async function saveMerchantPhotoUpload({ merchantId, businessId, purpose,
   await pipeline(file.file, createWriteStream(filePath));
 
   // @fastify/multipart truncates rather than throwing when the fileSize
-  // limit (10MB, set where the plugin is registered) is hit — the stream
+  // limit (5MB, set where the plugin is registered) is hit — the stream
   // still "completes" successfully, just short. Clean up the partial file
   // rather than leaving a corrupt image behind.
   if (file.file.truncated) {
     await unlink(filePath).catch(() => {});
-    throw badRequest("file_too_large", "That photo is too large. Please use one under 10MB.");
+    throw badRequest("file_too_large", "That photo is too large. Please use one under 5MB.");
   }
 
   const { size: sizeBytes } = await stat(filePath);

@@ -34,6 +34,7 @@
     },
     "android": {
       "package": "com.kilimax.kilipicks",
+      "edgeToEdgeEnabled": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icons/logo.png",
         "backgroundColor": "#F8F4F1"

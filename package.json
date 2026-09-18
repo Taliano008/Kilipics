@@ -32,6 +32,7 @@
     "@sentry/react-native": "^8.24.0",
     "expo": "~57.0.19",
     "expo-blob": "^57.0.2",
+    "expo-camera": "^57.0.5",
     "expo-constants": "~57.0.17",
     "expo-dev-client": "~57.0.19",
     "expo-file-system": "^57.0.7",

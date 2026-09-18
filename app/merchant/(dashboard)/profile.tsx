@@ -15,13 +15,16 @@ import {
   fetchMerchantServices,
   updateMerchantBusiness,
   updateMerchantService,
+  uploadMerchantPhoto,
   type MerchantService,
 } from "@/api/merchant";
+import { CameraModal } from "@/components/CameraModal";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { categoryLabel } from "@/utils/categories";
+import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -56,6 +59,11 @@ export default function ProfileScreen() {
   const [phoneInput, setPhoneInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [savingContact, setSavingContact] = useState(false);
+  const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [galleryCameraOpen, setGalleryCameraOpen] = useState(false);
+  const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
+  const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeToken) return;
@@ -123,6 +131,59 @@ export default function ProfileScreen() {
       showToast("Couldn't save changes. Try again.");
     } finally {
       setSavingContact(false);
+    }
+  };
+
+  const appendGalleryPhoto = async (photo: { uri: string; name: string; mimeType: string }) => {
+    if (!activeToken) return;
+    setUploadingGalleryPhoto(true);
+    try {
+      const uploaded = await uploadMerchantPhoto(activeToken, photo, "gallery");
+      const nextUrls = [...(business?.galleryUrls ?? []), uploaded.url];
+      await updateMerchantBusiness(activeToken, { galleryUrls: nextUrls });
+      refresh();
+      setGalleryModalOpen(false);
+      showToast("Photo added to your gallery");
+    } catch (err) {
+      setGalleryError(err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.");
+    } finally {
+      setUploadingGalleryPhoto(false);
+    }
+  };
+
+  const addGalleryPhotoFrom = async (source: "camera" | "library") => {
+    if (!activeToken) return;
+    setGalleryError(null);
+    if (source === "camera") {
+      setGalleryCameraOpen(true);
+      return;
+    }
+    const result = await pickPhotoFromLibrary();
+    if (result.status === "canceled") return;
+    if (result.status === "permission_denied") {
+      setGalleryError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
+      return;
+    }
+    await appendGalleryPhoto(result.photo);
+  };
+
+  const handleGalleryPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    setGalleryCameraOpen(false);
+    const compressed = await compressPhoto(rawPhoto);
+    await appendGalleryPhoto(compressed);
+  };
+
+  const removeGalleryPhoto = async (url: string) => {
+    if (!activeToken) return;
+    setRemovingGalleryUrl(url);
+    try {
+      const nextUrls = (business?.galleryUrls ?? []).filter((u) => u !== url);
+      await updateMerchantBusiness(activeToken, { galleryUrls: nextUrls });
+      refresh();
+    } catch {
+      showToast("Couldn't remove that photo. Try again.");
+    } finally {
+      setRemovingGalleryUrl(null);
     }
   };
 
@@ -339,6 +400,66 @@ export default function ProfileScreen() {
               </Pressable>
             )}
 
+            <View style={s.sectionHeaderRow}>
+              <View style={s.sectionTitleRow}>
+                <Text style={s.sectionTitle}>Studio Gallery</Text>
+                <View style={s.countPill}>
+                  <Text style={s.countPillText}>{business?.galleryUrls?.length ?? 0} photos</Text>
+                </View>
+              </View>
+              <Pressable
+                style={s.addServiceBtn}
+                onPress={() => {
+                  setGalleryError(null);
+                  setGalleryModalOpen(true);
+                }}
+              >
+                <MaterialIcons name="add-a-photo" size={15} color={mc.onPrimaryFixed} />
+                <Text style={s.addServiceBtnText}>Add Photo</Text>
+              </Pressable>
+            </View>
+
+            {(business?.galleryUrls?.length ?? 0) === 0 ? (
+              <Pressable
+                style={s.noServices}
+                onPress={() => {
+                  setGalleryError(null);
+                  setGalleryModalOpen(true);
+                }}
+              >
+                <Text style={s.noServicesText}>No gallery photos yet — tap to add your first one.</Text>
+              </Pressable>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.galleryRow}>
+                {(business?.galleryUrls ?? []).map((url) => (
+                  <View key={url} style={s.galleryTile}>
+                    <Image source={{ uri: url }} style={StyleSheet.absoluteFill} />
+                    <Pressable
+                      style={s.galleryRemove}
+                      disabled={removingGalleryUrl === url}
+                      onPress={() => void removeGalleryPhoto(url)}
+                    >
+                      {removingGalleryUrl === url ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <MaterialIcons name="close" size={14} color="#fff" />
+                      )}
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={s.galleryAddTile}
+                  onPress={() => {
+                    setGalleryError(null);
+                    setGalleryModalOpen(true);
+                  }}
+                >
+                  <MaterialIcons name="add-a-photo" size={20} color={mc.primary} />
+                  <Text style={s.galleryAddTileText}>Add Photo</Text>
+                </Pressable>
+              </ScrollView>
+            )}
+
             <Text style={[s.sectionTitle, { marginTop: ms.sm }]}>App Mode & Account</Text>
 
             <View style={s.switchCard}>
@@ -499,6 +620,75 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={galleryModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setGalleryModalOpen(false);
+          setGalleryError(null);
+        }}
+      >
+        <View style={s.modalBackdrop}>
+          <View style={s.editCard}>
+            <View style={s.formHeader}>
+              <Text style={s.formTitle}>Add gallery photo</Text>
+              <Pressable
+                style={s.modalCloseBtn}
+                onPress={() => {
+                  setGalleryModalOpen(false);
+                  setGalleryError(null);
+                }}
+              >
+                <MaterialIcons name="close" size={16} color={mc.onSurface} />
+              </Pressable>
+            </View>
+
+            {galleryError ? (
+              <Text style={{ color: mc.error, fontSize: 12.5, fontFamily: mf.medium }}>{galleryError}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: "row", gap: ms.sm }}>
+              <Pressable
+                style={[s.formSubmit, { flex: 1, flexDirection: "row", gap: 6 }, uploadingGalleryPhoto && { opacity: 0.6 }]}
+                disabled={uploadingGalleryPhoto}
+                onPress={() => void addGalleryPhotoFrom("camera")}
+              >
+                <MaterialIcons name="photo-camera" size={17} color={mc.onPrimary} />
+                <Text style={s.formSubmitText}>Take Photo</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  s.formSubmit,
+                  { flex: 1, flexDirection: "row", gap: 6, backgroundColor: mc.surfaceContainerHigh },
+                  uploadingGalleryPhoto && { opacity: 0.6 },
+                ]}
+                disabled={uploadingGalleryPhoto}
+                onPress={() => void addGalleryPhotoFrom("library")}
+              >
+                <MaterialIcons name="photo-library" size={17} color={mc.onSurface} />
+                <Text style={[s.formSubmitText, { color: mc.onSurface }]}>From Library</Text>
+              </Pressable>
+            </View>
+
+            {uploadingGalleryPhoto ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator color={mc.primary} size="small" />
+                <Text style={{ color: mc.onSurfaceVariant, fontSize: 12.5, fontFamily: mf.medium }}>
+                  Uploading photo…
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <CameraModal
+        visible={galleryCameraOpen}
+        onClose={() => setGalleryCameraOpen(false)}
+        onPictureTaken={(photo) => void handleGalleryPictureTaken(photo)}
+      />
     </View>
   );
 }
@@ -719,6 +909,39 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   noServicesText: { fontFamily: mf.medium, fontSize: 13, color: mc.onSurfaceVariant, textAlign: "center" },
+
+  galleryRow: { flexDirection: "row", gap: ms.sm, paddingVertical: 2 },
+  galleryTile: {
+    width: 96,
+    height: 96,
+    borderRadius: mr.lg,
+    overflow: "hidden",
+    backgroundColor: mc.surfaceContainer,
+  },
+  galleryRemove: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryAddTile: {
+    width: 96,
+    height: 96,
+    borderRadius: mr.lg,
+    borderWidth: 1.5,
+    borderColor: mc.outlineVariant,
+    borderStyle: "dashed",
+    backgroundColor: mc.surfaceContainerLow,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  galleryAddTileText: { fontFamily: mf.semibold, fontSize: 11, color: mc.primary },
 
   serviceRow: {
     flexDirection: "row",
