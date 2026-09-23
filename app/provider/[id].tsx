@@ -90,6 +90,48 @@ const REVIEWS = [
 // publishes it — the public catalog only ever contains published businesses.
 const PREVIEW_SENTINEL_ID = "me";
 
+// expo-image never retries a failed load on its own, and a dead/unreachable
+// host (e.g. a dev LAN IP that changed) otherwise leaves the grid cell
+// permanently blank with no way to tell "no photo" apart from "failed to
+// load." Track failures per-photo and let a tap re-attempt — bumping `key`
+// forces expo-image to re-issue the request instead of reusing its cached
+// failure.
+function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  if (failed) {
+    return (
+      <Pressable
+        style={styles.galleryGridItem}
+        onPress={() => {
+          setFailed(false);
+          setAttempt((n) => n + 1);
+        }}
+      >
+        <Text style={styles.galleryRetryText}>Tap to retry</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.galleryGridItem}>
+      <Image
+        key={attempt}
+        source={{ uri }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        onError={() => setFailed(true)}
+      />
+      {moreCount !== undefined && (
+        <View style={styles.galleryMoreOverlay}>
+          <Text style={styles.galleryMoreText}>+{moreCount} more</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function ProviderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -578,14 +620,11 @@ export default function ProviderDetailScreen() {
                 <Text style={styles.sectionTitle}>Gallery</Text>
                 <View style={styles.galleryGrid}>
                    {gallery.slice(0, 4).map((img, idx) => (
-                      <View key={idx} style={styles.galleryGridItem}>
-                         <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" />
-                         {idx === 3 && gallery.length > 4 && (
-                            <View style={styles.galleryMoreOverlay}>
-                               <Text style={styles.galleryMoreText}>+{gallery.length - 4} more</Text>
-                            </View>
-                         )}
-                      </View>
+                      <GalleryPhoto
+                         key={img}
+                         uri={img}
+                         moreCount={idx === 3 && gallery.length > 4 ? gallery.length - 4 : undefined}
+                      />
                    ))}
                 </View>
              </View>
@@ -870,6 +909,7 @@ const styles = StyleSheet.create({
   galleryGridItem: { width: "23%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#EDE4D8", overflow: "hidden" },
   galleryMoreOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
   galleryMoreText: { color: "#fff", fontSize: 11, fontWeight: "600" },
+  galleryRetryText: { flex: 1, textAlign: "center", textAlignVertical: "center", fontSize: 11, fontWeight: "600", color: "#8a8a8a" },
   reviewsSection: { marginTop: 30 },
   reviewCountSpan: { color: "#8a8a8a", fontSize: 14 },
   reviewSummaryCard: { flexDirection: "row", gap: 18, alignItems: "center", backgroundColor: "#F7E9EC", borderRadius: 16, padding: 18, marginTop: 14 },

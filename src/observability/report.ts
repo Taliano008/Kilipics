@@ -11,11 +11,20 @@ function normalize(error: unknown): { message: string; stack?: string } {
   if (error instanceof Error)
     return { message: error.message, stack: error.stack };
   if (typeof error === "string") return { message: error };
+  // JSON.stringify(null) is the string "null" and JSON.stringify(undefined)
+  // is undefined — both look like real messages but carry no information
+  // about what actually failed, so fall back to a description of the value.
+  let stringified: string | undefined;
   try {
-    return { message: JSON.stringify(error) };
+    stringified = JSON.stringify(error);
   } catch {
-    return { message: String(error) };
+    // ignore — falls through to the typeof-based message below
   }
+  if (stringified && stringified !== "null" && stringified !== "{}")
+    return { message: stringified };
+  return {
+    message: `Non-error value thrown (typeof: ${typeof error}, value: ${String(error)})`,
+  };
 }
 
 function log(

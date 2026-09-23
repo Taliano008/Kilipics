@@ -10,6 +10,7 @@
       "expo-router",
       "expo-splash-screen",
       "expo-image",
+      "expo-font",
       "./plugins/withWhatsAppQuery.js",
       [
         "expo-image-picker",
@@ -19,7 +20,7 @@
         }
       ],
       [
-        "@sentry/react-native/expo",
+        "@sentry/react-native",
         {
           "url": "https://sentry.io/",
           "project": "react-native",
