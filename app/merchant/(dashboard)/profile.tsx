@@ -18,12 +18,13 @@ import {
   uploadMerchantPhoto,
   type MerchantService,
 } from "@/api/merchant";
+import { CameraModal } from "@/components/CameraModal";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { categoryLabel } from "@/utils/categories";
-import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -60,10 +61,12 @@ export default function ProfileScreen() {
   const [emailInput, setEmailInput] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [galleryCameraOpen, setGalleryCameraOpen] = useState(false);
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
   const [logoModalOpen, setLogoModalOpen] = useState(false);
+  const [logoCameraOpen, setLogoCameraOpen] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -169,17 +172,23 @@ export default function ProfileScreen() {
   const addGalleryPhotoFrom = async (source: "camera" | "library") => {
     if (!activeToken) return;
     setGalleryError(null);
-    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
+    if (source === "camera") {
+      setGalleryCameraOpen(true);
+      return;
+    }
+    const result = await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setGalleryError(
-        source === "camera"
-          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
-          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
-      );
+      setGalleryError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
     await appendGalleryPhoto(result.photo);
+  };
+
+  const handleGalleryPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    setGalleryCameraOpen(false);
+    const compressed = await compressPhoto(rawPhoto);
+    await appendGalleryPhoto(compressed);
   };
 
   const appendLogoPhoto = async (photo: { uri: string; name: string; mimeType: string }) => {
@@ -201,17 +210,23 @@ export default function ProfileScreen() {
   const addLogoPhotoFrom = async (source: "camera" | "library") => {
     if (!activeToken) return;
     setLogoError(null);
-    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
+    if (source === "camera") {
+      setLogoCameraOpen(true);
+      return;
+    }
+    const result = await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setLogoError(
-        source === "camera"
-          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
-          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
-      );
+      setLogoError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
     await appendLogoPhoto(result.photo);
+  };
+
+  const handleLogoPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    setLogoCameraOpen(false);
+    const compressed = await compressPhoto(rawPhoto);
+    await appendLogoPhoto(compressed);
   };
 
   const removeGalleryPhoto = async (url: string) => {
@@ -745,6 +760,12 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      <CameraModal
+        visible={galleryCameraOpen}
+        onClose={() => setGalleryCameraOpen(false)}
+        onPictureTaken={(photo) => void handleGalleryPictureTaken(photo)}
+      />
+
       <Modal
         visible={logoModalOpen}
         animationType="slide"
@@ -807,6 +828,12 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <CameraModal
+        visible={logoCameraOpen}
+        onClose={() => setLogoCameraOpen(false)}
+        onPictureTaken={(photo) => void handleLogoPictureTaken(photo)}
+      />
     </View>
   );
 }

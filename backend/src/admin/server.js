@@ -32,10 +32,7 @@ app.get("/", async (_request, reply) => {
 });
 
 try {
-  // 0.0.0.0, not loopback: this needs to be reachable through the container's
-  // published port (see backend/docker-compose.yml), and every route here is
-  // already gated behind the ADMIN_EMAIL/ADMIN_PASSWORD check above.
-  await app.listen({ port: env.adminPort, host: "0.0.0.0" });
+  await app.listen({ port: env.adminPort, host: "127.0.0.1" });
   app.log.info(`AdminJS panel at http://localhost:${env.adminPort}/admin`);
 } catch (err) {
   app.log.error(err);

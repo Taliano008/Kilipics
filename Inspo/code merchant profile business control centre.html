@@ -1,0 +1,411 @@
+<!DOCTYPE html><html class="h-full" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"><title>KiliPicks Merchant</title><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      "colors": {
+        "on-tertiary-fixed": "#002113",
+        "primary-container": "#cb4914",
+        "primary-fixed": "#ffdbcf",
+        "inverse-on-surface": "#f3f0eb",
+        "error-container": "#ffdad6",
+        "surface-container-highest": "#e5e2dd",
+        "secondary": "#625d5a",
+        "surface": "#fcf9f4",
+        "on-surface-variant": "#594139",
+        "inverse-surface": "#31302d",
+        "on-primary-container": "#fffbff",
+        "primary-fixed-dim": "#ffb59c",
+        "tertiary-fixed-dim": "#4edea3",
+        "surface-variant": "#e5e2dd",
+        "surface-dim": "#dcdad5",
+        "primary": "#a73400",
+        "secondary-fixed-dim": "#ccc5c0",
+        "inverse-primary": "#ffb59c",
+        "surface-bright": "#fcf9f4",
+        "surface-container-lowest": "#ffffff",
+        "on-secondary-container": "#67625e",
+        "on-secondary": "#ffffff",
+        "on-primary-fixed": "#390c00",
+        "on-tertiary-fixed-variant": "#005236",
+        "error": "#ba1a1a",
+        "secondary-container": "#e6ded9",
+        "on-primary-fixed-variant": "#822700",
+        "surface-container": "#f0ede9",
+        "on-tertiary-container": "#f5fff6",
+        "on-error": "#ffffff",
+        "on-tertiary": "#ffffff",
+        "surface-container-high": "#ebe8e3",
+        "background": "#fcf9f4",
+        "surface-tint": "#ab3600",
+        "secondary-fixed": "#e9e1dc",
+        "on-secondary-fixed-variant": "#4a4642",
+        "on-surface": "#1c1c19",
+        "outline": "#8d7168",
+        "on-primary": "#ffffff",
+        "tertiary-container": "#00855b",
+        "on-error-container": "#93000a",
+        "surface-container-low": "#f6f3ee",
+        "on-background": "#1c1c19",
+        "on-secondary-fixed": "#1e1b18",
+        "tertiary": "#006947",
+        "outline-variant": "#e1bfb5",
+        "tertiary-fixed": "#6ffbbe"
+      },
+      "borderRadius": {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "full": "9999px"
+      },
+      "spacing": {
+        "margin": "1rem",
+        "space-xl": "2rem",
+        "space-lg": "1.5rem",
+        "margin-tablet": "2rem",
+        "gutter-tablet": "1.5rem",
+        "space-xs": "0.25rem",
+        "space-sm": "0.5rem",
+        "space-md": "1rem",
+        "gutter": "1rem"
+      },
+      "fontFamily": {
+        "label-lg": ["Plus Jakarta Sans"],
+        "body-lg": ["Plus Jakarta Sans"],
+        "headline-md": ["Plus Jakarta Sans"],
+        "headline-lg-mobile": ["Plus Jakarta Sans"],
+        "label-sm": ["Plus Jakarta Sans"],
+        "headline-sm": ["Plus Jakarta Sans"],
+        "title-lg": ["Plus Jakarta Sans"],
+        "body-md": ["Plus Jakarta Sans"],
+        "headline-lg": ["Plus Jakarta Sans"],
+        "body-sm": ["Plus Jakarta Sans"],
+        "title-md": ["Plus Jakarta Sans"],
+        "label-md": ["Plus Jakarta Sans"]
+      },
+      "fontSize": {
+        "label-lg": ["14px", {"lineHeight": "18px", "fontWeight": "700"}],
+        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+        "headline-md": ["22px", {"lineHeight": "28px", "fontWeight": "700"}],
+        "headline-lg-mobile": ["26px", {"lineHeight": "34px", "fontWeight": "800"}],
+        "label-sm": ["10px", {"lineHeight": "14px", "fontWeight": "700"}],
+        "headline-sm": ["18px", {"lineHeight": "24px", "fontWeight": "700"}],
+        "title-lg": ["16px", {"lineHeight": "22px", "fontWeight": "700"}],
+        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "800"}],
+        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+        "title-md": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}]
+      }
+    }
+  }
+}</script><style>@layer base{html,body{width:100%;min-height:100%;margin:0;padding:0;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style></head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased min-h-screen flex flex-col"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-margin flex items-center justify-between gap-space-sm"><div class="flex items-center gap-space-sm min-w-0"><img alt="KiliPicks Merchant Logo" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1X14fVAnu-OZ4IiF7WAlAk-Zrb0oFxZfzp1vY568HOLSA8qzrlib2MHHgrdW4znD9vYD1MN9lZj4ghHB8V1_ZZe72IeWu7rvr94BRj2qfyUeWENR4Lp7hNuz6fP-lgVelyyWLBaN1dQ-Tbs357gKWW-flv-CzE_PRN8tHo56nOOjAh2DOPdMMoiVxZa_0TsP7s6evoJE4Il4rFa3uJg0-aHhyZjvcn82_f7oOJsPK6oNuifCm6_VqcHcxo"><div class="flex flex-col min-w-0"><div class="flex items-center gap-space-xs"><span class="font-title-lg text-title-lg text-on-surface truncate">Glow Beauty Studio</span><span class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm whitespace-nowrap">Seller Mode</span></div><span class="font-label-sm text-label-sm text-on-surface-variant truncate">Profile</span></div></div><div class="flex items-center gap-space-xs flex-shrink-0"><a aria-label="Switch to Consumer view" class="min-h-[44px] px-3 flex items-center gap-1 rounded-full bg-secondary-container text-on-secondary-container font-label-md text-label-md transition-colors active:scale-95 hover:bg-secondary-fixed" href="#"><span>Consumer view</span><span class="material-symbols-outlined text-[16px]">north_east</span></a><img alt="Profile" class="w-8 h-8 rounded-full object-cover ml-1 shadow-[0_2px_8px_rgba(30,27,24,0.08)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAP1qLTbvYzNq8JPNzXLwI-kZG8RD-uP-fQPAXbN2NL7IF5eKJq25d8f0rlzgtK9dH5ZO1TijOH-tNA8BosUhaoXFTn8p4treA4aWd15AgHaludTVnzKSNzeHdG3rHtkvXKwKOUe6pslLkEGU6jdswZipl7Htmrh30xIUFxkyAobZqNxEh-KYTMA-A139SFpyHrcq0WnITJj3nfAPKlUqcqSfrb_o0k_GZ0CScKx1_0WgeSNyNmbSng"></div></div></header><main class="flex-1 w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="relative w-full h-44 overflow-hidden rounded-b-3xl shadow-sm">
+<div class="w-full h-full bg-cover bg-center" data-alt="Modern chic African boutique beauty salon interior in Nairobi with warm terracotta and sandy plaster walls, lush potted fiddle leaf fig trees, rattan pendant lighting, ergonomic tan leather styling chairs, large arched vanity mirrors with warm ambient backlight, sunlit luxury bohemian spa ambiance" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC-WqFPK5EjwqI4sp4cwO3942aCBzj6_yhx76R7S0XUv-TaaHOFy2uQyeKPUsMl_MYtW5hb0_QNxdBkxXsUjgkPKc6SxHtWNFysOjeV3jn0x5Oee3iDfQo99ayhQ2Lf5fnexMtTUh4fwalEUwEL9nkHqhpptoXFSyFaWuxrdY9vUOLcUPpepEM-uvFFhC63SqW_mZCIuNQjUqmPFVU_c6yBOpbvHJxqsdoElbVGedCM5R3OzPDtI4Dc')">
+</div>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/80 via-inverse-surface/30 to-transparent"></div>
+<div class="absolute top-3 right-3">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm">
+<span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+        Store Open
+      </span>
+</div>
+</div>
+<div class="px-margin -mt-12 relative z-10 flex flex-col gap-space-md">
+<div class="bg-surface-container-lowest rounded-3xl p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-start justify-between gap-3">
+<div class="relative">
+<img class="w-20 h-20 rounded-2xl object-cover shadow-md bg-surface-container" data-alt="Professional portrait of a radiant East African female beauty salon founder with an elegant braided updo, wearing warm terracotta minimalist linen tunic, smiling confidently in bright studio light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_7WIZfrpxKkZ_CAHPFrekOYqTDLJzGxRzN6T6tSF_PkV7DtOgxpFgaqSAJt7Hm7Lhse-uJxE8zZIUsd-8wb66LRNnHJXIYYNLp6nd5E1gnTk5Kf6YUtZ_58GWPtDqx_Vd3UKeWX_ngSWtdUVI8bxvwgfBFXwlv1QvDJCayjz_cBEdMsWrCQEgHQD58FBJw4tFfIn9wuFLOzMtey86QM8o_hf9xp_qIkV5XP4UPBxtzujKNp9qI2Pn">
+<div class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-tertiary flex items-center justify-center text-on-tertiary shadow-sm">
+<span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<button class="min-h-[44px] px-3.5 py-1.5 rounded-full bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed active:scale-95 transition-all flex items-center gap-1.5 font-label-md text-label-md" onclick="triggerEditModal()" type="button">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Edit business profile</span>
+</button>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2 flex-wrap">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">Glow Beauty Studio</h1>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[13px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+            Verified Seller
+          </span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[16px] text-primary">spa</span>
+<span>Beauty &amp; Wellness · Kilimani, Nairobi</span>
+</p>
+</div>
+<div class="flex items-center gap-3 pt-1 border-t border-transparent">
+<div class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-surface-container-low text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary-container" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-title-md text-title-md">4.9</span>
+<span class="font-body-sm text-body-sm text-secondary">(84 reviews)</span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">group</span>
+<span class="font-label-md text-label-md">0 Followers</span>
+<span class="font-label-sm text-label-sm text-secondary bg-surface-container-highest px-1.5 py-0.5 rounded-full">Coming soon</span>
+</div>
+</div>
+</div>
+<div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary-container to-primary text-on-primary p-5 shadow-lg flex flex-col gap-3">
+<div class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-on-primary font-label-sm text-label-sm uppercase tracking-wider">
+<span class="material-symbols-outlined text-[14px]">rocket_launch</span>
+          KiliPicks Growth
+        </div>
+<div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
+<span class="material-symbols-outlined text-[18px] text-on-primary">local_fire_department</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-sm text-headline-sm text-on-primary">Grow your business with KiliPicks Pro</h2>
+<p class="font-body-md text-body-md text-on-primary/90 leading-snug">
+          Get featured placement in Nairobi search, top verified badge, and zero commission on your first 50 bookings.
+        </p>
+</div>
+<div class="pt-1 flex items-center gap-3">
+<button class="min-h-[48px] px-5 py-2 rounded-xl bg-surface-container-lowest text-primary font-label-lg text-label-lg shadow-sm hover:bg-surface-bright active:scale-95 transition-transform flex items-center gap-2" onclick="triggerProModal()" type="button">
+<span>Upgrade to Pro</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<span class="font-label-md text-label-md text-on-primary/80">From KES 1,999/mo</span>
+</div>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Your Services</h2>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">6 total</span>
+</div>
+<button class="min-h-[44px] px-3.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-md text-label-md flex items-center gap-1 hover:bg-primary-fixed-dim active:scale-95 transition-all" onclick="triggerAddService()" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>Add Service</span>
+</button>
+</div>
+<div class="flex flex-col gap-2.5">
+<div class="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Close up professional beauty salon photo of fresh neat knotless box braids with clean parting styled elegantly with gold hair cuffs" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD46NDvuhExVTu2ApglNlseMz8JUaLxs58RYaTwwUzLGyNPWqdfM1XoVultN7XxpS53iFNwfwdayasmUyFegwOsawJ0Z7gBSpvaS1HzaA6mt458XIv3ZfPrd8QrYK7ahTgNykFqhkAovxCjRCNhzZyfOYP0m-ADb_sPy0TK19tgBxcuGB3zglPwBL9_2fw6xoZu4_j4M4Va0x-ZCEcrwJao78_9zR8DnW-03h0zBzWBnwe00Pq_o1DU">
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-lg text-title-lg text-on-surface truncate">Knotless Braids</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-title-md text-title-md text-primary">KES 3,500</span>
+<span>•</span>
+<span class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                  120 min
+                </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" onchange="toggleServiceStatus(this, 'Knotless Braids')" type="checkbox">
+<div class="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Aesthetic macro shot of glossy gel manicure with delicate terracotta swirl nail art on neat almond shaped nails resting over textured linen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB29dWANh7vr4bKhyJw-15Og3Bdr5COD5ayVqvXJ9Sg0f0HBHbmsSAkA9lREgHEq3Ffdk1YuXhPJV6FcLj4w9C4v4NUn-b73JI8hMFnXdunsLt91Lv7cM5pZHNVU6O-oqyAeRZZ1zGbIQNmSFkLt6QPdCIMYlwREYaGE1S6unA21AoyfEAtj4BWakMwLQiD7cJ22ojN7yJ-kGOt18yWkZUlPh6B_gi-miDMj-4eT04BQtQMzWCAVzZG">
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-lg text-title-lg text-on-surface truncate">Gel Manicure &amp; Nail Art</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-title-md text-title-md text-primary">KES 1,800</span>
+<span>•</span>
+<span class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                  60 min
+                </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" onchange="toggleServiceStatus(this, 'Gel Manicure')" type="checkbox">
+<div class="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex items-center justify-between gap-3">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="High quality skincare aesthetic photo of a hydrafacial treatment session with gentle mist and botanical serum applied on glowing dewy skin in an upscale spa" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9wMJ6Fq4s-F-WYihPvYooRJAopGRJd4Ayn8uqtA5UpClw2Lt85mmdM7hiVYf4_eg-37WkBaGXE4CZjGNJ1uQyRsuihTytFoBYwStKK2AbOxfZkPUUhjRHpdFBhjtT9e2D6fQ9SzT7kjCPYFSoLIWbtMWor08cG0wkB_60lS6shnmLoXCUu6Jvkqm10rP96Sck0xoGKBJg6NuGcOcbHs21kYjFSK3gEt_PTnhU4q7RtIOsiamJEgcD">
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-lg text-title-lg text-on-surface truncate">HydraFacial Glow</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-title-md text-title-md text-primary">KES 4,200</span>
+<span>•</span>
+<span class="flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                  90 min
+                </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" onchange="toggleServiceStatus(this, 'HydraFacial Glow')" type="checkbox">
+<div class="w-12 h-7 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<a class="w-full min-h-[44px] py-2 px-3 rounded-xl bg-surface-container-low text-primary font-label-lg text-label-lg flex items-center justify-center gap-1 hover:bg-surface-container transition-colors" href="#">
+<span>View all 6 services in catalog</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+</div>
+<div class="flex flex-col gap-3">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">App Mode &amp; Account</h2>
+<div class="flex flex-col gap-2.5">
+<div class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-start justify-between gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">swap_horiz</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-title-lg text-title-lg text-on-surface">Switch to Consumer View</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-tight mt-0.5">
+                Browse KiliPicks as a customer looking for beauty &amp; wellness services
+              </p>
+</div>
+</div>
+<button class="min-h-[48px] w-full rounded-xl bg-secondary-container text-on-secondary-container font-label-lg text-label-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed active:scale-98 transition-all" onclick="switchViewMode()" type="button">
+<span>Open Client Marketplace</span>
+<span class="material-symbols-outlined text-[18px]">north_east</span>
+</button>
+</div>
+<a class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 hover:bg-surface-container-low transition-colors" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">store</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate">Business Hours &amp; Location</span>
+<span class="font-body-sm text-body-sm text-secondary truncate">Kilimani, Chania Ave · Mon-Sat 08:30 - 20:00</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary text-[20px]">chevron_right</span>
+</a>
+<a class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 hover:bg-surface-container-low transition-colors" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">badge</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate">Staff &amp; Team Members</span>
+<span class="font-body-sm text-body-sm text-secondary truncate">3 stylists active · Chair assignment</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 flex-shrink-0">
+<span class="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm">3 Active</span>
+<span class="material-symbols-outlined text-secondary text-[20px]">chevron_right</span>
+</div>
+</a>
+<a class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 hover:bg-surface-container-low transition-colors" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-tertiary-container flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">call</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate">Personal details &amp; WhatsApp</span>
+<span class="font-body-sm text-body-sm text-secondary truncate">+254 712 345 678 · Verified M-Pesa Till</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary text-[20px]">chevron_right</span>
+</a>
+<a class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 hover:bg-surface-container-low transition-colors" href="#">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-on-surface flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate">Privacy &amp; Security</span>
+<span class="font-body-sm text-body-sm text-secondary truncate">Biometrics enabled · PIN Protected</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary text-[20px]">chevron_right</span>
+</a>
+<button class="w-full min-h-[48px] bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3 text-error hover:bg-error-container/40 active:scale-98 transition-all" onclick="handleSignOut()" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+</div>
+<div class="flex flex-col text-left min-w-0">
+<span class="font-title-md text-title-md font-bold text-error">Sign out</span>
+<span class="font-body-sm text-body-sm text-error/80">Log out of Glow Beauty Studio</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-error text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col items-center justify-center pt-3 pb-6 text-center gap-1">
+<div class="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
+<span>KiliPicks Merchant Suite v2.4</span>
+<span>•</span>
+<span>Nairobi, Kenya</span>
+</div>
+<p class="text-secondary font-body-sm text-body-sm">
+        Empowering East African Beauty Entrepreneurs
+      </p>
+</div>
+</div>
+<div class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full text-body-sm font-body-sm shadow-xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 z-50" id="toast">
+<span class="material-symbols-outlined text-[18px] text-tertiary-fixed">check_circle</span>
+<span id="toast-message">Service status updated</span>
+</div>
+</div>
+<script>
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    const msg = document.getElementById('toast-message');
+    if (toast && msg) {
+      msg.textContent = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+  }
+
+  function toggleServiceStatus(checkbox, serviceName) {
+    const status = checkbox.checked ? 'activated' : 'paused';
+    showToast(serviceName + ' has been ' + status);
+  }
+
+  function triggerEditModal() {
+    showToast('Opening Studio Profile Editor...');
+  }
+
+  function triggerProModal() {
+    showToast('Redirecting to KiliPicks Pro checkout...');
+  }
+
+  function triggerAddService() {
+    showToast('Opening New Service creator...');
+  }
+
+  function switchViewMode() {
+    showToast('Switching to Consumer Marketplace...');
+  }
+
+  function handleSignOut() {
+    if (confirm('Are you sure you want to sign out of Glow Beauty Studio?')) {
+      showToast('Signing out securely...');
+    }
+  }
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(30,27,24,0.06)]" data-active-classes="text-primary font-bold"><div class="flex items-center justify-around h-16 px-space-xs"><a class="relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-on-surface transition-colors active:scale-95" data-path="bookings" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">calendar_today</span><span class="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center leading-none">3</span></div><span class="font-label-sm text-label-sm mt-0.5">Bookings</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-on-surface transition-colors active:scale-95" data-path="sales" href="#"><span class="material-symbols-outlined text-[24px]">payments</span><span class="font-label-sm text-label-sm mt-0.5">Sales</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-on-surface transition-colors active:scale-95" data-path="looks" href="#"><span class="material-symbols-outlined text-[24px]">photo_library</span><span class="font-label-sm text-label-sm mt-0.5">Looks</span></a><a class="relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 text-on-surface-variant hover:text-on-surface transition-colors active:scale-95" data-path="inbox" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">chat_bubble</span><span class="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-tertiary text-on-tertiary font-label-sm text-label-sm flex items-center justify-center leading-none">5</span></div><span class="font-label-sm text-label-sm mt-0.5">Inbox</span></a><a aria-current="page" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 transition-colors active:scale-95 text-primary font-bold" data-path="profile" href="#"><span class="material-symbols-outlined text-[24px]">storefront</span><span class="font-label-sm text-label-sm mt-0.5">Profile</span></a></div></nav></body></html>

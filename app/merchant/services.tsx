@@ -23,7 +23,8 @@ import {
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { CATALOG_CATEGORY_IDS, categoryLabel } from "@/utils/categories";
-import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
+import { CameraModal } from "@/components/CameraModal";
 import { cameraIcon, gridIcon } from "@/utils/icon-assets";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -122,6 +123,7 @@ export default function MerchantServicesScreen() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
 
   const [kebabOpenId, setKebabOpenId] = useState<string | null>(null);
   const [sheetForId, setSheetForId] = useState<string | null>(null);
@@ -263,19 +265,38 @@ export default function MerchantServicesScreen() {
   const addPhoto = async (source: "camera" | "library") => {
     if (!activeToken) return;
     setSaveError(null);
-    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
+
+    if (source === "camera") {
+      setShowCameraModal(true);
+      return;
+    }
+
+    const result = await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setSaveError(
-        source === "camera"
-          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
-          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
-      );
+      setSaveError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
     setUploadingPhoto(true);
     try {
       const uploaded = await uploadMerchantPhoto(activeToken, result.photo, "service");
+      if (uploaded.merchantToken) await saveMerchantSession(uploaded.merchantToken);
+      setField("imageUrl", uploaded.url);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't upload that photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    if (!activeToken) return;
+    setShowCameraModal(false);
+    setSaveError(null);
+    setUploadingPhoto(true);
+    try {
+      const compressed = await compressPhoto(rawPhoto);
+      const uploaded = await uploadMerchantPhoto(activeToken, compressed, "service");
       if (uploaded.merchantToken) await saveMerchantSession(uploaded.merchantToken);
       setField("imageUrl", uploaded.url);
     } catch (err) {
@@ -792,6 +813,13 @@ export default function MerchantServicesScreen() {
           </View>
         </View>
       )}
+
+      {/* ── Custom Camera Modal ── */}
+      <CameraModal
+        visible={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onPictureTaken={handlePictureTaken}
+      />
     </SafeAreaView>
   );
 }

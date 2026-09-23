@@ -26,7 +26,8 @@
           "project": "react-native",
           "organization": "kilimax-s5"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "ios": {
       "supportsTablet": false,

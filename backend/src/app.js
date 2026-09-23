@@ -15,8 +15,6 @@ import merchantMediaRoutes from "./routes/merchant/media.js";
 import merchantServicesRoutes from "./routes/merchant/services.js";
 import publicCatalogRoutes from "./routes/public/catalog.js";
 import publicAvailabilityRequestRoutes from "./routes/public/availability-requests.js";
-import publicReviewsRoutes from "./routes/public/reviews.js";
-import consumerReviewsRoutes from "./routes/consumer/reviews.js";
 import analyticsRoutes from "./routes/public/analytics.js";
 
 assertEnv();
@@ -117,8 +115,6 @@ await app.register(merchantMediaRoutes, { prefix: "/api/merchant/media" });
 await app.register(merchantServicesRoutes, { prefix: "/api/merchant/services" });
 await app.register(publicCatalogRoutes, { prefix: "/api/public" });
 await app.register(publicAvailabilityRequestRoutes, { prefix: "/api/public" });
-await app.register(publicReviewsRoutes, { prefix: "/api/public" });
-await app.register(consumerReviewsRoutes, { prefix: "/api/consumer/reviews" });
 await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
 app.get("/healthz", async (request, reply) => {

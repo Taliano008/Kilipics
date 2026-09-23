@@ -1,8 +1,0 @@
-node_modules
-.env
-.adminjs
-uploads
-*.log
-.git
-Dockerfile
-docker-compose.yml

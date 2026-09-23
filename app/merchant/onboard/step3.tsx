@@ -10,7 +10,8 @@ import {
   uploadMerchantPhoto,
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
-import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
+import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
+import { CameraModal } from "@/components/CameraModal";
 import { bookingIcon, cameraIcon, gridIcon, searchIcon } from "@/utils/icon-assets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -85,6 +86,7 @@ export default function OnboardStep3() {
 
   const [photos, setPhotos] = useState<{ uri: string; label: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [customLabel, setCustomLabel] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -166,14 +168,16 @@ export default function OnboardStep3() {
   const addPhotoFrom = async (source: "camera" | "library") => {
     if (!activeToken) return;
     setPhotoPickError(null);
-    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
+
+    if (source === "camera") {
+      setShowCameraModal(true);
+      return;
+    }
+
+    const result = await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setPhotoPickError(
-        source === "camera"
-          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
-          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
-      );
+      setPhotoPickError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
       return;
     }
 
@@ -187,6 +191,23 @@ export default function OnboardStep3() {
       setPhotoPickError(
         err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.",
       );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
+    if (!activeToken) return;
+    setShowCameraModal(false);
+    setUploadingPhoto(true);
+    try {
+      const compressed = await compressPhoto(rawPhoto);
+      const res = await uploadMerchantPhoto(activeToken, compressed, "gallery");
+      if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+      setPhotos((prev) => [...prev, { uri: res.url, label: `Space ${prev.length + 1}` }]);
+      setShowAddModal(false);
+    } catch (err) {
+      setPhotoPickError(err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -623,6 +644,12 @@ export default function OnboardStep3() {
         </View>
       </Modal>
 
+      {/* ── Custom Camera Modal ── */}
+      <CameraModal
+        visible={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onPictureTaken={handlePictureTaken}
+      />
     </SafeAreaView>
   );
 }
