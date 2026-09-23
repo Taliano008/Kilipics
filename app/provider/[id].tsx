@@ -5,6 +5,7 @@ import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { ProviderCard } from "@/components/ProviderCard";
 import { resolveMediaUrl } from "@/config/env";
 import { fetchMerchantBusinessPreview } from "@/api/merchant";
+import { fetchProviderReviews, submitProviderReview, type Review } from "@/api/reviews";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
@@ -47,6 +48,9 @@ import {
   Text,
   View,
   Share,
+  useWindowDimensions,
+  Modal,
+  TextInput,
 } from "react-native";
 import {
   SafeAreaView,
@@ -74,14 +78,7 @@ const PERKS = [
   { icon: savedIcon, label: 'Great Vibes' },
 ];
 
-const REVIEWS = [
-  { name: 'Amara O.', initials: 'AO', avatarColor: '#B3452B', date: '2 days ago', stars: 5, text: 'My feed-in braids came out perfect. The stylist was gentle and so precise with the parting.' },
-  { name: 'Wanjiru K.', initials: 'WK', avatarColor: '#2F5D4B', date: '1 week ago', stars: 5, text: 'Clean salon, friendly staff, and they actually finished on time. Booking again for sure.' },
-  { name: 'Fatima N.', initials: 'FN', avatarColor: '#8B5A12', date: '2 weeks ago', stars: 4, text: 'Twists held up for almost 6 weeks. Small wait on a Saturday but worth it.' },
-  { name: 'Grace M.', initials: 'GM', avatarColor: '#B3452B', date: '3 weeks ago', stars: 5, text: 'Best individual braids I have had in Nairobi. Painless and neat edges.' },
-  { name: 'Njeri A.', initials: 'NA', avatarColor: '#776D70', date: '1 month ago', stars: 5, text: 'Loved the vibe, plants everywhere and good music. My stylist listened to exactly what I wanted.' },
-  { name: 'Brenda O.', initials: 'BO', avatarColor: '#2F5D4B', date: '1 month ago', stars: 4, text: 'Prices are fair for the quality. Will bring my daughter next time too.' },
-];
+// Removed static REVIEWS array
 
 // Sentinel id used only by the merchant dashboard's "Consumer view" — see
 // src/components/merchant/DashboardHeader.tsx. Renders this same screen from
@@ -96,14 +93,14 @@ const PREVIEW_SENTINEL_ID = "me";
 // load." Track failures per-photo and let a tap re-attempt — bumping `key`
 // forces expo-image to re-issue the request instead of reusing its cached
 // failure.
-function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
+function GalleryPhoto({ uri, moreCount, size, onPress }: { uri: string; moreCount?: number; size: number; onPress?: () => void }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   if (failed) {
     return (
       <Pressable
-        style={styles.galleryGridItem}
+        style={[styles.galleryGridItem, { width: size, height: size }]}
         onPress={() => {
           setFailed(false);
           setAttempt((n) => n + 1);
@@ -115,7 +112,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
   }
 
   return (
-    <View style={styles.galleryGridItem}>
+    <Pressable style={[styles.galleryGridItem, { width: size, height: size }]} onPress={onPress}>
       <Image
         key={attempt}
         source={{ uri }}
@@ -128,7 +125,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
           <Text style={styles.galleryMoreText}>+{moreCount} more</Text>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -141,6 +138,18 @@ export default function ProviderDetailScreen() {
   const activeMerchantToken = merchantToken || consumerToken;
   const { catalog, loading, error, refresh } = useCatalog();
   const { isSaved, toggle } = useSaved();
+  const { width } = useWindowDimensions();
+  
+  // Gallery grid layout: padding 20 on each side (40 total), gap 10 (3 gaps for 4 items = 30)
+  const galleryItemSize = (width - 40 - 30) / 4;
+
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, text: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const [previewData, setPreviewData] = useState<{
     provider: PublicCatalogProvider;
@@ -182,6 +191,16 @@ export default function ProviderDetailScreen() {
     if (!isPreview) void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPreview, id]);
+
+  useEffect(() => {
+    if (provider?.id && !isPreview) {
+      setLoadingReviews(true);
+      fetchProviderReviews(provider.id)
+        .then(setReviews)
+        .catch((err) => report(err, { scope: "fetch_reviews" }))
+        .finally(() => setLoadingReviews(false));
+    }
+  }, [provider?.id, isPreview]);
 
   const provider = useMemo(
     () =>
@@ -624,6 +643,8 @@ export default function ProviderDetailScreen() {
                          key={img}
                          uri={img}
                          moreCount={idx === 3 && gallery.length > 4 ? gallery.length - 4 : undefined}
+                         size={galleryItemSize}
+                         onPress={() => setViewerImage(img)}
                       />
                    ))}
                 </View>
@@ -633,8 +654,14 @@ export default function ProviderDetailScreen() {
           {/* Reviews */}
           <View style={styles.reviewsSection} onLayout={registerOffset("reviews")}>
              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Reviews <Text style={styles.reviewCountSpan}>({provider.verifiedCount || 124})</Text></Text>
-                <Text style={styles.seeAllText}>See all ›</Text>
+                <Text style={styles.sectionTitle}>Reviews <Text style={styles.reviewCountSpan}>({reviews.length || provider.verifiedCount || 124})</Text></Text>
+                {consumerToken ? (
+                   <Pressable onPress={() => setIsReviewModalVisible(true)}>
+                     <Text style={styles.seeAllText}>Leave a Review</Text>
+                   </Pressable>
+                ) : (
+                   <Text style={styles.seeAllText}>See all ›</Text>
+                )}
              </View>
              <View style={styles.reviewSummaryCard}>
                 <View style={styles.reviewSummaryScore}>
@@ -649,16 +676,21 @@ export default function ProviderDetailScreen() {
              </View>
 
              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewsScroll}>
-                {REVIEWS.map((rv, idx) => (
-                   <View key={idx} style={styles.reviewCard}>
+                {reviews.length === 0 && !loadingReviews && (
+                   <Text style={{color: '#8a8a8a', padding: 20}}>No reviews yet.</Text>
+                )}
+                {reviews.map((rv) => (
+                   <View key={rv.id} style={styles.reviewCard}>
                       <View style={styles.reviewUserRow}>
                          <View style={[styles.reviewAvatar, { backgroundColor: rv.avatarColor }]}><Text style={styles.reviewAvatarText}>{rv.initials}</Text></View>
                          <View>
                             <Text style={styles.reviewUserName}>{rv.name}</Text>
-                            <Text style={styles.reviewDate}>{rv.date}</Text>
+                            <Text style={styles.reviewDate}>
+                              {new Date(rv.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </Text>
                          </View>
                       </View>
-                      <Text style={styles.reviewStarsDisplay}>{rv.stars === 5 ? '★★★★★' : '★★★★☆'}</Text>
+                      <Text style={styles.reviewStarsDisplay}>{Array(rv.stars).fill('★').join('')}{Array(5-rv.stars).fill('☆').join('')}</Text>
                       <Text style={styles.reviewBody}>{rv.text}</Text>
                    </View>
                 ))}
@@ -740,6 +772,74 @@ export default function ProviderDetailScreen() {
             <Text style={styles.btnBookTitle} numberOfLines={1}>{ctaLabel}</Text>
          </Pressable>
       </View>
+
+      {/* Full-screen Image Viewer */}
+      <Modal visible={!!viewerImage} transparent={true} onRequestClose={() => setViewerImage(null)} animationType="fade">
+        <View style={styles.imageViewerContainer}>
+          <Pressable style={styles.imageViewerCloseBtn} onPress={() => setViewerImage(null)}>
+            <Text style={styles.imageViewerCloseIcon}>✕</Text>
+          </Pressable>
+          {viewerImage && (
+            <Image
+              source={{ uri: viewerImage }}
+              style={styles.imageViewerImage}
+              contentFit="contain"
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* Submit Review Modal */}
+      <Modal visible={isReviewModalVisible} transparent={true} animationType="slide" onRequestClose={() => setIsReviewModalVisible(false)}>
+        <View style={styles.reviewModalOverlay}>
+          <View style={styles.reviewModalContent}>
+            <Text style={styles.reviewModalTitle}>Leave a Review</Text>
+            
+            <View style={styles.starSelectRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable key={star} onPress={() => setReviewDraft(d => ({...d, rating: star}))}>
+                  <Text style={[styles.starSelectIcon, reviewDraft.rating >= star && styles.starSelectIconActive]}>★</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.reviewInput}
+              placeholder="Share your experience..."
+              placeholderTextColor="#999"
+              multiline
+              value={reviewDraft.text}
+              onChangeText={(text) => setReviewDraft(d => ({...d, text}))}
+            />
+
+            <View style={styles.reviewModalActions}>
+              <Pressable style={styles.reviewModalBtnCancel} onPress={() => setIsReviewModalVisible(false)}>
+                <Text style={styles.reviewModalBtnCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.reviewModalBtnSubmit, (submittingReview || !reviewDraft.text.trim()) && {opacity: 0.7}]} 
+                disabled={submittingReview || !reviewDraft.text.trim()}
+                onPress={async () => {
+                  setSubmittingReview(true);
+                  try {
+                    await submitProviderReview(consumerToken!, provider.id, reviewDraft.rating, reviewDraft.text.trim());
+                    const updated = await fetchProviderReviews(provider.id);
+                    setReviews(updated);
+                    setIsReviewModalVisible(false);
+                    setReviewDraft({ rating: 5, text: "" });
+                  } catch (err: any) {
+                    alert(err.message || "Failed to submit review");
+                  } finally {
+                    setSubmittingReview(false);
+                  }
+                }}
+              >
+                <Text style={styles.reviewModalBtnSubmitText}>{submittingReview ? "Submitting..." : "Submit"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -906,7 +1006,7 @@ const styles = StyleSheet.create({
   selectServiceBtnTextActive: { color: "#fff" },
   gallerySection: { marginTop: 28 },
   galleryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  galleryGridItem: { width: "23%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#EDE4D8", overflow: "hidden" },
+  galleryGridItem: { borderRadius: 12, backgroundColor: "#EDE4D8", overflow: "hidden" },
   galleryMoreOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
   galleryMoreText: { color: "#fff", fontSize: 11, fontWeight: "600" },
   galleryRetryText: { flex: 1, textAlign: "center", textAlignVertical: "center", fontSize: 11, fontWeight: "600", color: "#8a8a8a" },
@@ -982,4 +1082,43 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   btnBookTitle: { color: "#fff", fontSize: 15.5, fontWeight: "700" },
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageViewerCloseBtn: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  imageViewerCloseIcon: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  imageViewerImage: {
+    width: "100%",
+    height: "100%",
+  },
+  reviewModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  reviewModalContent: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  reviewModalTitle: { fontSize: 20, fontWeight: "800", color: "#1a1a1a", marginBottom: 16 },
+  starSelectRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  starSelectIcon: { fontSize: 36, color: "#e8e8e8" },
+  starSelectIconActive: { color: "#e8992a" },
+  reviewInput: { height: 120, backgroundColor: "#f5f5f5", borderRadius: 12, padding: 16, fontSize: 15, color: "#1a1a1a", textAlignVertical: "top" },
+  reviewModalActions: { flexDirection: "row", gap: 12, marginTop: 20 },
+  reviewModalBtnCancel: { flex: 1, paddingVertical: 14, alignItems: "center", borderRadius: 24, backgroundColor: "#f0f0f0" },
+  reviewModalBtnCancelText: { fontSize: 15, fontWeight: "600", color: "#6b6b6b" },
+  reviewModalBtnSubmit: { flex: 1, paddingVertical: 14, alignItems: "center", borderRadius: 24, backgroundColor: "#B3452B" },
+  reviewModalBtnSubmitText: { fontSize: 15, fontWeight: "600", color: "#fff" },
 });

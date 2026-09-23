@@ -11,10 +11,36 @@ Fastify/MySQL design intact, plus real consumer auth (see below).
 
 ## Requirements
 
-- Node.js 20+
-- MySQL 8, running locally, with a known root password
+- Docker (recommended — see below), **or** Node.js 20+ with MySQL 8 running
+  locally with a known root password (manual path, further down)
 
-## Run locally
+## Run locally (Docker)
+
+```bash
+cd backend
+npm run init:env      # generates JWT_SECRET / ADMIN_PASSWORD / ANALYTICS_APP_TOKEN
+# edit .env and fill in DB_PASSWORD — docker-compose uses it as MySQL's root password too
+docker-compose up --build
+```
+
+This starts three containers: `mysql` (disposable, data in a named volume —
+no local MySQL install needed), `api` (runs `npm run migrate` then starts,
+so a fresh volume always ends up on a fully migrated schema), and `admin`
+(the AdminJS panel). Uploaded photos persist in the `uploads-data` volume
+across restarts and rebuilds.
+
+- API: http://localhost:3000
+- Admin panel: http://localhost:3050/admin
+- Uploads served at: http://localhost:3000/uploads/
+
+`api` and `admin` are the same image, just started with a different command
+(see `backend/Dockerfile`) — there's one build to maintain, not two. MySQL is
+only a container in this local setup; a production deployment points
+`DB_HOST`/etc. at a real managed MySQL instance instead (see
+`.claude/architecture/conteinerization.md` for the full reasoning, including
+why uploads-on-a-volume is an interim fix, not a permanent one).
+
+## Run locally (manual, no Docker)
 
 ```bash
 cd backend

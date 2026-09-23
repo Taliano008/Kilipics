@@ -15,10 +15,9 @@ import { invalidateCatalogCache } from "../src/services/catalog.js";
 
 const MERCHANT_EMAIL = "demo-merchant@kilipicks.dev";
 
-async function upsertMerchant() {
-  const existing = await query("SELECT id FROM merchants WHERE email = ?", [
-    MERCHANT_EMAIL,
-  ]);
+async function upsertMerchant(emailSuffix = "") {
+  const email = `demo-merchant${emailSuffix}@kilipicks.dev`;
+  const existing = await query("SELECT id FROM merchants WHERE email = ?", [email]);
   if (existing.length > 0) return existing[0].id;
 
   const id = newId();
@@ -26,12 +25,12 @@ async function upsertMerchant() {
   await execute(
     `INSERT INTO merchants (id, full_name, email, password_hash, status)
      VALUES (?, ?, ?, ?, 'active')`,
-    [id, "Demo Merchant", MERCHANT_EMAIL, passwordHash],
+    [id, `Demo Merchant ${emailSuffix}`.trim(), email, passwordHash],
   );
   return id;
 }
 
-async function upsertBusiness(merchantId, business, services) {
+async function upsertBusiness(merchantId, business, services, reviews = []) {
   await execute("DELETE FROM businesses WHERE slug = ?", [business.slug]);
 
   const id = newId();
@@ -109,14 +108,30 @@ async function upsertBusiness(merchantId, business, services) {
     );
   }
 
+  for (const review of reviews) {
+    await execute(
+      `INSERT INTO reviews (
+        id, business_id, rating, text, author_name, author_initials, author_avatar_color, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newId(),
+        id,
+        review.stars,
+        review.text,
+        review.name,
+        review.initials,
+        review.avatarColor,
+        review.createdAt || new Date().toISOString().slice(0, 19).replace('T', ' ')
+      ],
+    );
+  }
+
   return id;
 }
 
 async function main() {
-  const merchantId = await upsertMerchant();
-
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant("1"),
     {
       slug: "zuri-beauty-lounge",
       name: "Zuri Beauty Lounge",
@@ -181,10 +196,18 @@ async function main() {
         bookingEnabled: false,
       },
     ],
+    [
+      { name: 'Amara O.', initials: 'AO', avatarColor: '#B3452B', stars: 5, text: 'My feed-in braids came out perfect. The stylist was gentle and so precise with the parting.', createdAt: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 19).replace('T', ' ') },
+      { name: 'Wanjiru K.', initials: 'WK', avatarColor: '#2F5D4B', stars: 5, text: 'Clean salon, friendly staff, and they actually finished on time. Booking again for sure.', createdAt: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 19).replace('T', ' ') },
+      { name: 'Fatima N.', initials: 'FN', avatarColor: '#8B5A12', stars: 4, text: 'Twists held up for almost 6 weeks. Small wait on a Saturday but worth it.', createdAt: new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 19).replace('T', ' ') },
+      { name: 'Grace M.', initials: 'GM', avatarColor: '#B3452B', stars: 5, text: 'Best individual braids I have had in Nairobi. Painless and neat edges.', createdAt: new Date(Date.now() - 21 * 86400000).toISOString().slice(0, 19).replace('T', ' ') },
+      { name: 'Njeri A.', initials: 'NA', avatarColor: '#776D70', stars: 5, text: 'Loved the vibe, plants everywhere and good music. My stylist listened to exactly what I wanted.', createdAt: new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 19).replace('T', ' ') },
+      { name: 'Brenda O.', initials: 'BO', avatarColor: '#2F5D4B', stars: 4, text: 'Prices are fair for the quality. Will bring my daughter next time too.', createdAt: new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 19).replace('T', ' ') }
+    ]
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant(newId()),
     {
       slug: "glow-nail-bar",
       name: "Glow Nail Bar",
@@ -227,7 +250,7 @@ async function main() {
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant(newId()),
     {
       slug: "nailed-it-nairobi",
       name: "Nailed It Nairobi",
@@ -264,7 +287,7 @@ async function main() {
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant("3"),
     {
       slug: "polish-perfect",
       name: "Polish Perfect",

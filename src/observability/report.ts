@@ -47,15 +47,25 @@ export function report(
 ) {
   const { message, stack } = normalize(error);
   log(severity, message, stack ? { ...context, stack } : context);
-  Sentry.captureException(error instanceof Error ? error : new Error(message), {
-    level:
-      severity === "error"
-        ? "error"
-        : severity === "warning"
-          ? "warning"
-          : "info",
-    extra: context,
-  });
+  // Telemetry must never take down the call site it's reporting from — e.g.
+  // Sentry's mobileReplayIntegration/feedbackIntegration (app/_layout.tsx)
+  // are native-mobile features that can throw when this runs in a plain
+  // web browser tab (expo start --web), which would otherwise replace the
+  // real `error` with an unrelated crash and skip whatever the caller does
+  // next (auth.tsx's submit() relies on report() returning to show a message).
+  try {
+    Sentry.captureException(error instanceof Error ? error : new Error(message), {
+      level:
+        severity === "error"
+          ? "error"
+          : severity === "warning"
+            ? "warning"
+            : "info",
+      extra: context,
+    });
+  } catch (sentryError) {
+    console.warn("[report] Sentry.captureException threw", sentryError);
+  }
 }
 
 export function reportMessage(
@@ -64,13 +74,17 @@ export function reportMessage(
   severity: ReportSeverity = "info",
 ) {
   log(severity, message, context);
-  Sentry.captureMessage(message, {
-    level:
-      severity === "error"
-        ? "error"
-        : severity === "warning"
-          ? "warning"
-          : "info",
-    extra: context,
-  });
+  try {
+    Sentry.captureMessage(message, {
+      level:
+        severity === "error"
+          ? "error"
+          : severity === "warning"
+            ? "warning"
+            : "info",
+      extra: context,
+    });
+  } catch (sentryError) {
+    console.warn("[report] Sentry.captureMessage threw", sentryError);
+  }
 }

@@ -1,7 +1,6 @@
 import { track } from "@/analytics/events";
 import { uploadConsumerPhoto } from "@/api/auth";
 import { useAuth } from "@/auth/auth-context";
-import { CameraModal } from "@/components/CameraModal";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
@@ -15,7 +14,7 @@ import {
   verifiedBadgeIcon,
   whatsappIcon,
 } from "@/utils/icon-assets";
-import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
+import { pickPhotoFromLibrary, takePhotoWithCamera } from "@/utils/photo-picker";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
@@ -90,7 +89,6 @@ export default function AccountScreen() {
   const [sellerPending, setSellerPending] = useState(false);
   const [sellerMessage, setSellerMessage] = useState<string | null>(null);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
-  const [avatarCameraOpen, setAvatarCameraOpen] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const { ids } = useSaved();
@@ -141,23 +139,17 @@ export default function AccountScreen() {
 
   const pickAvatarFrom = async (source: "camera" | "library") => {
     setAvatarError(null);
-    if (source === "camera") {
-      setAvatarCameraOpen(true);
-      return;
-    }
-    const result = await pickPhotoFromLibrary();
+    const result = source === "camera" ? await takePhotoWithCamera() : await pickPhotoFromLibrary();
     if (result.status === "canceled") return;
     if (result.status === "permission_denied") {
-      setAvatarError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
+      setAvatarError(
+        source === "camera"
+          ? "Camera access is off. Enable it in your phone's Settings to take a photo."
+          : "Photo library access is off. Enable it in your phone's Settings to choose a photo.",
+      );
       return;
     }
     await appendAvatarPhoto(result.photo);
-  };
-
-  const handleAvatarPictureTaken = async (rawPhoto: { uri: string; width: number; height: number }) => {
-    setAvatarCameraOpen(false);
-    const compressed = await compressPhoto(rawPhoto);
-    await appendAvatarPhoto(compressed);
   };
 
   return (
@@ -447,12 +439,6 @@ export default function AccountScreen() {
           </View>
         </View>
       </Modal>
-
-      <CameraModal
-        visible={avatarCameraOpen}
-        onClose={() => setAvatarCameraOpen(false)}
-        onPictureTaken={(photo) => void handleAvatarPictureTaken(photo)}
-      />
     </SafeAreaView>
   );
 }

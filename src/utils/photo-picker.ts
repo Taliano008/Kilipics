@@ -82,3 +82,18 @@ export async function pickPhotoFromLibrary(): Promise<PhotoPickResult> {
   if (result.canceled || result.assets.length === 0) return { status: "canceled" };
   return { status: "picked", photo: await compressPhoto(result.assets[0]) };
 }
+
+// Uses the OS's own camera app (via expo-image-picker) rather than a custom
+// in-app camera view — no extra native module/permission surface beyond what
+// pickPhotoFromLibrary already needs, and it works in Expo Go.
+export async function takePhotoWithCamera(): Promise<PhotoPickResult> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) return { status: "permission_denied" };
+
+  const result = await ImagePicker.launchCameraAsync({
+    quality: 0.8,
+    allowsEditing: false,
+  });
+  if (result.canceled || result.assets.length === 0) return { status: "canceled" };
+  return { status: "picked", photo: await compressPhoto(result.assets[0]) };
+}
