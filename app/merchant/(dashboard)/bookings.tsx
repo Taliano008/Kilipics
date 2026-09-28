@@ -1,11 +1,17 @@
 /**
  * Seller dashboard — Bookings tab.
  * Matches: Inspo/code boking agenda.html
- * Local-only data (src/merchant/bookings-context.tsx) — see merchant_prd.md
- * §6, Booking is "Local only in Phase Zero."
+ * Manual bookings are local-only (src/merchant/bookings-context.tsx) — see
+ * merchant_prd.md §6, Booking is "Local only in Phase Zero." Incoming
+ * requests are the real consumer "Check availability" submissions.
  */
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
-import { fetchMerchantServices, type MerchantService } from "@/api/merchant";
+import {
+  fetchMerchantServices,
+  type IncomingAvailabilityRequest,
+  type IncomingRequestStatus,
+  type MerchantService,
+} from "@/api/merchant";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import {
   useBookings,
@@ -17,10 +23,13 @@ import { normalizeKenyanPhone } from "@/utils/phone";
 import { openWhatsapp } from "@/utils/whatsapp";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,7 +64,34 @@ function timeRange(time: string, durationMinutes: number) {
 
 export default function BookingsScreen() {
   const { activeToken } = useMerchantBusiness();
-  const { bookings, addBooking, updateBookingStatus } = useBookings();
+  const {
+    bookings,
+    addBooking,
+    updateBookingStatus,
+    requests,
+    requestsLoading,
+    requestsError,
+    refreshRequests,
+    setRequestStatus,
+  } = useBookings();
+
+  // Re-check for new consumer requests whenever the tab comes into view.
+  useFocusEffect(
+    useCallback(() => {
+      refreshRequests();
+    }, [refreshRequests]),
+  );
+
+  const openRequests = useMemo(() => requests.filter((r) => r.status !== "closed"), [requests]);
+
+  const changeRequestStatus = useCallback(
+    (id: string, status: IncomingRequestStatus) => {
+      setRequestStatus(id, status).catch(() =>
+        Alert.alert("Couldn't update request", "Please check your connection and try again."),
+      );
+    },
+    [setRequestStatus],
+  );
 
   const today = useMemo(() => new Date(), []);
   const [selectedDate, setSelectedDate] = useState(isoDate(today));
@@ -98,7 +134,11 @@ export default function BookingsScreen() {
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Bookings" />
       <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={s.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={requestsLoading} onRefresh={refreshRequests} />}
+        >
           <View style={s.pulseCard}>
             <View style={s.pulseHeaderRow}>
               <View style={s.pulseTitleRow}>
@@ -130,6 +170,34 @@ export default function BookingsScreen() {
               </View>
             </View>
           </View>
+
+          <View style={s.scheduleHeaderRow}>
+            <View style={s.scheduleTitleRow}>
+              <MaterialIcons name="inbox" size={20} color={mc.primary} />
+              <Text style={s.scheduleTitle}>Incoming Requests</Text>
+            </View>
+            <View style={s.slotPill}>
+              <Text style={s.slotPillText}>{openRequests.length} open</Text>
+            </View>
+          </View>
+
+          {requestsError ? (
+            <View style={s.emptyWrap}>
+              <MaterialIcons name="cloud-off" size={28} color={mc.outline} />
+              <Text style={s.emptyText}>{requestsError}</Text>
+            </View>
+          ) : openRequests.length === 0 ? (
+            <View style={s.emptyWrap}>
+              <MaterialIcons name="mark-email-unread" size={28} color={mc.outline} />
+              <Text style={s.emptyText}>
+                {requestsLoading ? "Checking for requests…" : "No open requests from clients yet."}
+              </Text>
+            </View>
+          ) : (
+            openRequests.map((r) => (
+              <RequestCard key={r.id} request={r} onStatus={changeRequestStatus} />
+            ))
+          )}
 
           <View style={s.rangeRow}>
             <Text style={s.rangeLabel}>Date Range</Text>
@@ -347,6 +415,108 @@ function BookingCard({
           </Pressable>
         </View>
       )}
+    </View>
+  );
+}
+
+const PREFERRED_TIME_LABEL: Record<IncomingAvailabilityRequest["preferredTime"], string> = {
+  morning: "Morning",
+  afternoon: "Afternoon",
+  evening: "Evening",
+  flexible: "Any time",
+};
+
+function RequestCard({
+  request,
+  onStatus,
+}: {
+  request: IncomingAvailabilityRequest;
+  onStatus: (id: string, status: IncomingRequestStatus) => void;
+}) {
+  const initials = request.consumerName
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  const isNew = request.status === "new";
+  // preferredDate is a calendar date (YYYY-MM-DD); parse as local noon so
+  // it never shifts a day across the UTC boundary.
+  const dateLabel = new Date(`${request.preferredDate}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const firstName = request.consumerName.split(" ")[0];
+  const serviceLabel = request.serviceName ?? "an appointment";
+
+  return (
+    <View style={s.card}>
+      <View style={s.cardTopRow}>
+        <View style={s.cardIdentity}>
+          <View style={s.avatarPlain}>
+            <Text style={s.avatarPlainText}>{initials}</Text>
+          </View>
+          <View style={{ minWidth: 0, flex: 1 }}>
+            <Text style={s.customerName} numberOfLines={1}>
+              {request.consumerName}
+            </Text>
+            <Text style={s.customerSub} numberOfLines={1}>
+              {request.whatsappNumber}
+            </Text>
+          </View>
+        </View>
+        {isNew ? (
+          <View style={s.pillPending}>
+            <MaterialIcons name="fiber-new" size={13} color={mc.onPrimaryFixed} />
+            <Text style={s.pillPendingText}>New</Text>
+          </View>
+        ) : (
+          <View style={s.pillConfirmed}>
+            <MaterialIcons name="forum" size={13} color={mc.onTertiaryFixed} />
+            <Text style={s.pillConfirmedText}>Contacted</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={s.serviceBox}>
+        <Text style={s.serviceName}>{request.serviceName ?? "No specific service"}</Text>
+        <View style={s.metaRow}>
+          <MaterialIcons name="event" size={14} color={mc.onSurfaceVariant} />
+          <Text style={s.metaText}>
+            {dateLabel} · {PREFERRED_TIME_LABEL[request.preferredTime]}
+          </Text>
+        </View>
+        {request.notes ? <Text style={s.metaText}>{request.notes}</Text> : null}
+      </View>
+
+      <View style={s.actionsRow}>
+        <View style={s.actionsLeft}>
+          <Pressable
+            style={s.callBtn}
+            onPress={() => void Linking.openURL(`tel:${request.whatsappNumber}`)}
+          >
+            <MaterialIcons name="call" size={16} color={mc.onSecondaryContainer} />
+          </Pressable>
+          <Pressable
+            style={s.waBtn}
+            onPress={() => {
+              void openWhatsapp(
+                request.whatsappNumber,
+                `Hi ${firstName}, thanks for your request for ${serviceLabel} on ${dateLabel}.`,
+              ).then((opened) => {
+                if (opened && isNew) onStatus(request.id, "contacted");
+              });
+            }}
+          >
+            <MaterialIcons name="chat" size={16} color={mc.onTertiaryContainer} />
+            <Text style={s.waBtnText}>WhatsApp</Text>
+          </Pressable>
+        </View>
+        <Pressable style={s.detailsBtn} onPress={() => onStatus(request.id, "closed")}>
+          <Text style={s.detailsBtnText}>Close</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -1,8 +1,21 @@
 /**
- * Local-only booking store for the seller dashboard's Bookings tab.
- * Phase Zero per merchant_prd.md §6 — "Local only", no backend table.
- * Mirrors the load-on-mount/persist-on-change pattern in src/saved/saved-context.tsx.
+ * Booking state for the seller dashboard's Bookings tab. Two sources:
+ * - `bookings`: appointments the merchant enters by hand. Local only in
+ *   Phase Zero per merchant_prd.md §6 — mirrors the load-on-mount/
+ *   persist-on-change pattern in src/saved/saved-context.tsx.
+ * - `requests`: real consumer "Check availability" requests from the
+ *   backend (GET /api/merchant/availability-requests).
+ * Starts empty — no sample data, so a new merchant never sees made-up
+ * customers presented as their own.
  */
+import {
+  fetchAvailabilityRequests,
+  updateAvailabilityRequestStatus,
+  type IncomingAvailabilityRequest,
+  type IncomingRequestStatus,
+} from "@/api/merchant";
+import { useMerchantBusiness } from "@/merchant/business-context";
+import { report } from "@/observability/report";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
@@ -44,72 +57,12 @@ type NewBookingInput = {
 
 const STORAGE_KEY = "kilipicks.merchant.bookings.v1";
 
-function todayIso(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
-}
+const NO_REQUESTS: IncomingAvailabilityRequest[] = [];
 
-function seedBookings(): MerchantBooking[] {
-  const today = todayIso();
-  return [
-    {
-      id: "seed-1",
-      customerName: "Jane Wanjiku",
-      customerPhone: "+254712345678",
-      serviceName: "Knotless Braids (Medium)",
-      price: 3500,
-      date: today,
-      time: "10:00",
-      durationMinutes: 90,
-      status: "confirmed",
-      paymentNote: "M-Pesa Paid",
-      notes: "",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "seed-2",
-      customerName: "Brenda Mutua",
-      customerPhone: "+254722987654",
-      serviceName: "Gel Manicure & Nail Art",
-      price: 1800,
-      date: today,
-      time: "12:00",
-      durationMinutes: 60,
-      status: "pending",
-      paymentNote: "Pay in Studio",
-      notes: "",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "seed-3",
-      customerName: "Faith Kerubo",
-      customerPhone: "+254733112233",
-      serviceName: "HydraFacial Glow",
-      price: 4200,
-      date: today,
-      time: "14:00",
-      durationMinutes: 90,
-      status: "confirmed",
-      paymentNote: "Card Prepaid",
-      notes: "VIP Regular · 8th Visit",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "seed-4",
-      customerName: "Amani Otieno",
-      customerPhone: "+254700112233",
-      serviceName: "Eyebrow Tint & Thread",
-      price: 1000,
-      date: today,
-      time: "16:30",
-      durationMinutes: 30,
-      status: "cancelled",
-      paymentNote: "Client requested cancellation",
-      notes: "",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+// Earlier builds seeded four sample bookings (ids "seed-1".."seed-4") and
+// persisted them — strip those from any device that still has them.
+function withoutSeedData(bookings: MerchantBooking[]) {
+  return bookings.filter((b) => !b.id.startsWith("seed-"));
 }
 
 type BookingsState = {
@@ -117,6 +70,11 @@ type BookingsState = {
   loaded: boolean;
   addBooking: (input: NewBookingInput) => void;
   updateBookingStatus: (id: string, status: BookingStatus) => void;
+  requests: IncomingAvailabilityRequest[];
+  requestsLoading: boolean;
+  requestsError: string | null;
+  refreshRequests: () => void;
+  setRequestStatus: (id: string, status: IncomingRequestStatus) => Promise<void>;
 };
 
 const BookingsContext = createContext<BookingsState | null>(null);
@@ -131,9 +89,9 @@ export function BookingsProvider({ children }: PropsWithChildren) {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (!active) return;
-        setBookings(raw ? (JSON.parse(raw) as MerchantBooking[]) : seedBookings());
+        setBookings(raw ? withoutSeedData(JSON.parse(raw) as MerchantBooking[]) : []);
       } catch {
-        if (active) setBookings(seedBookings());
+        if (active) setBookings([]);
       } finally {
         if (active) setLoaded(true);
       }
@@ -172,9 +130,82 @@ export function BookingsProvider({ children }: PropsWithChildren) {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
   }, []);
 
+  const { activeToken, business } = useMerchantBusiness();
+  const businessId = business?.id ?? null;
+  const [requests, setRequests] = useState<IncomingAvailabilityRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [requestsVersion, setRequestsVersion] = useState(0);
+
+  useEffect(() => {
+    // No business yet means the endpoint would 400 — nothing to show.
+    if (!activeToken || !businessId) return;
+    let active = true;
+    setRequestsLoading(true);
+    fetchAvailabilityRequests(activeToken)
+      .then((res) => {
+        if (!active) return;
+        setRequests(res.requests);
+        setRequestsError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        report(error, { scope: "merchant_fetch_availability_requests" }, "warning");
+        setRequestsError("Couldn't load booking requests. Pull down to try again.");
+      })
+      .finally(() => {
+        if (active) setRequestsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeToken, businessId, requestsVersion]);
+
+  // Without a business there's nothing to show — derived rather than
+  // cleared in the effect, so a sign-out never leaves stale requests behind.
+  const visibleRequests = businessId ? requests : NO_REQUESTS;
+
+  const refreshRequests = useCallback(() => setRequestsVersion((v) => v + 1), []);
+
+  const setRequestStatus = useCallback(
+    async (id: string, status: IncomingRequestStatus) => {
+      if (!activeToken) return;
+      const previous = requests;
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      try {
+        const res = await updateAvailabilityRequestStatus(activeToken, id, status);
+        setRequests((prev) => prev.map((r) => (r.id === id ? res.request : r)));
+      } catch (error) {
+        setRequests(previous);
+        throw error;
+      }
+    },
+    [activeToken, requests],
+  );
+
   const value = useMemo(
-    () => ({ bookings, loaded, addBooking, updateBookingStatus }),
-    [bookings, loaded, addBooking, updateBookingStatus],
+    () => ({
+      bookings,
+      loaded,
+      addBooking,
+      updateBookingStatus,
+      requests: visibleRequests,
+      requestsLoading,
+      requestsError,
+      refreshRequests,
+      setRequestStatus,
+    }),
+    [
+      bookings,
+      loaded,
+      addBooking,
+      updateBookingStatus,
+      visibleRequests,
+      requestsLoading,
+      requestsError,
+      refreshRequests,
+      setRequestStatus,
+    ],
   );
 
   return <BookingsContext.Provider value={value}>{children}</BookingsContext.Provider>;

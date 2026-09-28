@@ -37,26 +37,22 @@ function Badge({ count, color }: { count: number; color: string }) {
 }
 
 function BookingsTabIcon({ color }: { color: string }) {
-  const { bookings } = useBookings();
-  const pendingToday = bookings.filter((b) => b.status === "pending").length;
+  const { bookings, requests } = useBookings();
+  const needsAction =
+    bookings.filter((b) => b.status === "pending").length +
+    requests.filter((r) => r.status === "new").length;
   return (
     <View>
       <TabIcon name="calendar-today" color={color} />
-      <Badge count={pendingToday} color={mc.primary} />
+      <Badge count={needsAction} color={mc.primary} />
     </View>
   );
 }
 
 function InboxTabIcon({ color }: { color: string }) {
   // No real inbox data model yet (Inbox is a live view over WhatsApp/support
-  // links, not stored state — see plan) — this count mirrors the mockup's
-  // illustrative unread badge rather than a computed value.
-  return (
-    <View>
-      <TabIcon name="chat-bubble" color={color} />
-      <Badge count={5} color={mc.tertiary} />
-    </View>
-  );
+  // links, not stored state), so there's no honest unread count to badge.
+  return <TabIcon name="chat-bubble" color={color} />;
 }
 
 function DashboardTabs() {

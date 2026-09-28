@@ -343,3 +343,44 @@ export function reorderMerchantServices(token: string, orderedIds: string[]) {
     },
   );
 }
+
+// Consumer "Check availability" requests for this merchant's business —
+// the real incoming-demand feed on the Bookings tab.
+export type IncomingRequestStatus = "new" | "contacted" | "closed";
+
+export type IncomingAvailabilityRequest = {
+  id: string;
+  businessId: string;
+  serviceId: string | null;
+  serviceName: string | null;
+  consumerName: string;
+  whatsappNumber: string;
+  preferredDate: string; // YYYY-MM-DD
+  preferredTime: "morning" | "afternoon" | "evening" | "flexible";
+  notes: string;
+  status: IncomingRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function fetchAvailabilityRequests(token: string) {
+  return request<{ requests: IncomingAvailabilityRequest[]; merchantToken?: string | null }>(
+    "/api/merchant/availability-requests",
+    { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
+export function updateAvailabilityRequestStatus(
+  token: string,
+  requestId: string,
+  status: IncomingRequestStatus,
+) {
+  return request<{ ok: boolean; request: IncomingAvailabilityRequest; merchantToken?: string | null }>(
+    `/api/merchant/availability-requests/${requestId}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+    },
+  );
+}
