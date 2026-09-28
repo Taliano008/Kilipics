@@ -11,6 +11,17 @@ import { verifyConsumerToken } from "../services/consumer-auth.js";
 
 const BEARER_PATTERN = /^Bearer\s+(\S+)$/i;
 
+// createMerchant, but a lost race against another request provisioning the
+// same consumer's merchant yields null instead of a 409.
+async function createMerchantOrNull(input) {
+  try {
+    return await createMerchant(input);
+  } catch (err) {
+    if (err?.code === "merchant_already_linked") return null;
+    throw err;
+  }
+}
+
 // Shared by every merchant-facing route that a not-yet-fully-onboarded
 // merchant needs to hit before they have a dedicated merchant token — the
 // onboarding wizard (routes/merchant/business.js) and photo uploads
@@ -38,7 +49,7 @@ export async function flexibleMerchantAuth(request) {
     let merchantToken = null;
     if (!merchant) {
       const user = await queryOne("SELECT * FROM users WHERE id = ?", [verifiedUser.userId]);
-      const created = await createMerchant({
+      const created = await createMerchantOrNull({
         fullName: user?.full_name || "Merchant Partner",
         email: user?.email,
         // Random per-account password, never returned to the client and
@@ -52,8 +63,15 @@ export async function flexibleMerchantAuth(request) {
         password: randomBytes(32).toString("hex"),
         ownerUserId: verifiedUser.userId,
       });
-      merchant = await queryOne("SELECT * FROM merchants WHERE id = ?", [created.merchant.id]);
-      merchantToken = created.token;
+      if (created) {
+        merchant = await queryOne("SELECT * FROM merchants WHERE id = ?", [created.merchant.id]);
+        merchantToken = created.token;
+      } else {
+        // A concurrent request for this same consumer (e.g. onboarding's
+        // parallel photo uploads) provisioned the merchant first — use it.
+        merchant = await findMerchantForUser(verifiedUser.userId);
+        if (!merchant) throw unauthorized("Could not provision a merchant account.", "invalid_token");
+      }
     }
     // Else: a merchant identity already exists for this consumer. Don't mint
     // a fresh token on every such request — issueToken() evicts the oldest

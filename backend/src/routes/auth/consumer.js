@@ -60,12 +60,19 @@ export default async function consumerAuthRoutes(app) {
 
       const userId = newId();
       const passwordHash = await hashPassword(password);
-      await execute("INSERT INTO users (id, full_name, email, password_hash) VALUES (?, ?, ?, ?)", [
-        userId,
-        fullName,
-        email,
-        passwordHash,
-      ]);
+      // The SELECT above is only the fast path — two concurrent signups for
+      // one email can both pass it, and the loser then hits the unique key.
+      try {
+        await execute("INSERT INTO users (id, full_name, email, password_hash) VALUES (?, ?, ?, ?)", [
+          userId,
+          fullName,
+          email,
+          passwordHash,
+        ]);
+      } catch (err) {
+        if (err?.code === "ER_DUP_ENTRY") throw conflict("email_taken", "An account with this email already exists.");
+        throw err;
+      }
       const consumerToken = await issueConsumerToken(userId);
       const user = await queryOne("SELECT * FROM users WHERE id = ?", [userId]);
 

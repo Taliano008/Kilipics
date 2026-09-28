@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   becomeMerchant as requestBecomeMerchant,
   getCurrentConsumer,
+  isUnauthorizedError,
   signInWithEmail as requestEmailSignIn,
   signOutConsumer,
   signOutMerchant,
@@ -92,10 +93,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     void (async () => {
+      let session: StoredSession | null = null;
       try {
         const stored = await AsyncStorage.getItem(SESSION_KEY);
         if (!stored) return;
-        const session = JSON.parse(stored) as StoredSession;
+        session = JSON.parse(stored) as StoredSession;
         const response = await getCurrentConsumer(session.consumerToken);
         if (!active) return;
         // /me reports only whether a merchant is linked, never a token —
@@ -109,8 +111,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
             ? (linkedMerchant.profile as MerchantProfile)
             : null,
         });
-      } catch {
-        await AsyncStorage.removeItem(SESSION_KEY);
+      } catch (error) {
+        // Only a server-side rejection ends the session. Offline or a
+        // backend hiccup at launch keeps the stored session so the user
+        // isn't silently signed out; the next authed call re-validates it.
+        if (session && !isUnauthorizedError(error)) {
+          if (active) {
+            setConsumerToken(session.consumerToken);
+            setConsumer(session.consumer);
+            setMerchantToken(session.merchantToken);
+            setMerchant(session.merchant);
+            setStatus("signed_in");
+          }
+        } else {
+          await AsyncStorage.removeItem(SESSION_KEY);
+        }
       } finally {
         if (active) setStatus((current) => (current === "signed_in" ? current : "signed_out"));
       }

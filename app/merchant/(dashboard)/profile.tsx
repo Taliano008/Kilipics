@@ -387,7 +387,7 @@ export default function ProfileScreen() {
                   <Text style={s.completenessTitle}>Finish setting up your listing</Text>
                 </View>
                 <Text style={s.completenessBody}>
-                  Clients can't see all of your details yet. Add the missing info below:
+                  Clients can&apos;t see all of your details yet. Add the missing info below:
                 </Text>
                 {completeness.missing.map((field) => (
                   <Pressable

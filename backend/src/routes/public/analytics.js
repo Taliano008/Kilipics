@@ -2,12 +2,16 @@ import { ulid } from "ulid";
 import { query } from "../../db/connection.js";
 import { env } from "../../env.js";
 
+const MAX_EVENTS_PER_REQUEST = 1000;
+
 export default async function analyticsRoutes(app) {
   app.post("/events", async (request, reply) => {
     // Check app token
     const appToken = request.headers["x-app-token"];
     if (env.analyticsAppToken && appToken !== env.analyticsAppToken) {
-      request.log.warn({ expected: env.analyticsAppToken, actual: appToken }, "Unauthorized analytics ingest attempt");
+      // Never log the token values themselves — the expected one is a
+      // server secret, and a wrong one is attacker-controlled noise.
+      request.log.warn({ hasToken: Boolean(appToken) }, "Unauthorized analytics ingest attempt");
       reply.code(401);
       return { error: "unauthorized", message: "Invalid app token" };
     }
@@ -16,6 +20,14 @@ export default async function analyticsRoutes(app) {
     if (!Array.isArray(events)) {
       reply.code(400);
       return { error: "invalid_payload", message: "Expected an events array" };
+    }
+
+    // The client flushes at most MAX_BUFFER (500) events at once; anything
+    // larger would also blow past MySQL's 65,535-placeholder limit (21 per
+    // row) and fail the whole insert with a 500.
+    if (events.length > MAX_EVENTS_PER_REQUEST) {
+      reply.code(413);
+      return { error: "too_many_events", message: `At most ${MAX_EVENTS_PER_REQUEST} events per request` };
     }
 
     if (events.length === 0) {
@@ -33,7 +45,7 @@ export default async function analyticsRoutes(app) {
     
     for (const evt of events) {
       // Basic validation
-      if (!evt.eventId || !evt.anonymousUserId || !evt.sessionId || !evt.eventName || !evt.timestamp) {
+      if (!evt || typeof evt !== "object" || !evt.eventId || !evt.anonymousUserId || !evt.sessionId || !evt.eventName || !evt.timestamp) {
         continue; // skip malformed events
       }
       

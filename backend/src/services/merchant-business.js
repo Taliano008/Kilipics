@@ -30,6 +30,12 @@ function safeJson(val, fallback = []) {
   }
 }
 
+// Trimmed string or "" — request bodies here have no route schema, so a
+// non-string value must not reach .trim() and turn into a 500.
+function str(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function slugify(text) {
   return (
     text
@@ -101,17 +107,19 @@ function buildPublicContacts(existingRow, { phone, email }) {
 }
 
 export async function saveStep1(merchantId, { name, category, description, phone, email }) {
-  if (!name || name.trim().length === 0) {
-    throw badRequest("Business name is required.");
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw badRequest("name_required", "Business name is required.", ["name"]);
   }
 
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   const trimmedName = name.trim();
-  const categoryId = category?.trim() || DEFAULT_CATEGORY_ID;
+  const categoryId = str(category) || DEFAULT_CATEGORY_ID;
   const industry = industryForCategory(categoryId);
-  const desc = description?.trim() || "";
-  const contactPhone = phone?.trim() || "";
-  const contactEmail = email?.trim() || null;
+  const desc = str(description) || "";
+  const contactPhone = str(phone) || "";
+  const contactEmail = str(email) || null;
+  if (contactPhone.length > 20) throw badRequest("invalid_phone", "Phone number is too long.", ["phone"]);
+  if (trimmedName.length > 255) throw badRequest("name_too_long", "Business name is too long.", ["name"]);
   const publicContactsJson = buildPublicContacts(existing, { phone: contactPhone, email: contactEmail });
 
   if (existing) {
@@ -195,11 +203,11 @@ export async function saveStep1(merchantId, { name, category, description, phone
 export async function saveStep2(merchantId, { address, area, locationType, radius, radiusEnabled }) {
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   if (!existing) {
-    throw badRequest("Step 1 must be completed before Step 2.");
+    throw badRequest("step1_required", "Step 1 must be completed before Step 2.");
   }
 
-  const fullAddress = address?.trim() || "";
-  const neighborhood = area?.trim() || (fullAddress ? fullAddress.split(",")[0].trim() : "Nairobi");
+  const fullAddress = str(address) || "";
+  const neighborhood = str(area) || (fullAddress ? fullAddress.split(",")[0].trim() : "Nairobi");
   const locType = locationType === "mobile" ? "MOBILE_SERVICE" : "FIXED_VENUE";
   const travelRad = radiusEnabled ? (Number(radius) || 15) : 0;
   const serviceAreasJson = JSON.stringify([{ radiusMiles: travelRad, enabled: Boolean(radiusEnabled) }]);
@@ -220,7 +228,7 @@ export async function saveStep2(merchantId, { address, area, locationType, radiu
 export async function saveStep3(merchantId, { photos, activePreset, days, hoursText }) {
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   if (!existing) {
-    throw badRequest("Step 1 and Step 2 must be completed before Step 3.");
+    throw badRequest("step1_required", "Step 1 and Step 2 must be completed before Step 3.");
   }
 
   // `photos` comes from the client as { uri, label } objects (see
@@ -229,13 +237,15 @@ export async function saveStep3(merchantId, { photos, activePreset, days, hoursT
   // than persisting the picker's object shape straight to the DB.
   const gallery = (Array.isArray(photos) ? photos : [])
     .map((p) => (typeof p === "string" ? p : p?.uri))
-    .filter((uri) => typeof uri === "string" && uri.length > 0);
+    .filter(isMediaRef)
+    .slice(0, 50);
   const coverUrl = gallery.length > 0 ? gallery[0] : existing.cover_url;
   const galleryJson = JSON.stringify(gallery);
 
-  let formattedHours = hoursText || "";
+  let formattedHours = typeof hoursText === "string" ? hoursText : "";
   if (!formattedHours && Array.isArray(days)) {
     formattedHours = days
+      .filter((d) => d && typeof d === "object" && typeof d.name === "string")
       .map((d) => `${d.name}: ${d.open ? `${d.from || "9:00 AM"} – ${d.to || "6:00 PM"}` : "Closed"}`)
       .join("\n");
   }
@@ -256,7 +266,7 @@ export async function saveStep3(merchantId, { photos, activePreset, days, hoursT
 export async function submitOnboarding(merchantId) {
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   if (!existing) {
-    throw badRequest("No business found to submit.");
+    throw badRequest("business_required", "No business found to submit.");
   }
 
   await execute(
@@ -274,25 +284,79 @@ export async function submitOnboarding(merchantId) {
   return serializeMerchantBusiness(updated);
 }
 
+// Media references are either an http(s) URL (uploads, CDN) or a
+// scheme-less path (Phase Zero seed data) — never javascript:, data:, etc.
+function isMediaRef(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048) return false;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+  return !scheme || /^https?$/i.test(scheme[1]);
+}
+
+const ok = (value) => ({ ok: true, value });
+const fail = { ok: false };
+
+const textField = (maxLength, { required = false } = {}) => (val) => {
+  if (typeof val !== "string") return fail;
+  const trimmed = val.trim();
+  if (required && trimmed.length === 0) return fail;
+  return trimmed.length <= maxLength ? ok(trimmed) : fail;
+};
+
+const mediaField = (val) => {
+  if (val === null || val === "") return ok(null);
+  return isMediaRef(val) ? ok(val) : fail;
+};
+
+// Column name -> validator returning { ok, value } with the DB-ready value.
+const EDITABLE_BUSINESS_FIELDS = {
+  name: textField(255, { required: true }),
+  about: textField(5000),
+  positioning: textField(5000),
+  hours: textField(2000),
+  phone: textField(20),
+  email: (val) => {
+    if (val === null) return ok(null);
+    const result = textField(255)(val);
+    return result.ok ? ok(result.value || null) : fail;
+  },
+  full_address: textField(1000),
+  area: textField(255),
+  cover_url: mediaField,
+  logo_url: mediaField,
+  gallery_urls: (val) =>
+    Array.isArray(val) && val.length <= 50 && val.every(isMediaRef) ? ok(JSON.stringify(val)) : fail,
+  booking_enabled: (val) => (typeof val === "boolean" ? ok(val ? 1 : 0) : fail),
+};
+
 export async function updateBusiness(merchantId, updates) {
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   if (!existing) {
-    throw badRequest("No business found for this merchant.");
+    throw badRequest("business_required", "No business found for this merchant.");
   }
 
-  const allowed = [
-    "name", "about", "positioning", "hours", "phone", "email",
-    "full_address", "area", "cover_url", "logo_url", "gallery_urls", "booking_enabled"
-  ];
   const setClauses = [];
   const values = [];
+  const invalid = [];
 
+  // Unknown keys are still ignored (the client sends Partial<MerchantBusiness>
+  // straight through), but every editable one is type-checked — gallery_urls
+  // in particular feeds the public catalog, where a non-array value used to
+  // crash the snapshot build for every consumer, not just this merchant.
   for (const [key, val] of Object.entries(updates)) {
     const colName = key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
-    if (allowed.includes(colName)) {
-      setClauses.push(`${colName} = ?`);
-      values.push(typeof val === "object" ? JSON.stringify(val) : val);
+    const validate = EDITABLE_BUSINESS_FIELDS[colName];
+    if (!validate) continue;
+    const result = validate(val);
+    if (!result.ok) {
+      invalid.push(key);
+      continue;
     }
+    setClauses.push(`${colName} = ?`);
+    values.push(result.value);
+  }
+
+  if (invalid.length > 0) {
+    throw badRequest("validation_failed", "Some fields have invalid values.", invalid);
   }
 
   // Keep public_contacts (what buildContactChannels() actually reads for

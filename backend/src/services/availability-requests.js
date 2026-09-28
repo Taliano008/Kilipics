@@ -5,6 +5,12 @@ import { badRequest, notFound } from "../lib/http-errors.js";
 const PREFERRED_TIMES = new Set(["morning", "afternoon", "evening", "flexible"]);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Unauthenticated endpoint with no route schema — a non-string field must
+// come back as a 400 from the checks below, not a TypeError 500 from .trim().
+function str(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function serializeAvailabilityRequest(row) {
   if (!row) return null;
   return {
@@ -27,7 +33,7 @@ function serializeAvailabilityRequest(row) {
 // can't create a request against a business that was never actually
 // bookable in the first place.
 export async function createAvailabilityRequest(input) {
-  const businessId = input?.businessId?.trim();
+  const businessId = str(input?.businessId);
   if (!businessId) throw badRequest("business_id_required", "businessId is required.", ["businessId"]);
 
   const business = await queryOne("SELECT * FROM businesses WHERE id = ?", [businessId]);
@@ -39,7 +45,7 @@ export async function createAvailabilityRequest(input) {
     );
   }
 
-  let serviceId = input?.serviceId?.trim() || null;
+  let serviceId = str(input?.serviceId) || null;
   if (serviceId) {
     const service = await queryOne(
       "SELECT * FROM services WHERE id = ? AND business_id = ?",
@@ -53,21 +59,21 @@ export async function createAvailabilityRequest(input) {
     }
   }
 
-  const consumerName = input?.consumerName?.trim();
+  const consumerName = str(input?.consumerName);
   if (!consumerName) throw badRequest("consumer_name_required", "Your name is required.", ["consumerName"]);
 
-  const whatsappNumber = input?.whatsappNumber?.trim();
+  const whatsappNumber = str(input?.whatsappNumber);
   if (!whatsappNumber) {
     throw badRequest("whatsapp_number_required", "A WhatsApp number is required.", ["whatsappNumber"]);
   }
 
-  const preferredDate = input?.preferredDate?.trim();
+  const preferredDate = str(input?.preferredDate);
   if (!preferredDate || !DATE_RE.test(preferredDate)) {
     throw badRequest("preferred_date_required", "A valid preferred date is required.", ["preferredDate"]);
   }
 
   const preferredTime = PREFERRED_TIMES.has(input?.preferredTime) ? input.preferredTime : "flexible";
-  const notes = input?.notes?.trim() || null;
+  const notes = str(input?.notes) || null;
 
   const id = newId();
   await execute(

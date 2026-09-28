@@ -32,7 +32,10 @@ export async function getCatalogSnapshot() {
 function mergeGallery(galleryUrls, serviceImageUrls) {
   const seen = new Set();
   const merged = [];
-  for (const url of [...(galleryUrls ?? []), ...(serviceImageUrls ?? [])]) {
+  // Array guard: a malformed gallery_urls value on one row must not throw
+  // here and take down the whole public catalog for every consumer.
+  const own = Array.isArray(galleryUrls) ? galleryUrls : [];
+  for (const url of [...own, ...(serviceImageUrls ?? [])]) {
     if (typeof url === "string" && url.length > 0 && !seen.has(url)) {
       seen.add(url);
       merged.push(url);

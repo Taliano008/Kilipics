@@ -37,7 +37,7 @@ export type ConsumerSession = {
 };
 
 type ApiErrorPayload = { message?: string; error?: string; fields?: string[] };
-type ApiError = Error & { code?: string; fields?: string[] };
+type ApiError = Error & { code?: string; fields?: string[]; status?: number };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${AUTH_API_BASE_URL}${path}`, {
@@ -54,6 +54,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ) as ApiError;
     error.code = payload?.error;
     error.fields = payload?.fields;
+    error.status = response.status;
     throw error;
   }
   return payload as T;
@@ -83,6 +84,12 @@ export function signInWithEmail(input: { email: string; password: string }) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+// True only when the server actually rejected the session (401) — a
+// network failure or 5xx says nothing about whether the token is still valid.
+export function isUnauthorizedError(error: unknown) {
+  return (error as ApiError | null)?.status === 401;
 }
 
 export function getCurrentConsumer(consumerToken: string) {

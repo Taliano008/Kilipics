@@ -88,10 +88,21 @@ export async function createMerchant({ fullName, email, password, ownerUserId = 
 
   const id = newId();
   const passwordHash = await hashPassword(password);
-  await execute(
-    "INSERT INTO merchants (id, owner_user_id, full_name, email, password_hash) VALUES (?, ?, ?, ?, ?)",
-    [id, ownerUserId, fullName, email, passwordHash],
-  );
+  // Same check-then-insert race as consumer signup: the checks above are the
+  // fast path, the unique keys on email/owner_user_id are the real guard.
+  try {
+    await execute(
+      "INSERT INTO merchants (id, owner_user_id, full_name, email, password_hash) VALUES (?, ?, ?, ?, ?)",
+      [id, ownerUserId, fullName, email, passwordHash],
+    );
+  } catch (err) {
+    if (err?.code === "ER_DUP_ENTRY") {
+      throw String(err.message).includes("merchants_owner_user_uk")
+        ? conflict("merchant_already_linked", "This account already has a linked business profile.")
+        : conflict("email_taken", "An account with this email already exists.");
+    }
+    throw err;
+  }
 
   const token = await issueMerchantToken(id);
   const merchant = await queryOne("SELECT * FROM merchants WHERE id = ?", [id]);
