@@ -113,6 +113,16 @@ export default async function consumerAuthRoutes(app) {
       const passwordMatches = await verifyPassword(password, user.password_hash);
       if (!passwordMatches) throw new ApiError(401, "invalid_credentials", "Invalid email or password.");
 
+      // Checked only after the password, so this message is never shown to
+      // someone who doesn't already hold the account's credentials.
+      if (user.status === "suspended") {
+        throw new ApiError(
+          403,
+          "account_suspended",
+          "This account has been suspended. Contact KiliPicks support.",
+        );
+      }
+
       const consumerToken = await issueConsumerToken(user.id);
       const linkedMerchant = await findMerchantForUser(user.id);
 

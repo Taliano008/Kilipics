@@ -3,33 +3,27 @@ import { useAuth } from "@/auth/auth-context";
 import { useCatalog } from "@/catalog/catalog-context";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { ProviderCard } from "@/components/ProviderCard";
+import { ReviewsSection } from "@/components/ReviewsSection";
 import { resolveMediaUrl } from "@/config/env";
 import { fetchMerchantBusinessPreview } from "@/api/merchant";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
+import { mf } from "@/theme/merchant";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
-import {
-  cardPaymentIcon,
-  clapperIcon,
-  gridIcon,
-  instagramIcon,
-  phoneCallIcon,
-  ringingIcon,
-  savedIcon,
-  starIcon,
-  verifiedBadgeIcon,
-  whatsappIcon,
-} from "@/utils/icon-assets";
+import { starIcon, verifiedBadgeIcon } from "@/utils/icon-assets";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
   type ContactChannel,
 } from "@/utils/contact-links";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import {
+  type ComponentProps,
   useCallback,
   useEffect,
   useMemo,
@@ -37,7 +31,6 @@ import {
   useState,
 } from "react";
 import {
-  type ImageSourcePropType,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -53,34 +46,61 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-const TAB_BAR_HEIGHT = 50;
+// Palette from Inspo/restructer_details.html.
+const P = {
+  terracotta: "#BA482A",
+  terracottaDark: "#8C341C",
+  blush50: "#FDF7F6",
+  blush100: "#FCECE9",
+  blush200: "#F9DCD7",
+  surface: "#FAF8F5",
+  ink900: "#1F1A18",
+  ink700: "#4A423E",
+  ink500: "#7B726C",
+  ink300: "#B8B0A8",
+  hairline: "rgba(31,26,24,0.06)",
+  terracottaLine: "rgba(186,72,42,0.15)",
+  emerald: "#059669",
+  emeraldBg: "#ECFDF5",
+  amber: "#F59E0B",
+  rose: "#F43F5E",
+  white: "#FFFFFF",
+} as const;
 
-// website and tiktok have no brand-icon asset in assets/icons — grid and
-// clapper are the closest stand-ins available (a grid of links, a video
-// clapperboard) rather than shipping an emoji fallback.
-const CONTACT_ICONS: Record<ContactChannel["kind"], ImageSourcePropType> = {
-  whatsapp: whatsappIcon,
-  call: phoneCallIcon,
-  website: gridIcon,
-  instagram: instagramIcon,
-  tiktok: clapperIcon,
-  email: ringingIcon,
+const SERIF = "PlayfairDisplay_600SemiBold";
+const TAB_BAR_HEIGHT = 44;
+
+type FeatherName = ComponentProps<typeof Feather>["name"];
+type IoniconName = ComponentProps<typeof Ionicons>["name"];
+type IconSpec =
+  | { family: "feather"; name: FeatherName }
+  | { family: "ionicons"; name: IoniconName };
+
+function Icon({ spec, size, color }: { spec: IconSpec; size: number; color: string }) {
+  return spec.family === "feather" ? (
+    <Feather name={spec.name} size={size} color={color} />
+  ) : (
+    <Ionicons name={spec.name} size={size} color={color} />
+  );
+}
+
+const CONTACT_STYLES: Record<
+  ContactChannel["kind"],
+  { icon: IconSpec; color: string; bg: string }
+> = {
+  whatsapp: { icon: { family: "ionicons", name: "logo-whatsapp" }, color: P.emerald, bg: "rgba(16,185,129,0.1)" },
+  call: { icon: { family: "feather", name: "phone" }, color: P.terracotta, bg: "rgba(186,72,42,0.1)" },
+  email: { icon: { family: "feather", name: "mail" }, color: P.ink700, bg: "rgba(31,26,24,0.08)" },
+  website: { icon: { family: "feather", name: "globe" }, color: P.ink700, bg: "rgba(31,26,24,0.08)" },
+  instagram: { icon: { family: "ionicons", name: "logo-instagram" }, color: "#C13584", bg: "rgba(193,53,132,0.1)" },
+  tiktok: { icon: { family: "ionicons", name: "logo-tiktok" }, color: P.ink900, bg: "rgba(31,26,24,0.08)" },
 };
 
-const PERKS = [
-  { icon: '✓', label: 'Clean & Safe' },
-  { icon: '◎', label: 'Professional Stylists' },
-  { icon: starIcon, label: 'Premium Products' },
-  { icon: savedIcon, label: 'Great Vibes' },
-];
-
-const REVIEWS = [
-  { name: 'Amara O.', initials: 'AO', avatarColor: '#B3452B', date: '2 days ago', stars: 5, text: 'My feed-in braids came out perfect. The stylist was gentle and so precise with the parting.' },
-  { name: 'Wanjiru K.', initials: 'WK', avatarColor: '#2F5D4B', date: '1 week ago', stars: 5, text: 'Clean salon, friendly staff, and they actually finished on time. Booking again for sure.' },
-  { name: 'Fatima N.', initials: 'FN', avatarColor: '#8B5A12', date: '2 weeks ago', stars: 4, text: 'Twists held up for almost 6 weeks. Small wait on a Saturday but worth it.' },
-  { name: 'Grace M.', initials: 'GM', avatarColor: '#B3452B', date: '3 weeks ago', stars: 5, text: 'Best individual braids I have had in Nairobi. Painless and neat edges.' },
-  { name: 'Njeri A.', initials: 'NA', avatarColor: '#776D70', date: '1 month ago', stars: 5, text: 'Loved the vibe, plants everywhere and good music. My stylist listened to exactly what I wanted.' },
-  { name: 'Brenda O.', initials: 'BO', avatarColor: '#2F5D4B', date: '1 month ago', stars: 4, text: 'Prices are fair for the quality. Will bring my daughter next time too.' },
+const PERKS: { label: string; icon: IconSpec; color: string; bg: string }[] = [
+  { label: "Clean & Safe", icon: { family: "feather", name: "check" }, color: P.terracotta, bg: "rgba(186,72,42,0.1)" },
+  { label: "Pro Stylists", icon: { family: "feather", name: "award" }, color: P.terracotta, bg: "rgba(186,72,42,0.1)" },
+  { label: "Premium Care", icon: { family: "ionicons", name: "star" }, color: P.amber, bg: "rgba(245,158,11,0.1)" },
+  { label: "Great Vibes", icon: { family: "ionicons", name: "heart" }, color: P.rose, bg: "rgba(244,63,94,0.1)" },
 ];
 
 // Sentinel id used only by the merchant dashboard's "Consumer view" — see
@@ -90,8 +110,26 @@ const REVIEWS = [
 // publishes it — the public catalog only ever contains published businesses.
 const PREVIEW_SENTINEL_ID = "me";
 
+const ALL_CATEGORIES = "all";
+const GALLERY_STRIP_COUNT = 4;
+
+function formatPrice(service: PublicCatalogService): string {
+  if (service.priceType === "contact_for_price") return "Quote";
+  return `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`;
+}
+
+// Sum of the selected services' prices. "From" when any of them is a
+// starting price or range, since the real total can then only be higher.
+function formatTotal(services: PublicCatalogService[]): string {
+  const priced = services.filter((s) => s.priceType !== "contact_for_price");
+  if (priced.length === 0) return "Quote";
+  const total = priced.reduce((sum, s) => sum + s.price, 0);
+  const approximate = services.some((s) => s.priceType !== "fixed");
+  return `${approximate ? "From " : ""}KES ${total.toLocaleString()}`;
+}
+
 // expo-image never retries a failed load on its own, and a dead/unreachable
-// host (e.g. a dev LAN IP that changed) otherwise leaves the grid cell
+// host (e.g. a dev LAN IP that changed) otherwise leaves the gallery tile
 // permanently blank with no way to tell "no photo" apart from "failed to
 // load." Track failures per-photo and let a tap re-attempt — bumping `key`
 // forces expo-image to re-issue the request instead of reusing its cached
@@ -103,7 +141,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
   if (failed) {
     return (
       <Pressable
-        style={styles.galleryGridItem}
+        style={styles.galleryTile}
         onPress={() => {
           setFailed(false);
           setAttempt((n) => n + 1);
@@ -115,7 +153,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
   }
 
   return (
-    <View style={styles.galleryGridItem}>
+    <View style={styles.galleryTile}>
       <Image
         key={attempt}
         source={{ uri }}
@@ -123,10 +161,13 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
         contentFit="cover"
         onError={() => setFailed(true)}
       />
-      {moreCount !== undefined && (
+      {moreCount !== undefined ? (
         <View style={styles.galleryMoreOverlay}>
-          <Text style={styles.galleryMoreText}>+{moreCount} more</Text>
+          <Text style={styles.galleryMoreCount}>+{moreCount}</Text>
+          <Text style={styles.galleryMoreLabel}>PHOTOS</Text>
         </View>
+      ) : (
+        <View style={styles.galleryTint} />
       )}
     </View>
   );
@@ -200,10 +241,14 @@ export default function ProviderDetailScreen() {
     [isPreview, previewData, catalog, id],
   );
   const [contactChannels, setContactChannels] = useState<ContactChannel[]>([]);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  // Selected service ids, in the order picked — all of them go to the
+  // booking screen as one availability request.
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
+  const bodyOffset = useRef(0);
   const [activeSection, setActiveSection] = useState("");
 
   // provider.hours is a real "Day: time" per-line string set during merchant
@@ -234,6 +279,18 @@ export default function ProviderDetailScreen() {
           )
         : [],
     [provider],
+  );
+
+  const serviceCategories = useMemo(
+    () => Array.from(new Set(services.map((s) => s.categoryId))),
+    [services],
+  );
+  const visibleServices = useMemo(
+    () =>
+      activeCategory === ALL_CATEGORIES
+        ? services
+        : services.filter((s) => s.categoryId === activeCategory),
+    [services, activeCategory],
   );
 
   const nearbyProviders = useMemo(() => {
@@ -308,23 +365,23 @@ export default function ProviderDetailScreen() {
     };
   }, [provider?.id]);
 
-  useEffect(() => {
-    if (tabs.length === 0) {
-      setActiveSection("");
-      return;
-    }
+  // Section offsets are measured relative to the body container; the body
+  // itself sits below the hero and the sticky tab bar in the scroll view.
+  const sectionScrollY = (key: string) =>
+    bodyOffset.current + (sectionOffsets.current[key] ?? 0) - TAB_BAR_HEIGHT;
+
+  const updateActiveSection = (y: number) => {
     const entries = Object.entries(sectionOffsets.current).sort(
       (a, b) => a[1] - b[1],
     );
     if (entries.length === 0) return;
-    const buffer = TAB_BAR_HEIGHT + 20;
     let active = entries[0][0];
     for (const [key, offset] of entries) {
-      if (offset <= buffer) active = key;
+      if (bodyOffset.current + offset - TAB_BAR_HEIGHT - 20 <= y) active = key;
       else break;
     }
     setActiveSection(active);
-  }, [tabs]);
+  };
 
   const registerOffset = useCallback((key: string) => (e: LayoutChangeEvent) => {
     sectionOffsets.current[key] = e.nativeEvent.layout.y;
@@ -333,24 +390,12 @@ export default function ProviderDetailScreen() {
   const handleScroll = ({
     nativeEvent,
   }: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (tabs.length === 0) return;
-    const y = nativeEvent.contentOffset.y;
-    const entries = Object.entries(sectionOffsets.current).sort(
-      (a, b) => a[1] - b[1],
-    );
-    if (entries.length === 0) return;
-    const buffer = TAB_BAR_HEIGHT + 20;
-    let active = entries[0][0];
-    for (const [key, offset] of entries) {
-      if (offset <= y + buffer) active = key;
-      else break;
-    }
-    setActiveSection(active);
+    if (tabs.length > 0) updateActiveSection(nativeEvent.contentOffset.y);
   };
 
   const scrollToSection = (key: string) => {
     scrollViewRef.current?.scrollTo({
-      y: sectionOffsets.current[key] ?? 0,
+      y: Math.max(0, sectionScrollY(key)),
       animated: true,
     });
   };
@@ -391,25 +436,33 @@ export default function ProviderDetailScreen() {
   }
 
   const saved = isSaved(provider.id);
-  const selectedService = services.find((s) => s.id === selectedServiceId) ?? null;
-  const ctaLabel = selectedService
-    ? `Check availability · ${
-        selectedService.priceType === "contact_for_price"
-          ? "Quote"
-          : `KES ${selectedService.price.toLocaleString()}`
-      }`
-    : "Check availability";
+  // Only signed partners with booking switched on take availability
+  // requests (the same gate app/booking/[providerId].tsx enforces).
+  const canBook = !provider.limitedListing && provider.bookingEnabled;
+  const selectedServices = selectedServiceIds
+    .map((serviceId) => services.find((s) => s.id === serviceId))
+    .filter((s): s is PublicCatalogService => Boolean(s));
 
-  const bookService = (serviceId: string) => {
+  const toggleService = (serviceId: string) =>
+    setSelectedServiceIds((ids) =>
+      ids.includes(serviceId) ? ids.filter((v) => v !== serviceId) : [...ids, serviceId],
+    );
+
+  const bookSelected = () => {
+    if (selectedServices.length === 0) {
+      scrollToSection("services");
+      return;
+    }
+    const serviceIds = selectedServices.map((s) => s.id);
     void track("booking_cta_clicked", {
       merchantId: provider.id,
       merchantName: provider.name,
       pagePath: `/provider/${provider.id}`,
-      metadata: { serviceId, source: "service_row" },
+      metadata: { serviceIds, source: "service_selection" },
     });
     router.push({
       pathname: "/booking/[providerId]",
-      params: { providerId: provider.id, serviceId },
+      params: { providerId: provider.id, serviceIds: serviceIds.join(",") },
     });
   };
 
@@ -426,15 +479,45 @@ export default function ProviderDetailScreen() {
     }
   };
 
+  const heroIndex = isPreview ? 1 : 0;
+  const galleryStrip = gallery.slice(0, GALLERY_STRIP_COUNT);
+  const hiddenPhotoCount = gallery.length - GALLERY_STRIP_COUNT;
+
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={styles.topHeader}>
-        <Pressable style={styles.headerBtn} onPress={() => router.back()}>
-          <Text style={styles.headerIcon}>✕</Text>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* Top navigation */}
+      <View style={styles.topNav}>
+        <Pressable
+          style={styles.navBtn}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Feather name="x" size={20} color={P.ink900} />
         </Pressable>
-        <View style={styles.headerActions}>
-          <Pressable style={styles.headerBtn} onPress={shareProvider}>
-            <Text style={styles.headerIcon}>↗</Text>
+        <Text style={styles.navLabel} numberOfLines={1}>
+          {categoryLabel(provider.categoryId)}
+        </Text>
+        <View style={styles.navActions}>
+          <Pressable
+            style={styles.navBtn}
+            onPress={shareProvider}
+            accessibilityRole="button"
+            accessibilityLabel="Share"
+          >
+            <Feather name="arrow-up-right" size={17} color={P.ink700} />
+          </Pressable>
+          <Pressable
+            style={styles.navBtn}
+            onPress={() => toggle(provider.id)}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? "Remove from saved" : "Save"}
+          >
+            <Ionicons
+              name={saved ? "heart" : "heart-outline"}
+              size={18}
+              color={saved ? P.terracotta : P.ink700}
+            />
           </Pressable>
         </View>
       </View>
@@ -443,7 +526,9 @@ export default function ProviderDetailScreen() {
         ref={scrollViewRef}
         onScroll={handleScroll}
         scrollEventThrottle={32}
+        stickyHeaderIndices={tabs.length > 0 ? [heroIndex + 1] : undefined}
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
         {isPreview && (
           <View style={styles.previewBanner}>
@@ -455,259 +540,319 @@ export default function ProviderDetailScreen() {
           </View>
         )}
 
-        {/* Hero Image */}
-        <View style={styles.heroContainer}>
-          {cover ? (
-             <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
-          ) : (
-             <View style={[StyleSheet.absoluteFill, styles.placeholder]}>
-               <Text style={styles.placeholderLetter}>{provider.name.slice(0, 1)}</Text>
-             </View>
-          )}
-          {gallery.length > 0 && (
-             <View style={styles.galleryCounter}>
-                <Text style={styles.galleryCounterText}>1/{gallery.length}</Text>
-             </View>
-          )}
-          <View style={styles.verifiedHeroBadge}>
-            <Image source={verifiedBadgeIcon} style={styles.verifiedHeroIcon} />
-            <Text style={styles.verifiedHeroText}>Verified Business</Text>
+        {/* Hero photo + identity */}
+        <View>
+          <View style={styles.hero}>
+            {cover ? (
+              <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, styles.heroPlaceholder]}>
+                <Text style={styles.heroPlaceholderLetter}>{provider.name.slice(0, 1)}</Text>
+              </View>
+            )}
+            {gallery.length > 1 && (
+              <View style={styles.heroCounter}>
+                <Feather name="image" size={12} color={P.white} />
+                <Text style={styles.heroCounterText}>{gallery.length}</Text>
+              </View>
+            )}
+            {provider.verified && (
+              <View style={styles.heroVerified}>
+                <Image source={verifiedBadgeIcon} style={styles.heroVerifiedIcon} />
+                <Text style={styles.heroVerifiedText}>Verified</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.identity}>
+            <Text style={styles.name} numberOfLines={2}>{provider.name}</Text>
+            <View style={styles.metaRow}>
+              <Feather name="map-pin" size={13} color={P.ink500} />
+              <Text style={styles.metaText}>{provider.area || "Nairobi"}</Text>
+              {provider.rating != null && (
+                <>
+                  <Text style={styles.metaDot}>·</Text>
+                  <Image source={starIcon} style={styles.metaStar} />
+                  <Text style={styles.metaTextStrong}>{provider.rating.toFixed(1)}</Text>
+                  <Text style={styles.metaText}>({provider.verifiedCount})</Text>
+                </>
+              )}
+              {provider.featured && (
+                <View style={styles.featuredPill}>
+                  <Text style={styles.featuredPillText}>Featured</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
-        {/* Business Info Header */}
-        <View style={styles.identity}>
-          <View style={styles.identityRow}>
-             <View style={styles.logoBox}>
-               <Text style={styles.logoInitials}>{provider.name.slice(0, 2).toUpperCase()}</Text>
-             </View>
-             <View style={styles.identityText}>
-               <Text style={styles.name} numberOfLines={2}>{provider.name}</Text>
-               <Text style={styles.category}>{categoryLabel(provider.categoryId)}{provider.subcategory ? ` · ${provider.subcategory}` : ""}</Text>
-             </View>
-          </View>
-
-          <View style={styles.locationRow}>
-            <Text style={styles.locationText}>⌖ {provider.area || "Nairobi"}</Text>
-            {provider.distance && <Text style={styles.distanceBadge}>{provider.distance}</Text>}
-          </View>
-
-          <View style={styles.ratingRow}>
-            <Image source={starIcon} style={styles.star} />
-            <Text style={styles.ratingScore}>{provider.rating?.toFixed(1) ?? "New"}</Text>
-            <Text style={styles.reviewCount}>({provider.verifiedCount || 0} reviews)</Text>
-            <Text style={styles.divider}>|</Text>
-            <View style={styles.priceVerifiedRow}>
-              <Image source={verifiedBadgeIcon} style={styles.priceVerifiedIcon} />
-              <Text style={styles.priceVerified}>Price Verified</Text>
-            </View>
-          </View>
-
-          <View style={styles.badgesRow}>
-            <View style={[styles.badgeTested, styles.badgeTestedRow]}>
-              <Image source={verifiedBadgeIcon} style={styles.badgeTestedIcon} />
-              <Text style={styles.badgeTestedText}>KiliPicks Tested</Text>
-            </View>
-            <View style={styles.badgeFeatured}><Text style={styles.badgeFeaturedText}>Featured</Text></View>
-          </View>
-        </View>
-
-        {/* Navigation Tabs */}
+        {/* Sticky section tabs */}
         {tabs.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabBar}
-          >
-            {tabs.map((tab) => (
-              <Pressable
-                key={tab.key}
-                style={[styles.tab, activeSection === tab.key && styles.tabActive]}
-                onPress={() => scrollToSection(tab.key)}
-              >
-                <Text style={[styles.tabText, activeSection === tab.key && styles.tabTextActive]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <View style={styles.tabBarWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tabBar}
+            >
+              {tabs.map((tab) => {
+                // Before any scroll, the first tab reads as active.
+                const active = (activeSection || tabs[0].key) === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    style={styles.tab}
+                    onPress={() => scrollToSection(tab.key)}
+                  >
+                    <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                      {tab.label}
+                    </Text>
+                    {active && <View style={styles.tabUnderline} />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
         )}
 
-        <View style={styles.bodyContent} onLayout={registerOffset("overview")}>
-          {/* About Section */}
-          <View style={styles.aboutCard}>
-             <View style={styles.aboutTextCol}>
-                <Text style={styles.sectionTitle}>About</Text>
-                <Text style={styles.aboutText}>{provider.positioning || `${provider.name} is a top-rated ${categoryLabel(provider.categoryId).toLowerCase()} located in ${provider.area || "Nairobi"}.`}</Text>
-             </View>
-             <View style={styles.perksCol}>
-                {PERKS.map((perk, idx) => (
-                  <View key={idx} style={styles.perkRow}>
-                    {typeof perk.icon === "string" ? (
-                      <Text style={styles.perkIcon}>{perk.icon}</Text>
-                    ) : (
-                      <Image source={perk.icon} style={styles.perkImage} />
-                    )}
+        <View
+          style={styles.body}
+          onLayout={(e) => {
+            bodyOffset.current = e.nativeEvent.layout.y;
+          }}
+        >
+          {/* About card */}
+          <View onLayout={registerOffset("overview")}>
+            <LinearGradient
+              colors={["#FFF5F3", P.blush50, "#FCEDE9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.aboutCard}
+            >
+              <View style={styles.aboutPill}>
+                <View style={styles.aboutPillDot} />
+                <Text style={styles.aboutPillText}>
+                  {provider.verified ? "Verified Studio" : categoryLabel(provider.categoryId)}
+                </Text>
+              </View>
+              <Text style={styles.aboutTitle}>About {provider.name}</Text>
+              <Text style={styles.aboutText}>
+                {provider.about ||
+                  provider.positioning ||
+                  `${provider.name} is a ${categoryLabel(provider.categoryId).toLowerCase()} studio in ${provider.area || "Nairobi"}.`}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.perkRow}
+              >
+                {PERKS.map((perk) => (
+                  <View key={perk.label} style={styles.perkChip}>
+                    <View style={[styles.perkIconWrap, { backgroundColor: perk.bg }]}>
+                      <Icon spec={perk.icon} size={11} color={perk.color} />
+                    </View>
                     <Text style={styles.perkText}>{perk.label}</Text>
                   </View>
                 ))}
-             </View>
+              </ScrollView>
+            </LinearGradient>
           </View>
 
           {/* Contact */}
           {contactChannels.length > 0 && (
-            <View style={styles.contactSection}>
-              <Text style={styles.sectionTitle}>Contact</Text>
-              <View style={styles.contactRow}>
-                {contactChannels.map((channel) => (
-                  <Pressable
-                    key={channel.kind}
-                    style={styles.contactChip}
-                    onPress={() => openChannel(channel)}
-                    accessibilityRole="button"
-                    accessibilityLabel={channel.label}
-                  >
-                    <Image source={CONTACT_ICONS[channel.kind]} style={styles.contactChipImage} />
-                    <Text style={styles.contactChipText}>{channel.label}</Text>
-                  </Pressable>
-                ))}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Contact Studio</Text>
+              <View style={styles.contactGrid}>
+                {contactChannels.map((channel) => {
+                  const look = CONTACT_STYLES[channel.kind];
+                  return (
+                    <Pressable
+                      key={channel.kind}
+                      style={styles.contactTile}
+                      onPress={() => openChannel(channel)}
+                      accessibilityRole="button"
+                      accessibilityLabel={channel.label}
+                    >
+                      <View style={[styles.contactIconWrap, { backgroundColor: look.bg }]}>
+                        <Icon spec={look.icon} size={12} color={look.color} />
+                      </View>
+                      <Text style={styles.contactText} numberOfLines={1}>{channel.label}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           )}
 
           {/* Services */}
           {services.length > 0 && (
-             <View style={styles.servicesSection} onLayout={registerOffset("services")}>
-                <Text style={styles.sectionTitle}>Services</Text>
-                <View style={styles.serviceList}>
-                   {services.map((service) => {
-                      const isSelected = service.id === selectedServiceId;
-                      const priceLabel = service.priceType === "contact_for_price"
-                        ? "Quote"
-                        : `${service.priceType === "from" ? "From " : ""}KES ${service.price.toLocaleString()}`;
-                      const serviceImage = resolveMediaUrl(service.imageUrl);
-                      return (
-                        <View key={service.id} style={[styles.serviceRow, isSelected && styles.serviceRowSelected]}>
-                           {serviceImage ? (
-                             <Image source={{ uri: serviceImage }} style={styles.serviceRowImage} contentFit="cover" />
-                           ) : (
-                             <View style={styles.serviceRowImagePlaceholder} />
-                           )}
-                           <View style={styles.serviceRowInfo}>
-                              <Text style={styles.serviceRowName} numberOfLines={1}>{service.name}</Text>
-                              <Text style={styles.serviceRowMeta}>
-                                 {priceLabel} · {service.durationMinutes ? `${service.durationMinutes} mins` : "Varies"}
-                              </Text>
-                           </View>
-                           <Pressable
-                             style={[styles.selectServiceBtn, isSelected && styles.selectServiceBtnActive]}
-                             onPress={() => setSelectedServiceId(isSelected ? null : service.id)}
-                           >
-                              <Text style={[styles.selectServiceBtnText, isSelected && styles.selectServiceBtnTextActive]}>
-                                 {isSelected ? "Selected" : "Select service"}
-                              </Text>
-                           </Pressable>
+            <View style={styles.section} onLayout={registerOffset("services")}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionLabel}>Services Catalog</Text>
+                <Text style={styles.sectionCount}>{services.length} services</Text>
+              </View>
+
+              {serviceCategories.length > 1 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filterRow}
+                >
+                  {[ALL_CATEGORIES, ...serviceCategories].map((category) => {
+                    const active = activeCategory === category;
+                    return (
+                      <Pressable
+                        key={category}
+                        style={[styles.filterPill, active && styles.filterPillActive]}
+                        onPress={() => setActiveCategory(category)}
+                      >
+                        <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                          {category === ALL_CATEGORIES
+                            ? `All (${services.length})`
+                            : categoryLabel(category)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              <View style={styles.serviceList}>
+                {visibleServices.map((service) => {
+                  const isSelected = selectedServiceIds.includes(service.id);
+                  const selectable = canBook && service.bookingEnabled;
+                  const serviceImage = resolveMediaUrl(service.imageUrl);
+                  return (
+                    <View
+                      key={service.id}
+                      style={[styles.serviceCard, isSelected && styles.serviceCardSelected]}
+                    >
+                      <View style={styles.serviceThumb}>
+                        {serviceImage ? (
+                          <Image
+                            source={{ uri: serviceImage }}
+                            style={StyleSheet.absoluteFill}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Feather name="scissors" size={20} color={P.terracotta} />
+                        )}
+                      </View>
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName} numberOfLines={2}>{service.name}</Text>
+                        <View style={styles.servicePriceRow}>
+                          <Text style={styles.servicePrice}>{formatPrice(service)}</Text>
+                          <Text style={styles.serviceDuration}>
+                            · {service.durationMinutes ? `${service.durationMinutes} mins` : "Varies"}
+                          </Text>
                         </View>
-                      );
-                   })}
-                </View>
-             </View>
+                        <View style={styles.serviceTag}>
+                          <Text style={styles.serviceTagText}>{categoryLabel(service.categoryId)}</Text>
+                        </View>
+                      </View>
+                      {selectable && (
+                        <Pressable
+                          style={[styles.selectBtn, isSelected && styles.selectBtnActive]}
+                          onPress={() => toggleService(service.id)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: isSelected }}
+                        >
+                          {isSelected && <Feather name="check" size={13} color={P.white} />}
+                          <Text style={[styles.selectBtnText, isSelected && styles.selectBtnTextActive]}>
+                            {isSelected ? "Selected" : "Select"}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
           )}
 
-          {/* Gallery Grid */}
+          {/* Gallery strip */}
           {gallery.length > 0 && (
-             <View style={styles.gallerySection} onLayout={registerOffset("photos")}>
-                <Text style={styles.sectionTitle}>Gallery</Text>
-                <View style={styles.galleryGrid}>
-                   {gallery.slice(0, 4).map((img, idx) => (
-                      <GalleryPhoto
-                         key={img}
-                         uri={img}
-                         moreCount={idx === 3 && gallery.length > 4 ? gallery.length - 4 : undefined}
-                      />
-                   ))}
-                </View>
-             </View>
+            <View style={styles.section} onLayout={registerOffset("photos")}>
+              <Text style={styles.sectionLabel}>Studio & Work Gallery</Text>
+              <Text style={styles.sectionSub}>Real photos from the studio</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.galleryRow}
+              >
+                {galleryStrip.map((img, idx) => (
+                  <GalleryPhoto
+                    key={img}
+                    uri={img}
+                    moreCount={
+                      idx === galleryStrip.length - 1 && hiddenPhotoCount > 0
+                        ? hiddenPhotoCount
+                        : undefined
+                    }
+                  />
+                ))}
+              </ScrollView>
+            </View>
           )}
 
           {/* Reviews */}
-          <View style={styles.reviewsSection} onLayout={registerOffset("reviews")}>
-             <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Reviews <Text style={styles.reviewCountSpan}>({provider.verifiedCount || 124})</Text></Text>
-                <Text style={styles.seeAllText}>See all ›</Text>
-             </View>
-             <View style={styles.reviewSummaryCard}>
-                <View style={styles.reviewSummaryScore}>
-                   <Text style={styles.reviewSummaryValue}>{provider.rating?.toFixed(1) || "4.8"}</Text>
-                   <Text style={styles.reviewSummaryStars}>★★★★★</Text>
-                </View>
-                <View style={styles.reviewSummaryLine} />
-                <View style={styles.reviewSummaryText}>
-                   <Text style={styles.reviewSummaryTitle}>Highly Recommended</Text>
-                   <Text style={styles.reviewSummaryCopy}>Based on {provider.verifiedCount || 124} glowing reviews from clients praising the services here.</Text>
-                </View>
-             </View>
-
-             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewsScroll}>
-                {REVIEWS.map((rv, idx) => (
-                   <View key={idx} style={styles.reviewCard}>
-                      <View style={styles.reviewUserRow}>
-                         <View style={[styles.reviewAvatar, { backgroundColor: rv.avatarColor }]}><Text style={styles.reviewAvatarText}>{rv.initials}</Text></View>
-                         <View>
-                            <Text style={styles.reviewUserName}>{rv.name}</Text>
-                            <Text style={styles.reviewDate}>{rv.date}</Text>
-                         </View>
-                      </View>
-                      <Text style={styles.reviewStarsDisplay}>{rv.stars === 5 ? '★★★★★' : '★★★★☆'}</Text>
-                      <Text style={styles.reviewBody}>{rv.text}</Text>
-                   </View>
-                ))}
-             </ScrollView>
+          <View style={styles.section} onLayout={registerOffset("reviews")}>
+            <ReviewsSection
+              businessId={provider.id}
+              businessName={provider.name}
+              readOnly={isPreview}
+              // A new review changes the rating shown in the header and on
+              // the home/search cards, which come from the catalog.
+              onRatingChanged={() => void refresh()}
+            />
           </View>
 
-          {/* Opening Times & Info */}
-          <View style={styles.hoursSection} onLayout={registerOffset("hours")}>
-             <Text style={styles.sectionTitle}>Opening Times</Text>
-             <View style={styles.hoursCard}>
-                {weeklyHours.length > 0 ? (
-                  weeklyHours.map((row, idx) => (
-                    <View
-                      key={row.day}
-                      style={[styles.hourRow, idx === weeklyHours.length - 1 && { borderBottomWidth: 0 }]}
-                    >
-                      <Text style={styles.hourDay}>{row.day}</Text>
-                      <Text style={styles.hourTime}>{row.time}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={[styles.hourRow, { borderBottomWidth: 0 }]}>
-                    <Text style={styles.hourDay}>Hours not set yet</Text>
-                    <Text style={styles.hourTime}>Contact to confirm</Text>
+          {/* Opening times & info */}
+          <View style={styles.section} onLayout={registerOffset("hours")}>
+            <Text style={styles.sectionLabel}>Opening Times</Text>
+            <View style={styles.card}>
+              {weeklyHours.length > 0 ? (
+                weeklyHours.map((row, idx) => (
+                  <View
+                    key={row.day}
+                    style={[styles.hourRow, idx === weeklyHours.length - 1 && styles.hourRowLast]}
+                  >
+                    <Text style={styles.hourDay}>{row.day}</Text>
+                    <Text style={styles.hourTime}>{row.time}</Text>
                   </View>
-                )}
-             </View>
+                ))
+              ) : (
+                <View style={[styles.hourRow, styles.hourRowLast]}>
+                  <Text style={styles.hourDay}>Hours not set yet</Text>
+                  <Text style={styles.hourTime}>Contact to confirm</Text>
+                </View>
+              )}
+            </View>
 
-             <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Additional Information</Text>
-             <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                   <View style={styles.infoIconBox}><Text style={styles.infoIcon}>✓</Text></View>
-                   <Text style={styles.infoText}>Instant confirmation</Text>
+            <Text style={[styles.sectionLabel, styles.subsectionLabel]}>Good to know</Text>
+            <View style={[styles.card, styles.infoCard]}>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconWrap}>
+                  <Feather name="check" size={14} color={P.terracotta} />
                 </View>
-                <View style={styles.infoRow}>
-                   <View style={styles.infoIconBox}><Image source={cardPaymentIcon} style={styles.infoIconImage} /></View>
-                   <Text style={styles.infoText}>Pay by app</Text>
+                <Text style={styles.infoText}>Instant confirmation</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconWrap}>
+                  <Feather name="credit-card" size={14} color={P.terracotta} />
                 </View>
-             </View>
+                <Text style={styles.infoText}>Pay by app</Text>
+              </View>
+            </View>
           </View>
 
           {/* You might also like */}
           {nearbyProviders.length > 0 && (
-            <View style={styles.nearbySection}>
-              <Text style={styles.sectionTitle}>You might also like</Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>You might also like</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.nearbyScroll}
+                contentContainerStyle={styles.nearbyRow}
               >
                 {nearbyProviders.map((nearby) => (
                   <ProviderCard key={nearby.id} provider={nearby} size="dense" />
@@ -715,64 +860,98 @@ export default function ProviderDetailScreen() {
               </ScrollView>
             </View>
           )}
-
         </View>
       </ScrollView>
 
-      {/* Floating Bottom Bar */}
-      <View style={[styles.bottomBar, { paddingBottom: 16 + insets.bottom }]}>
-         <Pressable style={styles.btnSave} onPress={() => toggle(provider.id)}>
-            <Image
-              source={savedIcon}
-              style={[styles.btnSaveImage, !saved && styles.btnSaveImageInactive]}
-            />
-         </Pressable>
-         <Pressable
-           style={styles.btnBook}
-           onPress={() => {
-             if (selectedService) {
-               bookService(selectedService.id);
-             } else {
-               scrollToSection("services");
-             }
-           }}
-         >
-            <Text style={styles.btnBookTitle} numberOfLines={1}>{ctaLabel}</Text>
-         </Pressable>
-      </View>
+      {/* Floating booking button */}
+      {canBook && services.some((s) => s.bookingEnabled) && (
+        <View style={[styles.fabWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
+          {selectedServices.length > 0 && (
+            <>
+              <Pressable
+                style={styles.fabSummary}
+                onPress={() => scrollToSection("services")}
+                accessibilityRole="button"
+                accessibilityLabel={`${selectedServices.length} selected, ${formatTotal(selectedServices)}`}
+              >
+                <View style={styles.fabSummaryText}>
+                  <Text style={styles.fabSummaryCount}>SELECTED ({selectedServices.length})</Text>
+                  <Text style={styles.fabSummaryTotal}>{formatTotal(selectedServices)}</Text>
+                </View>
+                <View style={styles.fabSummaryIcon}>
+                  <Feather name="shopping-bag" size={13} color={P.terracotta} />
+                </View>
+              </Pressable>
+              <Pressable style={styles.fabBookPill} onPress={bookSelected} accessibilityRole="button">
+                <Text style={styles.fabBookText}>Book Now</Text>
+                <Feather name="arrow-right" size={14} color={P.terracotta} />
+              </Pressable>
+            </>
+          )}
+          <View>
+            {selectedServices.length > 0 && (
+              <View style={styles.fabBadge}>
+                <Text style={styles.fabBadgeText}>{selectedServices.length}</Text>
+              </View>
+            )}
+            <Pressable
+              style={styles.fabMain}
+              onPress={bookSelected}
+              accessibilityRole="button"
+              accessibilityLabel={
+                selectedServices.length > 0 ? "Book selected services" : "Choose services to book"
+              }
+            >
+              <Feather name="calendar" size={22} color={P.white} />
+            </Pressable>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
+const softShadow = { boxShadow: "0px 8px 30px -4px rgba(186, 72, 42, 0.08)" } as const;
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#000" },
-  topHeader: {
-    position: "absolute",
-    top: 40,
-    left: 10,
-    right: 10,
-    zIndex: 20,
+  safe: { flex: 1, backgroundColor: P.surface },
+
+  // Top navigation
+  topNav: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: P.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: P.hairline,
+    gap: 8,
   },
-  headerBtn: {
+  navBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: P.white,
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0px 1px 3px rgba(31, 26, 24, 0.08)",
   },
-  headerActions: { flexDirection: "row", gap: 10 },
-  headerIcon: { fontSize: 20, color: "#1a1a1a", fontWeight: "bold" },
-  content: {
-    backgroundColor: "#FDFBF8",
-    borderRadius: 34,
-    marginTop: 44, // Safe area push
-    paddingBottom: 112,
+  navLabel: {
+    flex: 1,
+    textAlign: "center",
+    fontFamily: mf.semibold,
+    fontSize: 12,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+    color: P.terracotta,
   },
+  navActions: { flexDirection: "row", gap: 8 },
+
+  content: { paddingBottom: 150 },
+
   previewBanner: {
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginTop: 16,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -782,204 +961,358 @@ const styles = StyleSheet.create({
   previewBannerText: {
     color: "#F5E9D3",
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: mf.semibold,
     textAlign: "center",
   },
-  heroContainer: {
-    height: 300,
-    backgroundColor: "#e8dfdc",
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
+
+  // Hero + identity
+  hero: {
+    height: 220,
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 28,
     overflow: "hidden",
+    backgroundColor: P.blush100,
   },
-  placeholder: { alignItems: "center", justifyContent: "center" },
-  placeholderLetter: { color: "rgba(0,0,0,0.4)", fontSize: 72, fontWeight: "900" },
-  galleryCounter: {
+  heroPlaceholder: { alignItems: "center", justifyContent: "center" },
+  heroPlaceholderLetter: { fontFamily: SERIF, fontSize: 72, color: "rgba(186,72,42,0.35)" },
+  heroCounter: {
     position: "absolute",
-    bottom: 16,
-    left: 20,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    bottom: 14,
+    left: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(31,26,24,0.55)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  galleryCounterText: { color: "#fff", fontSize: 12 },
-  verifiedHeroBadge: {
+  heroCounterText: { color: P.white, fontSize: 12, fontFamily: mf.semibold },
+  heroVerified: {
     position: "absolute",
-    bottom: 16,
-    right: 20,
+    bottom: 14,
+    right: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#2F5D4B",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
-  verifiedHeroIcon: { width: 16, height: 16 },
-  verifiedHeroText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  identity: { paddingHorizontal: 20, paddingTop: 20 },
-  identityRow: { flexDirection: "row", gap: 16, alignItems: "flex-start" },
-  logoBox: { width: 64, height: 64, borderRadius: 16, backgroundColor: "#B3452B", alignItems: "center", justifyContent: "center" },
-  logoInitials: { color: "#fff", fontSize: 22, fontWeight: "700" },
-  identityText: { flex: 1 },
-  name: { fontSize: 22, fontWeight: "800", color: "#1a1a1a", marginBottom: 4 },
-  category: { fontSize: 14, color: "#6b6b6b" },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 14 },
-  locationText: { fontSize: 14, color: "#3a3a3a" },
-  distanceBadge: { backgroundColor: "#EAF5F0", color: "#2F5D4B", fontSize: 12, fontWeight: "600", paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10 },
-  ratingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
-  star: { width: 15, height: 15 },
-  ratingScore: { fontSize: 14, fontWeight: "700", color: "#3a3a3a" },
-  reviewCount: { fontSize: 14, color: "#8a8a8a" },
-  divider: { color: "#c9c9c9" },
-  priceVerifiedRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  priceVerifiedIcon: { width: 14, height: 14 },
-  priceVerified: { color: "#2F5D4B", fontSize: 14, fontWeight: "600" },
-  badgesRow: { flexDirection: "row", gap: 10, marginTop: 14 },
-  badgeTested: { backgroundColor: "#F7E9EC", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
-  badgeTestedRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  badgeTestedIcon: { width: 13, height: 13 },
-  badgeTestedText: { color: "#B3452B", fontSize: 12.5, fontWeight: "600" },
-  badgeFeatured: { backgroundColor: "#FFF3D9", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
-  badgeFeaturedText: { color: "#8B5A12", fontSize: 12.5, fontWeight: "600" },
-  tabBar: { gap: 22, paddingHorizontal: 20, paddingTop: 22, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.08)", paddingBottom: 1 },
-  tab: { paddingBottom: 12, borderBottomWidth: 2.5, borderBottomColor: "transparent" },
-  tabActive: { borderBottomColor: "#B3452B" },
-  tabText: { fontSize: 15, fontWeight: "600", color: "#6b6b6b" },
-  tabTextActive: { color: "#B3452B" },
-  bodyContent: { paddingHorizontal: 20 },
-  aboutCard: { backgroundColor: "#F7E9EC", borderRadius: 16, padding: 20, marginTop: 20, flexDirection: "row", gap: 14 },
-  aboutTextCol: { flex: 1.6 },
-  sectionTitle: { fontSize: 19, fontWeight: "800", color: "#1a1a1a", marginBottom: 10 },
-  aboutText: { fontSize: 13.5, lineHeight: 21, color: "#4a4a4a" },
-  perksCol: { flex: 1, gap: 14, paddingTop: 2 },
-  perkRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  perkIcon: { color: "#B3452B", fontSize: 15, width: 16, textAlign: "center" },
-  perkImage: { width: 15, height: 15 },
-  perkText: { fontSize: 12.5, fontWeight: "500", color: "#3a3a3a", flexShrink: 1 },
-  contactSection: { marginTop: 24 },
-  contactRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  contactChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 22,
+  heroVerifiedIcon: { width: 14, height: 14 },
+  heroVerifiedText: { color: P.ink900, fontSize: 12, fontFamily: mf.semibold },
+  identity: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 14 },
+  name: { fontFamily: SERIF, fontSize: 26, lineHeight: 32, color: P.ink900 },
+  metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 5, marginTop: 6 },
+  metaText: { fontSize: 13, fontFamily: mf.regular, color: P.ink500 },
+  metaTextStrong: { fontSize: 13, fontFamily: mf.bold, color: P.ink900 },
+  metaDot: { color: P.ink300, fontSize: 13 },
+  metaStar: { width: 13, height: 13 },
+  featuredPill: {
+    marginLeft: 4,
+    backgroundColor: P.blush100,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
   },
-  contactChipImage: { width: 15, height: 15 },
-  contactChipText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
-  nearbySection: { marginTop: 30 },
-  nearbyScroll: { gap: 14, paddingBottom: 4 },
-  servicesSection: { marginTop: 28 },
-  sectionHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 },
-  seeAllText: { color: "#B3452B", fontSize: 14, fontWeight: "600" },
-  serviceList: { gap: 10, marginTop: 14 },
-  serviceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    borderRadius: 16,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+  featuredPillText: { color: P.terracotta, fontSize: 11, fontFamily: mf.semibold },
+
+  // Tabs
+  tabBarWrap: {
+    backgroundColor: P.white,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: P.hairline,
   },
-  serviceRowSelected: { borderColor: "#B3452B", borderWidth: 1.5 },
-  serviceRowImage: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#EDE4D8" },
-  serviceRowImagePlaceholder: { width: 52, height: 52, borderRadius: 12, backgroundColor: "#EDE4D8" },
-  serviceRowInfo: { flex: 1 },
-  serviceRowName: { fontSize: 14.5, fontWeight: "700", color: "#1a1a1a" },
-  serviceRowMeta: { fontSize: 12.5, color: "#6b6b6b", marginTop: 3 },
-  selectServiceBtn: { backgroundColor: "#F7E9EC", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20 },
-  selectServiceBtnActive: { backgroundColor: "#B3452B" },
-  selectServiceBtnText: { fontSize: 12.5, fontWeight: "700", color: "#B3452B" },
-  selectServiceBtnTextActive: { color: "#fff" },
-  gallerySection: { marginTop: 28 },
-  galleryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  galleryGridItem: { width: "23%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#EDE4D8", overflow: "hidden" },
-  galleryMoreOverlay: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
-  galleryMoreText: { color: "#fff", fontSize: 11, fontWeight: "600" },
-  galleryRetryText: { flex: 1, textAlign: "center", textAlignVertical: "center", fontSize: 11, fontWeight: "600", color: "#8a8a8a" },
-  reviewsSection: { marginTop: 30 },
-  reviewCountSpan: { color: "#8a8a8a", fontSize: 14 },
-  reviewSummaryCard: { flexDirection: "row", gap: 18, alignItems: "center", backgroundColor: "#F7E9EC", borderRadius: 16, padding: 18, marginTop: 14 },
-  reviewSummaryScore: { alignItems: "center" },
-  reviewSummaryValue: { fontSize: 32, fontWeight: "800", color: "#1a1a1a" },
-  reviewSummaryStars: { color: "#e8992a", fontSize: 13, marginTop: 4, letterSpacing: 1 },
-  reviewSummaryLine: { width: 1, height: 44, backgroundColor: "rgba(0,0,0,0.1)" },
-  reviewSummaryText: { flex: 1 },
-  reviewSummaryTitle: { fontSize: 14.5, fontWeight: "700", color: "#1a1a1a" },
-  reviewSummaryCopy: { fontSize: 12.5, color: "#6b6b6b", marginTop: 3, lineHeight: 18 },
-  reviewsScroll: { gap: 14, paddingTop: 14 },
-  reviewCard: { width: 240, backgroundColor: "#fff", borderWidth: 1, borderColor: "rgba(0,0,0,0.06)", borderRadius: 16, padding: 16, elevation: 2, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } },
-  reviewUserRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  reviewAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  reviewAvatarText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  reviewUserName: { fontSize: 13, fontWeight: "700", color: "#1a1a1a" },
-  reviewDate: { fontSize: 11, color: "#9a9a9a" },
-  reviewStarsDisplay: { color: "#e8992a", fontSize: 12, letterSpacing: 1, marginTop: 8 },
-  reviewBody: { fontSize: 12.5, color: "#4a4a4a", marginTop: 8, lineHeight: 18 },
-  hoursSection: { marginTop: 30 },
-  hoursCard: { backgroundColor: "#fff", borderWidth: 1, borderColor: "rgba(0,0,0,0.06)", borderRadius: 16, paddingHorizontal: 18, paddingVertical: 6 },
-  hourRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.05)" },
-  hourDay: { fontSize: 13.5, fontWeight: "500", color: "#1a1a1a" },
-  hourTime: { fontSize: 13.5, color: "#4a4a4a" },
-  infoCard: { backgroundColor: "#fff", borderWidth: 1, borderColor: "rgba(0,0,0,0.06)", borderRadius: 16, padding: 18, gap: 14 },
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  infoIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(179,69,43,0.12)", alignItems: "center", justifyContent: "center" },
-  infoIcon: { color: "#B3452B", fontSize: 15 },
-  infoIconImage: { width: 16, height: 16 },
-  infoText: { fontSize: 13.5, fontWeight: "600", color: "#3a3a3a" },
-  bottomBar: {
+  tabBar: { paddingHorizontal: 20, gap: 24, height: TAB_BAR_HEIGHT, alignItems: "flex-end" },
+  tab: { paddingBottom: 10 },
+  tabText: { fontSize: 14, fontFamily: mf.medium, color: P.ink500 },
+  tabTextActive: { color: P.terracotta, fontFamily: mf.semibold },
+  tabUnderline: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: P.terracotta,
+  },
+
+  body: { paddingHorizontal: 20, paddingTop: 20 },
+  section: { marginTop: 26 },
+  sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    justifyContent: "space-between",
   },
-  btnSave: {
+  sectionLabel: {
+    fontSize: 12,
+    fontFamily: mf.bold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: P.ink500,
+    marginBottom: 10,
+  },
+  subsectionLabel: { marginTop: 22 },
+  sectionSub: { fontSize: 11, fontFamily: mf.regular, color: P.ink300, marginTop: -8, marginBottom: 10 },
+  sectionCount: { fontSize: 12, fontFamily: mf.medium, color: P.terracotta, marginBottom: 10 },
+
+  // About card
+  aboutCard: {
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(186,72,42,0.1)",
+    ...softShadow,
+  },
+  aboutPill: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    borderWidth: 1,
+    borderColor: P.terracottaLine,
+    marginBottom: 10,
+  },
+  aboutPillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: P.terracotta },
+  aboutPillText: {
+    fontSize: 11,
+    fontFamily: mf.semibold,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: P.terracotta,
+  },
+  aboutTitle: { fontFamily: SERIF, fontSize: 24, lineHeight: 30, color: P.ink900 },
+  aboutText: { marginTop: 10, fontSize: 13, lineHeight: 21, fontFamily: mf.regular, color: P.ink700 },
+  perkRow: { gap: 10, paddingTop: 16 },
+  perkChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderWidth: 1,
+    borderColor: P.terracottaLine,
+  },
+  perkIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  perkText: { fontSize: 11, fontFamily: mf.semibold, color: P.ink700 },
+
+  // Contact
+  contactGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  contactTile: {
+    flexBasis: "30%",
+    flexGrow: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.hairline,
+  },
+  contactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  contactText: { fontSize: 12, fontFamily: mf.semibold, color: P.ink900, flexShrink: 1 },
+
+  // Services
+  filterRow: { gap: 8, paddingBottom: 4 },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: P.blush50,
+    borderWidth: 1,
+    borderColor: P.terracottaLine,
+  },
+  filterPillActive: { backgroundColor: P.terracotta, borderColor: P.terracotta },
+  filterText: { fontSize: 12, fontFamily: mf.medium, color: P.ink700 },
+  filterTextActive: { color: P.white, fontFamily: mf.semibold },
+  serviceList: { gap: 12, marginTop: 12 },
+  serviceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+    borderRadius: 24,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.hairline,
+    ...softShadow,
+  },
+  serviceCardSelected: { borderWidth: 2, borderColor: P.terracotta, padding: 13 },
+  serviceThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: P.blush100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceInfo: { flex: 1 },
+  serviceName: { fontSize: 14, lineHeight: 19, fontFamily: mf.bold, color: P.ink900 },
+  servicePriceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
+  servicePrice: { fontSize: 12, fontFamily: mf.bold, color: P.terracotta },
+  serviceDuration: { fontSize: 11, fontFamily: mf.regular, color: P.ink500 },
+  serviceTag: {
+    alignSelf: "flex-start",
+    marginTop: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: P.blush50,
+  },
+  serviceTagText: {
+    fontSize: 10,
+    fontFamily: mf.semibold,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: P.terracotta,
+  },
+  selectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: P.blush100,
+  },
+  selectBtnActive: { backgroundColor: P.terracotta, paddingHorizontal: 14 },
+  selectBtnText: { fontSize: 12, fontFamily: mf.semibold, color: P.terracotta },
+  selectBtnTextActive: { color: P.white },
+
+  // Gallery
+  galleryRow: { gap: 12, paddingBottom: 4 },
+  galleryTile: {
+    width: 96,
+    height: 96,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: P.blush100,
+    borderWidth: 1,
+    borderColor: P.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.08)" },
+  galleryMoreOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(31,26,24,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryMoreCount: { color: P.white, fontSize: 13, fontFamily: mf.bold },
+  galleryMoreLabel: { color: "rgba(255,255,255,0.9)", fontSize: 9, fontFamily: mf.medium, letterSpacing: 0.8 },
+  galleryRetryText: { fontSize: 11, fontFamily: mf.semibold, color: P.ink500, textAlign: "center" },
+
+  // Reviews
+
+  // Hours + info
+  card: {
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.hairline,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+  },
+  hourRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(31,26,24,0.05)",
+  },
+  hourRowLast: { borderBottomWidth: 0 },
+  hourDay: { fontSize: 13, fontFamily: mf.medium, color: P.ink900 },
+  hourTime: { fontSize: 13, fontFamily: mf.regular, color: P.ink700 },
+  infoCard: { paddingVertical: 16, gap: 14 },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  infoIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(186,72,42,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoText: { fontSize: 13, fontFamily: mf.semibold, color: P.ink700 },
+
+  nearbyRow: { gap: 14, paddingBottom: 4 },
+
+  // Floating booking button
+  fabWrap: { position: "absolute", right: 20, alignItems: "flex-end", gap: 10 },
+  fabSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.97)",
+    borderWidth: 1,
+    borderColor: P.terracottaLine,
+    boxShadow: "0px 10px 25px -5px rgba(31, 26, 24, 0.15)",
+  },
+  fabSummaryText: { alignItems: "flex-end" },
+  fabSummaryCount: { fontSize: 10, fontFamily: mf.semibold, letterSpacing: 0.6, color: P.ink500 },
+  fabSummaryTotal: { fontSize: 12, fontFamily: mf.bold, color: P.ink900 },
+  fabSummaryIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: P.blush100,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fabBookPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: P.ink900,
+    boxShadow: "0px 6px 14px -4px rgba(31, 26, 24, 0.3)",
+  },
+  fabBookText: { color: "rgba(255,255,255,0.92)", fontSize: 12, fontFamily: mf.semibold },
+  fabMain: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#F7E9EC",
+    backgroundColor: P.terracotta,
+    borderWidth: 2,
+    borderColor: P.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
+    boxShadow: "0px 20px 45px -8px rgba(186, 72, 42, 0.28)",
   },
-  btnSaveImage: { width: 20, height: 20 },
-  btnSaveImageInactive: { opacity: 0.35 },
-  btnBook: {
-    flex: 1,
-    height: 56,
-    backgroundColor: "#B3452B",
-    borderRadius: 28,
+  fabBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    zIndex: 1,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    backgroundColor: P.ink900,
+    borderWidth: 2,
+    borderColor: P.white,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
-    shadowColor: "#B3452B",
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
   },
-  btnBookTitle: { color: "#fff", fontSize: 15.5, fontWeight: "700" },
+  fabBadgeText: { color: P.white, fontSize: 11, fontFamily: mf.bold },
 });

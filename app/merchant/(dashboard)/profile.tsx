@@ -11,8 +11,10 @@
  * with fabricated numbers.
  */
 import { useAuth } from "@/auth/auth-context";
+import { resolveMediaUrl } from "@/config/env";
 import {
   fetchMerchantServices,
+  submitMerchantOnboarding,
   updateMerchantBusiness,
   updateMerchantService,
   uploadMerchantPhoto,
@@ -70,6 +72,7 @@ export default function ProfileScreen() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [resubmitting, setResubmitting] = useState(false);
 
   useEffect(() => {
     if (!activeToken) return;
@@ -104,7 +107,33 @@ export default function ProfileScreen() {
   const hasRating = business?.rating !== null && business?.rating !== undefined && (business?.rating ?? 0) > 0;
   const ratingVal = hasRating ? (business?.rating ?? 0).toFixed(1) : "New";
   const isPublished = business?.publicationStatus === "published";
+  const changesRequested = !isPublished && business?.reviewStatus === "changes_requested";
+  const statusLabel = isPublished
+    ? "Store Live"
+    : changesRequested
+      ? "Changes Requested"
+      : business?.reviewStatus === "approved"
+        ? "Not Live"
+        : business?.reviewStatus === "not_submitted"
+          ? "Not Submitted"
+          : "Pending Review";
   const completeness = getBusinessCompleteness(business);
+
+  // After fixing what the KiliPicks team asked for, the merchant sends the
+  // listing back into the review queue.
+  const handleResubmit = async () => {
+    if (!activeToken || resubmitting) return;
+    setResubmitting(true);
+    try {
+      await submitMerchantOnboarding(activeToken);
+      refresh();
+      showToast("Sent for review. We'll notify you when it's approved.");
+    } catch {
+      showToast("Couldn't resubmit. Try again.");
+    } finally {
+      setResubmitting(false);
+    }
+  };
 
   const toggleServiceActive = async (svc: MerchantService) => {
     if (!activeToken) return;
@@ -246,7 +275,7 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Profile" />
-      <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
+      <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
@@ -256,7 +285,7 @@ export default function ProfileScreen() {
         >
           <View style={s.hero}>
             {business?.coverUrl ? (
-              <Image source={{ uri: business.coverUrl }} style={StyleSheet.absoluteFill} />
+              <Image source={{ uri: resolveMediaUrl(business.coverUrl) ?? undefined }} style={StyleSheet.absoluteFill} />
             ) : (
               <LinearGradient
                 colors={[mc.primaryContainer, mc.primary]}
@@ -272,12 +301,35 @@ export default function ProfileScreen() {
             <View style={s.heroBadgeWrap}>
               <View style={s.heroBadge}>
                 {isPublished && <View style={s.heroBadgeDot} />}
-                <Text style={s.heroBadgeText}>{isPublished ? "Store Live" : "Pending Review"}</Text>
+                <Text style={s.heroBadgeText}>{statusLabel}</Text>
               </View>
             </View>
           </View>
 
           <View style={s.body}>
+            {changesRequested && (
+              <View style={s.reviewCard}>
+                <View style={s.reviewHeadRow}>
+                  <MaterialIcons name="rate-review" size={20} color={mc.onErrorContainer} />
+                  <Text style={s.reviewTitle}>Changes needed before you go live</Text>
+                </View>
+                <Text style={s.reviewNote}>
+                  {business?.reviewNote ||
+                    "The KiliPicks team has asked for changes to your listing."}
+                </Text>
+                <Pressable
+                  style={[s.reviewBtn, resubmitting && { opacity: 0.6 }]}
+                  disabled={resubmitting}
+                  onPress={() => void handleResubmit()}
+                >
+                  {resubmitting ? (
+                    <ActivityIndicator color={mc.onPrimary} size="small" />
+                  ) : (
+                    <Text style={s.reviewBtnText}>I&apos;ve made the changes — resubmit</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
             <View style={s.card}>
               <View style={s.cardTopRow}>
                 <Pressable
@@ -290,7 +342,7 @@ export default function ProfileScreen() {
                 >
                   <View style={s.avatar}>
                     {business?.logoUrl ? (
-                      <Image source={{ uri: business.logoUrl }} style={StyleSheet.absoluteFill} />
+                      <Image source={{ uri: resolveMediaUrl(business.logoUrl) ?? undefined }} style={StyleSheet.absoluteFill} />
                     ) : (
                       <Text style={s.avatarText}>{initials}</Text>
                     )}
@@ -387,7 +439,7 @@ export default function ProfileScreen() {
                   <Text style={s.completenessTitle}>Finish setting up your listing</Text>
                 </View>
                 <Text style={s.completenessBody}>
-                  Clients can't see all of your details yet. Add the missing info below:
+                  Clients can&apos;t see all of your details yet. Add the missing info below:
                 </Text>
                 {completeness.missing.map((field) => (
                   <Pressable
@@ -438,7 +490,7 @@ export default function ProfileScreen() {
                   <View style={s.serviceLeft}>
                     <View style={s.serviceThumb}>
                       {svc.imageUrl ? (
-                        <Image source={{ uri: svc.imageUrl }} style={StyleSheet.absoluteFill} />
+                        <Image source={{ uri: resolveMediaUrl(svc.imageUrl) ?? undefined }} style={StyleSheet.absoluteFill} />
                       ) : (
                         <MaterialIcons name="content-cut" size={18} color={mc.outline} />
                       )}
@@ -509,7 +561,7 @@ export default function ProfileScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.galleryRow}>
                 {(business?.galleryUrls ?? []).map((url) => (
                   <View key={url} style={s.galleryTile}>
-                    <Image source={{ uri: url }} style={StyleSheet.absoluteFill} />
+                    <Image source={{ uri: resolveMediaUrl(url) ?? undefined }} style={StyleSheet.absoluteFill} />
                     <Pressable
                       style={s.galleryRemove}
                       disabled={removingGalleryUrl === url}
@@ -906,6 +958,23 @@ const s = StyleSheet.create({
   heroBadgeText: { fontFamily: mf.semibold, fontSize: 11, color: mc.onSurface },
 
   body: { paddingHorizontal: ms.md, marginTop: -48, gap: ms.sm },
+  reviewCard: {
+    backgroundColor: mc.errorContainer,
+    borderRadius: mr.xl,
+    padding: ms.md,
+    gap: ms.sm,
+  },
+  reviewHeadRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reviewTitle: { flex: 1, fontFamily: mf.bold, fontSize: 15, color: mc.onErrorContainer },
+  reviewNote: { fontFamily: mf.regular, fontSize: 14, lineHeight: 20, color: mc.onErrorContainer },
+  reviewBtn: {
+    height: 46,
+    borderRadius: mr.lg,
+    backgroundColor: mc.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewBtnText: { fontFamily: mf.bold, fontSize: 14, color: mc.onPrimary },
   card: {
     backgroundColor: mc.surfaceContainerLowest,
     borderRadius: mr["2xl"],

@@ -4,4 +4,4 @@
 -- already applied, so per this repo's own migration discipline the column
 -- is added here instead of editing that file.
 ALTER TABLE users
-  ADD COLUMN password_hash VARCHAR(255) NOT NULL AFTER email;
+  ADD COLUMN password_hash VARCHAR(255) NOT NULL;

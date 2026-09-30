@@ -13,4 +13,4 @@
 -- app-code checks can't. When Phase One adds real multi-business support,
 -- this constraint is what needs to be dropped first.
 ALTER TABLE businesses
-ADD UNIQUE KEY businesses_merchant_unique (merchant_id);
+ADD CONSTRAINT businesses_merchant_unique UNIQUE (merchant_id);

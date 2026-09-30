@@ -1,6 +1,6 @@
 // Generates a local .env with random dev secrets. These are single-machine,
 // pre-launch, local-dev-only secrets — never shared, never committed, never
-// used in production. DB_PASSWORD is left blank for the human to fill in.
+// used in production. DATABASE_URL is left for the human to fill in.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -36,4 +36,4 @@ console.log(`  ADMIN_PASSWORD: ${adminPassword}`);
 console.log(`  ANALYTICS_APP_TOKEN: ${analyticsAppToken}`);
 console.log(`    -> copy this into the mobile repo's .env as EXPO_PUBLIC_ANALYTICS_APP_TOKEN`);
 console.log(`       when you do the mobile-side follow-up (see the backend spec's CORS section).`);
-console.log(`\nStill needs filling in by hand: DB_PASSWORD in ${envPath}`);
+console.log(`\nStill needs filling in by hand: DATABASE_URL (Supabase connection string) in ${envPath}`);

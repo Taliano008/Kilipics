@@ -70,6 +70,10 @@ export function serializeMerchantBusiness(row) {
     galleryUrls: safeJson(row.gallery_urls, []),
     onboardingStep: row.onboarding_step ?? 1,
     submittedAt: row.submitted_at,
+    // Where the listing review stands, and the admin's message when
+    // changes were requested (see 030_review_and_user_status.sql).
+    reviewStatus: row.review_status ?? "not_submitted",
+    reviewNote: row.review_note ?? "",
     publicationStatus: row.publication_status,
     limitedListing: Boolean(row.limited_listing),
     bookingEnabled: Boolean(row.booking_enabled),
@@ -169,7 +173,8 @@ export async function saveStep1(merchantId, { name, category, description, phone
     // back to updating the row the winner just created, instead of a raw
     // 500 — same outcome the caller would get if it had seen `existing` in
     // the first place.
-    if (err?.code === "ER_DUP_ENTRY") {
+    // 23505 = Postgres unique_violation.
+    if (err?.code === "23505") {
       const winner = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
       if (winner) {
         await execute(
@@ -201,7 +206,7 @@ export async function saveStep2(merchantId, { address, area, locationType, radiu
   const fullAddress = address?.trim() || "";
   const neighborhood = area?.trim() || (fullAddress ? fullAddress.split(",")[0].trim() : "Nairobi");
   const locType = locationType === "mobile" ? "MOBILE_SERVICE" : "FIXED_VENUE";
-  const travelRad = radiusEnabled ? (Number(radius) || 15) : 0;
+  const travelRad = radiusEnabled ? (Math.round(Number(radius)) || 15) : 0;
   const serviceAreasJson = JSON.stringify([{ radiusMiles: travelRad, enabled: Boolean(radiusEnabled) }]);
 
   await execute(
@@ -263,7 +268,9 @@ export async function submitOnboarding(merchantId) {
     `UPDATE businesses
      SET publication_status = 'draft',
          limited_listing = 1,
-         submitted_at = CURRENT_TIMESTAMP(3),
+         submitted_at = now() AT TIME ZONE 'utc',
+         review_status = 'awaiting_review',
+         review_note = NULL,
          onboarding_step = 4
      WHERE id = ?`,
     [existing.id]

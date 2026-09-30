@@ -14,7 +14,9 @@ import {
 } from "react";
 
 const isMockMode = process.env.EXPO_PUBLIC_USE_MOCK_CATALOG === "true";
-const CATALOG_KEY = isMockMode ? "kilipicks.catalog.snapshot.v2.mock" : "kilipicks.catalog.snapshot.v2";
+// v3: the catalog now comes from the KiliPicks backend instead of the old
+// demo site — a new key so a cached demo snapshot is never shown.
+const CATALOG_KEY = isMockMode ? "kilipicks.catalog.snapshot.v2.mock" : "kilipicks.catalog.snapshot.v3";
 const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 // Date.now() is impure, so it can't be called during render — this only

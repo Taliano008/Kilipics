@@ -1,10 +1,11 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { MerchantBusinessProvider } from "@/merchant/business-context";
-import { BookingsProvider, useBookings } from "@/merchant/bookings-context";
+import { BookingsProvider, localIsoDate, useBookings } from "@/merchant/bookings-context";
 import { SalesProvider } from "@/merchant/sales-context";
 import { mc, mf } from "@/theme/merchant";
 import { Tabs } from "expo-router";
 import { Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type IconName = keyof typeof MaterialIcons.glyphMap;
 
@@ -38,11 +39,19 @@ function Badge({ count, color }: { count: number; color: string }) {
 
 function BookingsTabIcon({ color }: { color: string }) {
   const { bookings } = useBookings();
-  const pendingToday = bookings.filter((b) => b.status === "pending").length;
+  // The store also holds earlier days of the month (for Sales) — only
+  // pending bookings that are still ahead need action.
+  const todayIso = localIsoDate();
+  // ...plus customer cancellations the merchant hasn't dismissed yet.
+  const pendingUpcoming = bookings.filter(
+    (b) =>
+      (b.status === "pending" && b.date >= todayIso) ||
+      (b.cancelledBy === "customer" && !b.cancelAcknowledged),
+  ).length;
   return (
     <View>
       <TabIcon name="calendar-today" color={color} />
-      <Badge count={pendingToday} color={mc.primary} />
+      <Badge count={pendingUpcoming} color={mc.primary} />
     </View>
   );
 }
@@ -60,6 +69,10 @@ function InboxTabIcon({ color }: { color: string }) {
 }
 
 function DashboardTabs() {
+  // A fixed height overrides the tab bar's own inset handling, so the
+  // Android navigation bar / gesture area has to be added back explicitly
+  // or it covers the icons (same approach as app/(tabs)/_layout.tsx).
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -69,8 +82,9 @@ function DashboardTabs() {
         tabBarStyle: {
           backgroundColor: mc.surface,
           borderTopColor: mc.outlineVariant,
-          height: 64,
+          height: 64 + insets.bottom,
           paddingTop: 6,
+          paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: { fontFamily: mf.semibold, fontSize: 11, marginTop: 2 },
       }}

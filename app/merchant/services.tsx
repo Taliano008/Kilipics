@@ -7,6 +7,7 @@
  */
 import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
+import { resolveMediaUrl } from "@/config/env";
 import {
   archiveMerchantService,
   createMerchantService,
@@ -386,7 +387,7 @@ export default function MerchantServicesScreen() {
                       <View key={p.id} style={s.previewCard}>
                         <View style={s.previewImageWrap}>
                           {p.imageUrl ? (
-                            <Image source={{ uri: p.imageUrl }} style={s.previewImage} />
+                            <Image source={{ uri: resolveMediaUrl(p.imageUrl) ?? undefined }} style={s.previewImage} />
                           ) : (
                             <Image source={cameraIcon} style={s.previewImagePlaceholder} />
                           )}
@@ -458,7 +459,7 @@ export default function MerchantServicesScreen() {
                         </View>
                         <View style={s.rowThumb}>
                           {svc.imageUrl ? (
-                            <Image source={{ uri: svc.imageUrl }} style={s.rowThumbImage} />
+                            <Image source={{ uri: resolveMediaUrl(svc.imageUrl) ?? undefined }} style={s.rowThumbImage} />
                           ) : (
                             <Image source={cameraIcon} style={s.rowThumbText} />
                           )}
@@ -554,7 +555,7 @@ export default function MerchantServicesScreen() {
               <Text style={s.fieldLabel}>PHOTO</Text>
               <View style={s.photoBox}>
                 {draft.imageUrl ? (
-                  <Image source={{ uri: draft.imageUrl }} style={s.photoBoxImage} />
+                  <Image source={{ uri: resolveMediaUrl(draft.imageUrl) ?? undefined }} style={s.photoBoxImage} />
                 ) : (
                   <View style={s.photoBoxEmpty}>
                     <Image source={cameraIcon} style={s.photoBoxEmptyIconImage} />

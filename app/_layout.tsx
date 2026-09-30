@@ -47,6 +47,7 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from "@expo-google-fonts/plus-jakarta-sans";
+import { PlayfairDisplay_600SemiBold } from "@expo-google-fonts/playfair-display";
 
 export default Sentry.wrap(function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -55,6 +56,7 @@ export default Sentry.wrap(function RootLayout() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
+    PlayfairDisplay_600SemiBold,
   });
 
   useEffect(() => {

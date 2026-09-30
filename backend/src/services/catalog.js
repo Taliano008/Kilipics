@@ -1,4 +1,5 @@
 import { query } from "../db/connection.js";
+import { LIVE_BUSINESSES_FROM } from "./business-visibility.js";
 import { computeOpenNow } from "./open-now.js";
 
 // Phase Zero: live query with a 5-minute in-memory cache, not a pre-built
@@ -21,7 +22,7 @@ export async function getCatalogSnapshot() {
   return cache;
 }
 
-// mysql2 auto-parses JSON-typed columns (highlights, facilities, gallery_urls,
+// pg auto-parses JSONB columns (highlights, facilities, gallery_urls,
 // public_contacts, payment_settings, service_areas) into JS values already —
 // no manual JSON.parse needed here.
 
@@ -169,7 +170,7 @@ async function getAppConfig() {
 }
 
 async function buildCatalogSnapshot() {
-  const businesses = await query("SELECT * FROM businesses WHERE publication_status = 'published' ORDER BY created_at ASC");
+  const businesses = await query(`SELECT b.* ${LIVE_BUSINESSES_FROM} ORDER BY b.created_at ASC`);
 
   let services = [];
   let availability = [];
@@ -179,10 +180,12 @@ async function buildCatalogSnapshot() {
 
     services = await query(`SELECT * FROM services WHERE active = 1 AND business_id IN (${placeholders})`, businessIds);
 
+    // "Today" in UTC, same as MySQL's CURDATE() under the old UTC session.
     availability = await query(
       `SELECT * FROM availability
        WHERE business_id IN (${placeholders})
-         AND date >= CURDATE() AND date < DATE_ADD(CURDATE(), INTERVAL 14 DAY)`,
+         AND "date" >= (now() AT TIME ZONE 'utc')::date
+         AND "date" < (now() AT TIME ZONE 'utc')::date + 14`,
       businessIds,
     );
   }

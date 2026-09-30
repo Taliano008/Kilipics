@@ -30,32 +30,26 @@ pnpm start
 
 Then press `a` for an Android emulator, or scan the QR code from Expo Go on a phone connected to the same network.
 
-To use a local web backend from a physical phone, do not use `127.0.0.1`. Set `EXPO_PUBLIC_API_BASE_URL` to the computer's LAN IP, for example:
-
-```dotenv
-EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:4173
-```
-
-The default environment points to the existing public KiliPicks backend:
-
-```text
-https://nairobi-local-picks-demo.hantianyang5.chatgpt.site
-```
+The app's catalog, auth, analytics and photo uploads all come from the
+backend in `backend/` (see below), which must be running. In development the
+app finds it automatically on the computer running Expo (port 3000), using
+the address Expo Go connected to — start Expo with `--lan` for a physical
+phone. For a deployed backend, set `EXPO_PUBLIC_API_BASE_URL`.
 
 ## Backend (auth)
 
-`backend/` is a Node/Fastify + MySQL server — moved in wholesale from the
+`backend/` is a Node/Fastify server on Supabase Postgres — moved in wholesale from the
 former `kilipicks-server` repo, now the one backend behind this app. It
 provides real, separate consumer and merchant auth (two tables, two
 passwords, linked by `merchants.owner_user_id`, never one shared row/role
-array) plus a public catalog endpoint the mobile app doesn't consume yet.
+array) plus the public catalog the mobile app reads, and photo uploads.
 
 First-time setup, from the repo root:
 
 ```bash
 pnpm backend:install
 cd backend && npm run init:env   # generates JWT_SECRET / ADMIN_PASSWORD / ANALYTICS_APP_TOKEN
-# edit backend/.env and fill in DB_PASSWORD for your local MySQL
+# edit backend/.env and set DATABASE_URL (Supabase -> Connect -> Session pooler)
 cd ..
 pnpm backend:migrate
 ```

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { queryOne } from "../db/connection.js";
-import { unauthorized } from "../lib/http-errors.js";
+import { forbidden, unauthorized } from "../lib/http-errors.js";
 import {
   findMerchantForUser,
   findBusinessIdForMerchant,
@@ -35,6 +35,16 @@ export async function flexibleMerchantAuth(request) {
     if (!verifiedUser) throw unauthorized("Invalid or expired user token.", "invalid_token");
 
     let merchant = await findMerchantForUser(verifiedUser.userId);
+    // A suspended merchant's own token is already refused (the statusCheck
+    // in services/merchant-auth.js). Their consumer token is still valid —
+    // suspension is of the business identity, not the person — so without
+    // this check it would walk straight back into the dashboard here.
+    if (merchant?.status === "suspended") {
+      throw forbidden(
+        "This business account has been suspended. Contact KiliPicks support.",
+        "merchant_suspended",
+      );
+    }
     let merchantToken = null;
     if (!merchant) {
       const user = await queryOne("SELECT * FROM users WHERE id = ?", [verifiedUser.userId]);

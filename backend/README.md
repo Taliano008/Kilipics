@@ -1,8 +1,8 @@
 # KiliPicks backend
 
-Node.js + Fastify + MySQL. The single backend for the KiliPicks mobile app —
-merchant and consumer auth, and the public catalog. Local-first: everything
-runs on one developer machine, no cloud accounts required to start the server.
+Node.js + Fastify + Postgres (Supabase). The single backend for the KiliPicks
+mobile app — merchant and consumer auth, and the public catalog. The server
+runs locally; its database is a Supabase Postgres project.
 
 This used to be developed as a separate repo (`kilipicks-server`) and a
 parallel JSON-file auth server lived at this same path (`backend/`). Both are
@@ -12,7 +12,8 @@ Fastify/MySQL design intact, plus real consumer auth (see below).
 ## Requirements
 
 - Node.js 20+
-- MySQL 8, running locally, with a known root password
+- A Supabase project and its database password (Supabase dashboard -> Connect
+  -> "Session pooler" connection string)
 
 ## Run locally
 
@@ -20,8 +21,8 @@ Fastify/MySQL design intact, plus real consumer auth (see below).
 cd backend
 npm install
 npm run init:env      # generates JWT_SECRET / ADMIN_PASSWORD / ANALYTICS_APP_TOKEN
-# edit .env and fill in DB_PASSWORD
-npm run migrate       # creates the kilipicks database and applies all migrations
+# edit .env and set DATABASE_URL to the Supabase session-pooler connection string
+npm run migrate       # applies all migrations to the Supabase database
 npm run dev
 ```
 
@@ -108,8 +109,8 @@ analytics' target host.
 - [ ] 14. Kill switch admin UI
 - [ ] 15. Repoint the mobile app's catalog fetch here, delete its Metro dev-proxy
 
-**Live-verified.** Migrations 001–013 have been applied against a real local
-MySQL instance. `npm run smoke` exercises consumer signup, linked-merchant
+**Live-verified.** Migrations 001–013 were originally verified against a local
+MySQL instance, before the move to Supabase Postgres. `npm run smoke` exercises consumer signup, linked-merchant
 signup, login (including the shared-password merchant re-auth), cross-auth
 rejection between the two token types, become-a-seller, and the
 duplicate-link conflict — all passing. `npm run check:catalog` and

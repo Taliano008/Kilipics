@@ -2,7 +2,9 @@ import { AUTH_API_BASE_URL } from "@/config/env";
 
 export type AvailabilityRequestInput = {
   businessId: string;
-  serviceId?: string;
+  // Every service the consumer picked, in the order picked. The backend
+  // stores the first one as serviceId too.
+  serviceIds: string[];
   consumerName: string;
   whatsappNumber: string;
   preferredDate: string;
@@ -12,6 +14,7 @@ export type AvailabilityRequestInput = {
 
 export type AvailabilityRequest = AvailabilityRequestInput & {
   id: string;
+  serviceId: string | null;
   status: "new" | "contacted" | "closed";
   createdAt: string;
   updatedAt: string;

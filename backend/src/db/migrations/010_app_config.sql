@@ -4,7 +4,9 @@
 -- "no constraint."
 CREATE TABLE IF NOT EXISTS app_config (
   key_name   VARCHAR(100) PRIMARY KEY,
-  `value`    TEXT NOT NULL,
-  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
-               ON UPDATE CURRENT_TIMESTAMP(3)
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMP(3) NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 );
+
+CREATE OR REPLACE TRIGGER app_config_set_updated_at
+  BEFORE UPDATE ON app_config FOR EACH ROW EXECUTE FUNCTION set_updated_at();

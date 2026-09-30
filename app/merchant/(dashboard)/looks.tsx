@@ -87,7 +87,7 @@ export default function LooksScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Looks" />
-      <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
+      <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <View style={s.headRow}>
             <Text style={s.headTitle}>Your Looks</Text>

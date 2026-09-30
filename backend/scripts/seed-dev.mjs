@@ -15,9 +15,9 @@ import { invalidateCatalogCache } from "../src/services/catalog.js";
 
 const MERCHANT_EMAIL = "demo-merchant@kilipicks.dev";
 
-async function upsertMerchant() {
+async function upsertMerchant(email = MERCHANT_EMAIL) {
   const existing = await query("SELECT id FROM merchants WHERE email = ?", [
-    MERCHANT_EMAIL,
+    email,
   ]);
   if (existing.length > 0) return existing[0].id;
 
@@ -26,7 +26,7 @@ async function upsertMerchant() {
   await execute(
     `INSERT INTO merchants (id, full_name, email, password_hash, status)
      VALUES (?, ?, ?, ?, 'active')`,
-    [id, "Demo Merchant", MERCHANT_EMAIL, passwordHash],
+    [id, "Demo Merchant", email, passwordHash],
   );
   return id;
 }
@@ -184,7 +184,7 @@ async function main() {
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant("demo-merchant+glow-nail-bar@kilipicks.dev"),
     {
       slug: "glow-nail-bar",
       name: "Glow Nail Bar",
@@ -227,7 +227,7 @@ async function main() {
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant("demo-merchant+nailed-it-nairobi@kilipicks.dev"),
     {
       slug: "nailed-it-nairobi",
       name: "Nailed It Nairobi",
@@ -264,7 +264,7 @@ async function main() {
   );
 
   await upsertBusiness(
-    merchantId,
+    await upsertMerchant("demo-merchant+polish-perfect@kilipicks.dev"),
     {
       slug: "polish-perfect",
       name: "Polish Perfect",
@@ -302,7 +302,7 @@ async function main() {
 
   invalidateCatalogCache();
 
-  console.log("Seeded 4 businesses (1 merchant):");
+  console.log("Seeded 4 businesses (one merchant each; demo login: demo-merchant@kilipicks.dev):");
   console.log("  - Zuri Beauty Lounge   (claimed, booking-enabled, hero listing)");
   console.log("  - Glow Nail Bar        (claimed, booking-enabled)");
   console.log("  - Nailed It Nairobi    (claimed, booking-enabled)");

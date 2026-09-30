@@ -1,43 +1,56 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const fallbackApiBase =
-  "https://nairobi-local-picks-demo.hantianyang5.chatgpt.site";
-
-// If running via Expo Go on LAN, Constants.expoConfig?.hostUri contains "<host-ip>:<metro-port>"
-// (e.g. "10.8.126.72:8081"). We extract the host IP so physical devices seamlessly reach the backend.
-const devHost = Constants.expoConfig?.hostUri?.split(":")[0];
+// In development the backend runs on the same computer as Metro, so the host
+// the app loaded its bundle from is the backend's host too — no .env edit
+// needed when the computer's IP changes. Which field carries it varies by
+// Expo Go version and launch mode, so try each ("<host>:<port>" or a URL).
+function hostFrom(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const host = value.replace(/^[a-z]+:\/\//i, "").split(/[:/]/)[0];
+  return host || undefined;
+}
+const devHost = __DEV__
+  ? hostFrom(Constants.expoConfig?.hostUri) ??
+    hostFrom(Constants.expoGoConfig?.debuggerHost) ??
+    hostFrom(Constants.linkingUri)
+  : undefined;
 const localHost =
   devHost || (Platform.OS === "android" ? "10.0.2.2" : "localhost");
-const localAuthBase = `http://${localHost}:3000`;
+const localBackendBase = `http://${localHost}:3000`;
 
-// The public catalog backend has no CORS headers, so browser fetch() calls fail
-// with "Failed to fetch". In web development always route through the
-// same-origin Metro proxy configured in metro.config.js. This also prevents an
-// Android-emulator-only URL such as 10.0.2.2 from being used by a desktop browser.
-const webDevProxyBase = "/kilipicks-proxy";
-const webAuthProxyBase = "/auth-proxy";
+// In web development, route through the same-origin Metro proxy configured in
+// metro.config.js so the browser never makes a cross-origin request. This also
+// prevents an Android-emulator-only URL such as 10.0.2.2 from being used by a
+// desktop browser.
+const webBackendProxyBase = "/auth-proxy";
 const usesWebDevProxy = __DEV__ && Platform.OS === "web";
 
+// The Fastify/Postgres backend in backend/ serves everything: the public
+// catalog, analytics ingest, auth, and uploaded photos. Set
+// EXPO_PUBLIC_API_BASE_URL to a deployed URL for a production build.
 export const API_BASE_URL = (
   usesWebDevProxy
-    ? webDevProxyBase
-    : process.env.EXPO_PUBLIC_API_BASE_URL || fallbackApiBase
+    ? webBackendProxyBase
+    : process.env.EXPO_PUBLIC_API_BASE_URL || localBackendBase
 ).replace(/\/$/, "");
 
-// Authentication is served by the Fastify/MySQL backend in backend/ (moved
-// in from the former kilipicks-server repo). Set EXPO_PUBLIC_AUTH_API_BASE_URL
-// to a LAN or deployed URL for a physical phone or a production build.
-// On web dev we route through the Metro proxy (/auth-proxy) to avoid CORS.
+// Kept as its own export for the auth/merchant/upload call sites; it only
+// differs from API_BASE_URL if EXPO_PUBLIC_AUTH_API_BASE_URL is set.
 export const AUTH_API_BASE_URL = (
   usesWebDevProxy
-    ? webAuthProxyBase
-    : process.env.EXPO_PUBLIC_AUTH_API_BASE_URL || localAuthBase
+    ? webBackendProxyBase
+    : process.env.EXPO_PUBLIC_AUTH_API_BASE_URL || API_BASE_URL
 ).replace(/\/$/, "");
 
+// Uploaded photos are stored as backend-relative paths ("/uploads/...") so
+// they keep working when the backend's address changes; this turns them into
+// a loadable URL. Anything that already has a scheme (https:, file:,
+// content:, data:, ...) is returned as is — e.g. a photo just picked on the
+// device, or an older row that stored a full URL.
 export function resolveMediaUrl(value?: string | null) {
   if (!value || value.startsWith("provider-placeholder://")) return null;
-  if (/^https?:\/\//i.test(value)) return value;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return value;
   return `${API_BASE_URL}${value.startsWith("/") ? value : `/${value}`}`;
 }
 

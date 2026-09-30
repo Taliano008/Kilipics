@@ -11,6 +11,12 @@ const WELLNESS_CATEGORY_IDS = new Set(["spa", "fitness", "pilates", "yoga", "rec
 const DEFAULT_CATEGORY_ID = "spa";
 const PRICE_TYPES = new Set(["fixed", "from", "range", "contact_for_price"]);
 
+// price/maximum_price/duration_minutes are INTEGER columns — Postgres
+// rejects "12.5" outright where MySQL used to round it.
+function wholeNumber(value) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
 function industryForCategory(categoryId) {
   if (BEAUTY_CATEGORY_IDS.has(categoryId)) return "beauty";
   if (WELLNESS_CATEGORY_IDS.has(categoryId)) return "wellness";
@@ -75,10 +81,10 @@ export async function createMerchantService(businessId, input) {
   const categoryId = input?.categoryId?.trim() || DEFAULT_CATEGORY_ID;
   const industry = industryForCategory(categoryId);
   const priceType = PRICE_TYPES.has(input?.priceType) ? input.priceType : "fixed";
-  const price = Math.max(0, Number(input?.price) || 0);
+  const price = wholeNumber(input?.price);
   const maximumPrice =
-    priceType === "range" ? Math.max(0, Number(input?.maximumPrice) || 0) : null;
-  const durationMinutes = Math.max(0, Number(input?.durationMinutes) || 0);
+    priceType === "range" ? wholeNumber(input?.maximumPrice) : null;
+  const durationMinutes = wholeNumber(input?.durationMinutes);
   const active = input?.active !== false;
   const bookingEnabled = Boolean(input?.bookingEnabled);
   const imageUrl = input?.imageUrl?.trim() || null;
@@ -152,17 +158,17 @@ export async function updateMerchantService(businessId, serviceId, input) {
   }
   if (input?.price !== undefined) {
     setClauses.push("price = ?");
-    values.push(Math.max(0, Number(input.price) || 0));
+    values.push(wholeNumber(input.price));
   }
   if (input?.maximumPrice !== undefined || input?.priceType !== undefined) {
     setClauses.push("maximum_price = ?");
     values.push(
-      nextPriceType === "range" ? Math.max(0, Number(input?.maximumPrice) || 0) : null,
+      nextPriceType === "range" ? wholeNumber(input?.maximumPrice) : null,
     );
   }
   if (input?.durationMinutes !== undefined) {
     setClauses.push("duration_minutes = ?");
-    values.push(Math.max(0, Number(input.durationMinutes) || 0));
+    values.push(wholeNumber(input.durationMinutes));
   }
   if (input?.bookingEnabled !== undefined) {
     setClauses.push("booking_enabled = ?");

@@ -37,13 +37,31 @@ export type ConsumerSession = {
 };
 
 type ApiErrorPayload = { message?: string; error?: string; fields?: string[] };
-type ApiError = Error & { code?: string; fields?: string[] };
+type ApiError = Error & { code?: string; fields?: string[]; status?: number };
+
+// True only when the server itself rejected the credentials. A dropped
+// connection, a timeout or a 5xx says nothing about whether a token is
+// still good.
+export function isAuthRejection(reason: unknown) {
+  const status = (reason as ApiError | null)?.status;
+  return status === 401 || status === 403;
+}
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${AUTH_API_BASE_URL}${path}`, {
-    ...options,
-    headers: { Accept: "application/json", ...options.headers },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${AUTH_API_BASE_URL}${path}`, {
+      ...options,
+      headers: { Accept: "application/json", ...options.headers },
+    });
+  } catch {
+    // Network-level failure (backend down or unreachable). Some fetch
+    // implementations reject with an error whose message is just "null",
+    // so replace it with one that says where the app was trying to go.
+    throw new TypeError(
+      `We couldn't reach KiliPicks at ${AUTH_API_BASE_URL}. Check the backend is running and your phone is on the same Wi-Fi.`,
+    );
+  }
   const payload = (await response.json().catch(() => null)) as ApiErrorPayload | null;
   if (!response.ok) {
     const error = new Error(
@@ -54,6 +72,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ) as ApiError;
     error.code = payload?.error;
     error.fields = payload?.fields;
+    error.status = response.status;
     throw error;
   }
   return payload as T;

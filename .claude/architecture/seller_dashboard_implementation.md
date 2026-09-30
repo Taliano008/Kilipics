@@ -36,7 +36,7 @@ backend that doesn't exist."
 | Screen | Data source | Notes |
 |---|---|---|
 | **Profile** | **Real** — `fetchMerchantBusiness`, `fetchMerchantServices`, `updateMerchantService`, `updateMerchantBusiness`, real `signOut` | Only screen wired to the actual backend. "Staff & Team Members" from the mockup was **dropped** — PRD §2 lists staff accounts as a non-goal, so it's not shown with invented "3 stylists active" data. |
-| **Bookings** | **Local**, AsyncStorage (`kilipicks.merchant.bookings.v1`) | Matches PRD §6: "Booking... Local only in Phase Zero." Service picker in the "New Booking" form *is* real (`fetchMerchantServices`) — only the booking records themselves are local. |
+| **Bookings** | **Real** — `GET/POST/PATCH /api/merchant/bookings` (`backend/src/routes/merchant/bookings.js`) | Moved off the Phase Zero local store (which seeded four demo bookings; its old `kilipicks.merchant.bookings.v1` key is cleared on load). Each booking snapshots its service name and price (migration 024), so history survives a service being renamed, repriced or deleted. No in-app payments yet, so every card shows "Pay in studio". |
 | **Sales** | **Local**, AsyncStorage (`kilipicks.merchant.sales.v1`) | Matches PRD §5.2: "All sales data is local to the device." Deliberately drops the mockup's "+18% vs last month" delta and "top 15% of Nairobi studios" claim — a fresh local store has no prior-month data and no basis for a ranking claim. Don't add these back without a real data source. |
 | **Looks** | **Mock**, local component state only, not persisted | No backend exists for Looks at all (no routes; the `looks` table is unused). "Boost" and "Create Look" are both "coming soon" sheets rather than the mockup's simulated M-Pesa charge / an invented 3-step upload wizard that no mockup ever specified. |
 | **Inbox** | **Mixed** — Chats/Activity are mock content; Support is real | No chat/event backend exists, so Chats and Activity are illustrative. Support is wired to the real `SUPPORT_WHATSAPP_NUMBER` (`@/config/env`) using the same availability-gating pattern `app/(tabs)/account.tsx` already has — shows "Support coming soon" if that env var is unset. |
@@ -62,7 +62,7 @@ app/merchant/(dashboard)/inbox.tsx
 app/merchant/(dashboard)/profile.tsx     — rebuilt (old app/merchant/profile.tsx deleted)
 
 src/merchant/business-context.tsx        — one shared business fetch for the whole dashboard
-src/merchant/bookings-context.tsx        — local booking store (AsyncStorage)
+src/merchant/bookings-context.tsx        — booking store backed by /api/merchant/bookings
 src/merchant/sales-context.tsx           — local transaction/goals store (AsyncStorage)
 
 src/components/merchant/DashboardHeader.tsx — shared header (all 5 screens)

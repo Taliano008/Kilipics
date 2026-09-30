@@ -1,24 +1,17 @@
 const http = require("http");
-const https = require("https");
 const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
 const config = getSentryExpoConfig(__dirname);
 
-// The KiliPicks public catalog backend does not send CORS headers, so browser
-// `fetch()` calls to it fail with "Failed to fetch" when running `expo start --web`.
-// This dev-only middleware proxies /kilipicks-proxy/* same-origin requests to the
-// real backend server-to-server, where CORS does not apply.
-//
-// A second proxy /auth-proxy/* routes to the local Fastify auth backend
-// (localhost:3000) so the browser never makes a cross-origin request there either.
-const CATALOG_PROXY_PREFIX = "/kilipicks-proxy";
-const CATALOG_UPSTREAM = "https://nairobi-local-picks-demo.hantianyang5.chatgpt.site";
+// Browser `fetch()` calls from `expo start --web` to the local Fastify backend
+// (localhost:3000) would be cross-origin. This dev-only middleware proxies
+// /auth-proxy/* same-origin requests to it server-to-server, where CORS does
+// not apply. Despite the name it carries everything the backend serves —
+// catalog, analytics, auth and uploaded photos (see src/config/env.ts).
+const BACKEND_PROXY_PREFIX = "/auth-proxy";
+const BACKEND_UPSTREAM = "http://localhost:3000";
 
-const AUTH_PROXY_PREFIX = "/auth-proxy";
-const AUTH_UPSTREAM = "http://localhost:3000";
-
-function makeProxy(upstreamOrigin, useHttps) {
-  const lib = useHttps ? https : http;
+function makeProxy(upstreamOrigin) {
   return (req, res, pathWithoutPrefix) => {
     const upstreamUrl = `${upstreamOrigin}${pathWithoutPrefix || "/"}`;
     const options = {
@@ -28,7 +21,7 @@ function makeProxy(upstreamOrigin, useHttps) {
     delete options.headers.origin;
     delete options.headers.referer;
 
-    const proxyReq = lib.request(upstreamUrl, options, (upstreamRes) => {
+    const proxyReq = http.request(upstreamUrl, options, (upstreamRes) => {
       res.statusCode = upstreamRes.statusCode || 502;
       for (const [key, value] of Object.entries(upstreamRes.headers)) {
         if (value) res.setHeader(key, value);
@@ -46,18 +39,14 @@ function makeProxy(upstreamOrigin, useHttps) {
   };
 }
 
-const catalogProxy = makeProxy(CATALOG_UPSTREAM, true);
-const authProxy = makeProxy(AUTH_UPSTREAM, false);
+const backendProxy = makeProxy(BACKEND_UPSTREAM);
 
 config.server = {
   ...config.server,
   enhanceMiddleware: (middleware) => {
     return (req, res, next) => {
-      if (req.url && req.url.startsWith(CATALOG_PROXY_PREFIX)) {
-        return catalogProxy(req, res, req.url.slice(CATALOG_PROXY_PREFIX.length) || "/");
-      }
-      if (req.url && req.url.startsWith(AUTH_PROXY_PREFIX)) {
-        return authProxy(req, res, req.url.slice(AUTH_PROXY_PREFIX.length) || "/");
+      if (req.url && req.url.startsWith(BACKEND_PROXY_PREFIX)) {
+        return backendProxy(req, res, req.url.slice(BACKEND_PROXY_PREFIX.length) || "/");
       }
       return middleware(req, res, next);
     };

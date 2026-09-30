@@ -41,6 +41,10 @@ export type MerchantBusiness = {
   onboardingStep: number;
   submittedAt?: string | null;
   publicationStatus: "draft" | "published" | "hidden" | "archived";
+  // Where the KiliPicks team's review of the listing stands, and their
+  // message to the merchant when they've asked for changes.
+  reviewStatus?: "not_submitted" | "awaiting_review" | "changes_requested" | "approved";
+  reviewNote?: string;
   limitedListing: boolean;
   bookingEnabled: boolean;
   verified: boolean;
@@ -333,6 +337,104 @@ export function deleteMerchantService(token: string, serviceId: string) {
   );
 }
 
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+
+export type MerchantBooking = {
+  id: string;
+  businessId: string;
+  serviceId: string | null;
+  serviceName: string;
+  price: number;
+  customerName: string;
+  customerPhone: string;
+  date: string; // YYYY-MM-DD
+  time: string; // "HH:MM" 24h
+  durationMinutes: number;
+  status: BookingStatus;
+  notes: string;
+  source: "manual" | "app";
+  // Consumer app bookings only: the time of day the customer asked for.
+  // `time` is a placeholder start for it until the slot is agreed.
+  preferredTime: "morning" | "afternoon" | "evening" | "flexible" | null;
+  // Set on cancelled bookings. A "customer" cancellation is final, and is
+  // shown as an alert until the merchant dismisses it (cancelAcknowledged).
+  cancelledBy: "customer" | "merchant" | null;
+  cancelAcknowledged: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BookingInput = {
+  customerName: string;
+  customerPhone: string;
+  serviceId?: string;
+  serviceName?: string;
+  price?: number;
+  date: string;
+  time: string;
+  durationMinutes?: number;
+  notes?: string;
+};
+
+export function fetchMerchantBookings(
+  token: string,
+  filters: { date?: string; from?: string; to?: string; status?: BookingStatus } = {},
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  const qs = params.toString();
+  return request<{ bookings: MerchantBooking[]; merchantToken?: string | null }>(
+    `/api/merchant/bookings${qs ? `?${qs}` : ""}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+}
+
+export function createMerchantBooking(token: string, input: BookingInput) {
+  return request<{ ok: boolean; booking: MerchantBooking; merchantToken?: string | null }>(
+    "/api/merchant/bookings",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+// `time` ("HH:MM") sets the appointment time when accepting; `declineReason`
+// is passed on to the customer when declining.
+export type BookingStatusExtras = { time?: string; declineReason?: string };
+
+export function updateMerchantBookingStatus(
+  token: string,
+  bookingId: string,
+  status: BookingStatus,
+  extras: BookingStatusExtras = {},
+) {
+  return request<{ ok: boolean; booking: MerchantBooking; merchantToken?: string | null }>(
+    `/api/merchant/bookings/${bookingId}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status, ...extras }),
+    },
+  );
+}
+
+export function acknowledgeBookingCancellation(token: string, bookingId: string) {
+  return request<{ ok: boolean; booking: MerchantBooking; merchantToken?: string | null }>(
+    `/api/merchant/bookings/${bookingId}/acknowledge-cancellation`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+}
+
 export function reorderMerchantServices(token: string, orderedIds: string[]) {
   return request<{ ok: boolean; services: MerchantService[]; merchantToken?: string | null }>(
     "/api/merchant/services/reorder",
@@ -342,4 +444,80 @@ export function reorderMerchantServices(token: string, orderedIds: string[]) {
       body: JSON.stringify({ orderedIds }),
     },
   );
+}
+
+export type SalesTransactionType = "income" | "expense";
+
+// A transaction the merchant typed in on the Sales tab. Sales that come
+// from bookings aren't stored as these — the app derives them from the
+// bookings list.
+export type SalesTransaction = {
+  id: string;
+  type: SalesTransactionType;
+  amount: number;
+  description: string;
+  method: string;
+  date: string; // YYYY-MM-DD, the merchant's local day
+  createdAt: string; // "YYYY-MM-DD HH:MM:SS.mmm", UTC
+};
+
+export type SalesGoals = { daily: number; weekly: number; monthly: number };
+
+export type SalesTransactionInput = {
+  type: SalesTransactionType;
+  amount: number;
+  description: string;
+  method?: string;
+  date: string;
+};
+
+type SalesPayload = {
+  transactions: SalesTransaction[];
+  goals: SalesGoals;
+  merchantToken?: string | null;
+};
+
+export function fetchMerchantSales(token: string) {
+  return request<SalesPayload>("/api/merchant/sales", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function createSalesTransaction(token: string, input: SalesTransactionInput) {
+  return request<{ ok: boolean; transaction: SalesTransaction; merchantToken?: string | null }>(
+    "/api/merchant/sales/transactions",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function saveSalesGoals(token: string, goals: Partial<SalesGoals>) {
+  return request<{ ok: boolean; goals: SalesGoals; merchantToken?: string | null }>(
+    "/api/merchant/sales/goals",
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+      body: JSON.stringify(goals),
+    },
+  );
+}
+
+// One-time upload of the old device-only sales store. clientRef is the id a
+// row had on the device, so a retried upload doesn't duplicate it.
+export function importLocalSales(
+  token: string,
+  input: {
+    transactions: (SalesTransactionInput & { clientRef: string; createdAt?: string })[];
+    goals?: SalesGoals;
+  },
+) {
+  return request<SalesPayload & { ok: boolean; imported: number }>("/api/merchant/sales/import", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
 }

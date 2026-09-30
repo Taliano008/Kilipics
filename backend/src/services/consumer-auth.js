@@ -5,6 +5,10 @@ const consumerTokens = createTokenService({
   tokensTable: "user_tokens",
   ownerColumn: "user_id",
   ownerTable: "users",
+  // A suspended customer's existing sessions stop verifying at once — same
+  // mechanism as merchants (services/merchant-auth.js).
+  ownerStatusColumn: "status",
+  statusCheck: (status) => status !== "suspended",
 });
 
 export const issueConsumerToken = consumerTokens.issueToken;

@@ -1,8 +1,11 @@
 /**
  * Seller dashboard — Sales tab.
  * Matches: Inspo/code sales performance.html
- * Local-only data (src/merchant/sales-context.tsx) — merchant_prd.md §5.2:
- * "All sales data is local to the device in Phase Zero."
+ * Two sources, merged into one ledger: accepted bookings (confirmed or
+ * completed, from src/merchant/bookings-context.tsx — each one is a sale
+ * dated on its appointment day) and hand-entered transactions, saved to the
+ * merchant's account (src/merchant/sales-context.tsx).
+ * The Daily / Weekly / Monthly switch scopes the totals, chart and list.
  *
  * Deliberately drops two things the mockup shows that this screen has no
  * honest basis for: a "+18% vs last month" delta (no prior-month data
@@ -10,87 +13,244 @@
  * studios" claim (an unverifiable, fabricated ranking). Real numbers only.
  */
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
+import { useBookings } from "@/merchant/bookings-context";
 import { useSales, type SalesGoals, type TransactionType } from "@/merchant/sales-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { localIsoDate, parseLocalDate } from "@/utils/dates";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const PERIODS = ["Daily", "Weekly", "Monthly"] as const;
+type Period = (typeof PERIODS)[number];
 
-function monthKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth()}`;
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// One row of the sales ledger: either a transaction the merchant typed in,
+// or a booking they accepted.
+type SalesEntry = {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  description: string;
+  method: string;
+  date: string; // YYYY-MM-DD
+  hour: number; // 0–23, for the Daily chart
+  time: string; // display only
+  sortKey: string;
+  fromBooking: boolean;
+};
+
+function to12h(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
+function sum(entries: SalesEntry[], type: TransactionType) {
+  return entries.filter((e) => e.type === type).reduce((s, e) => s + e.amount, 0);
+}
+
+const PERIOD_COPY: Record<
+  Period,
+  { hero: string; chartTitle: string; chartSub: string; empty: string }
+> = {
+  Daily: {
+    hero: "Total Revenue Today",
+    chartTitle: "Today's Rhythm",
+    chartSub: "Income by time of day",
+    empty: "No sales today yet.",
+  },
+  Weekly: {
+    hero: "Total Revenue This Week",
+    chartTitle: "Daily Rhythm",
+    chartSub: "Income across this week's days",
+    empty: "No sales this week yet.",
+  },
+  Monthly: {
+    hero: "Total Revenue This Month",
+    chartTitle: "Weekly Rhythm",
+    chartSub: "Income across this month's weeks",
+    empty: "No sales this month yet.",
+  },
+};
+
 export default function SalesScreen() {
-  const { transactions, goals, addTransaction, setGoal } = useSales();
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]>("Monthly");
+  const {
+    transactions,
+    goals,
+    error: salesError,
+    refresh: refreshSales,
+    addTransaction,
+    setGoal,
+  } = useSales();
+  const { bookings, refresh } = useBookings();
+  const [period, setPeriod] = useState<Period>("Monthly");
   const [addOpen, setAddOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<keyof SalesGoals | null>(null);
 
-  const now = useMemo(() => new Date(), []);
-  const thisMonth = useMemo(
-    () => transactions.filter((t) => monthKey(new Date(t.date)) === monthKey(now)),
-    [transactions, now],
+  // A booking accepted (or made) since this tab was last open should count.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      refreshSales();
+    }, [refresh, refreshSales]),
   );
 
-  const income = thisMonth.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const expenses = thisMonth.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const now = useMemo(() => new Date(), []);
+  const todayIso = localIsoDate(now);
+  // Sunday to Saturday, as local calendar dates (string compare is safe for
+  // YYYY-MM-DD and avoids time-of-day edge cases).
+  const weekStartIso = localIsoDate(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()),
+  );
+  const weekEndIso = localIsoDate(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6),
+  );
+  const monthPrefix = todayIso.slice(0, 7);
+
+  // Every accepted booking is a sale, dated on the day of the appointment.
+  // Pending bookings aren't revenue until the merchant accepts them, and
+  // cancelled ones never are — so cancelling a booking removes its sale.
+  const entries = useMemo<SalesEntry[]>(() => {
+    const manual = transactions.map((t): SalesEntry => {
+      const created = new Date(t.createdAt);
+      const hour = Number.isNaN(created.getTime()) ? 12 : created.getHours();
+      const minute = Number.isNaN(created.getTime()) ? 0 : created.getMinutes();
+      return {
+        id: t.id,
+        type: t.type,
+        amount: t.amount,
+        description: t.description,
+        method: t.method,
+        date: t.date,
+        hour,
+        time: t.time,
+        sortKey: `${t.date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+        fromBooking: false,
+      };
+    });
+    const booked = bookings
+      .filter((b) => b.status === "confirmed" || b.status === "completed")
+      .map(
+        (b): SalesEntry => ({
+          id: `booking-${b.id}`,
+          type: "income",
+          amount: b.price,
+          description: `${b.serviceName} · ${b.customerName}`,
+          method: "Booking",
+          date: b.date,
+          hour: Number(b.time.slice(0, 2)) || 0,
+          time: to12h(b.time),
+          sortKey: `${b.date}T${b.time}`,
+          fromBooking: true,
+        }),
+      );
+    return [...manual, ...booked].sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+  }, [transactions, bookings]);
+
+  const inPeriod = useCallback(
+    (date: string, p: Period) =>
+      p === "Daily"
+        ? date === todayIso
+        : p === "Weekly"
+          ? date >= weekStartIso && date <= weekEndIso
+          : date.startsWith(monthPrefix),
+    [todayIso, weekStartIso, weekEndIso, monthPrefix],
+  );
+
+  const periodEntries = useMemo(
+    () => entries.filter((e) => inPeriod(e.date, period)),
+    [entries, inPeriod, period],
+  );
+
+  const income = sum(periodEntries, "income");
+  const expenses = sum(periodEntries, "expense");
   const net = income - expenses;
 
-  const todayIso = now.toISOString().slice(0, 10);
-  const todayIncome = transactions
-    .filter((t) => t.type === "income" && t.date === todayIso)
-    .reduce((s, t) => s + t.amount, 0);
+  // The three targets always show their own period, whichever tab is active.
+  const todayIncome = sum(entries.filter((e) => inPeriod(e.date, "Daily")), "income");
+  const weekIncome = sum(entries.filter((e) => inPeriod(e.date, "Weekly")), "income");
+  const monthIncome = sum(entries.filter((e) => inPeriod(e.date, "Monthly")), "income");
 
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  const weekIncome = transactions
-    .filter((t) => t.type === "income" && new Date(t.date) >= startOfWeek)
-    .reduce((s, t) => s + t.amount, 0);
+  const pendingInPeriod = bookings.filter(
+    (b) => b.status === "pending" && inPeriod(b.date, period),
+  );
+  const pendingValue = pendingInPeriod.reduce((s, b) => s + b.price, 0);
 
-  // 4 week-of-month buckets, income only — sparse on a fresh install, which
-  // is the honest state for a merchant with no sales history yet.
-  const weekBuckets = useMemo(() => {
-    const buckets = [0, 0, 0, 0];
-    for (const t of thisMonth) {
-      if (t.type !== "income") continue;
-      const day = new Date(t.date).getDate();
-      const idx = Math.min(3, Math.floor((day - 1) / 7));
-      buckets[idx] += t.amount;
+  // Income only. Daily splits today by time of day, Weekly by weekday,
+  // Monthly by week of the month. Sparse on a fresh install, which is the
+  // honest state for a merchant with no sales history yet.
+  const chart = useMemo(() => {
+    const labels =
+      period === "Daily"
+        ? ["Morning", "Afternoon", "Evening"]
+        : period === "Weekly"
+          ? WEEKDAY
+          : ["Wk 1", "Wk 2", "Wk 3", "Wk 4"];
+    const values = labels.map(() => 0);
+    for (const e of periodEntries) {
+      if (e.type !== "income") continue;
+      const idx =
+        period === "Daily"
+          ? e.hour < 12
+            ? 0
+            : e.hour < 17
+              ? 1
+              : 2
+          : period === "Weekly"
+            ? parseLocalDate(e.date).getDay()
+            : Math.min(3, Math.floor((parseLocalDate(e.date).getDate() - 1) / 7));
+      values[idx] += e.amount;
     }
-    return buckets;
-  }, [thisMonth]);
-  const maxBucket = Math.max(1, ...weekBuckets);
-  const peakIdx = weekBuckets.indexOf(Math.max(...weekBuckets));
+    return labels.map((label, i) => ({ label, value: values[i] }));
+  }, [periodEntries, period]);
+  const maxBucket = Math.max(1, ...chart.map((c) => c.value));
+  const peakIdx = chart.findIndex((c) => c.value === maxBucket);
+
+  const periodLabel =
+    period === "Daily"
+      ? now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })
+      : period === "Weekly"
+        ? `${parseLocalDate(weekStartIso).toLocaleDateString(undefined, { day: "numeric", month: "short" })} – ${parseLocalDate(weekEndIso).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+        : now.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const copy = PERIOD_COPY[period];
 
   return (
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Sales" />
-      <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
+      <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <View style={s.topRow}>
             <View>
               <Text style={s.overviewLabel}>Sales Overview</Text>
-              <Text style={s.monthLabel}>
-                {now.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-              </Text>
+              <Text style={s.monthLabel}>{periodLabel}</Text>
             </View>
             <View style={s.syncPill}>
               <View style={s.syncDot} />
-              <Text style={s.syncPillText}>Local device</Text>
+              <Text style={s.syncPillText}>Saved to account</Text>
             </View>
           </View>
 
           <View style={s.banner}>
             <MaterialIcons name="verified-user" size={20} color={mc.primary} />
             <Text style={s.bannerText}>
-              Your sales data is currently stored locally on this device ·{" "}
-              <Text style={{ fontFamily: mf.bold, color: mc.onSurface }}>Phase Zero</Text>
+              Accepted bookings count as sales automatically. Transactions and targets you add
+              are saved to your account, so they follow you to any phone.
             </Text>
           </View>
+          {salesError && (
+            <Pressable style={s.banner} onPress={refreshSales}>
+              <MaterialIcons name="cloud-off" size={18} color={mc.error} />
+              <Text style={[s.bannerText, { color: mc.error }]}>
+                Couldn&apos;t load your saved transactions ({salesError}). Tap to retry.
+              </Text>
+            </Pressable>
+          )}
 
           <View style={s.segment}>
             {PERIODS.map((p) => (
@@ -110,7 +270,7 @@ export default function SalesScreen() {
             end={{ x: 1, y: 1 }}
             style={s.heroCard}
           >
-            <Text style={s.heroLabel}>Total Revenue This Month</Text>
+            <Text style={s.heroLabel}>{copy.hero}</Text>
             <View style={s.heroAmountRow}>
               <Text style={s.heroCurrency}>KES</Text>
               <Text style={s.heroAmount}>{income.toLocaleString()}</Text>
@@ -137,19 +297,31 @@ export default function SalesScreen() {
             </View>
           </LinearGradient>
 
+          {pendingInPeriod.length > 0 && (
+            <View style={s.banner}>
+              <MaterialIcons name="hourglass-top" size={18} color={mc.primary} />
+              <Text style={s.bannerText}>
+                {pendingInPeriod.length} pending{" "}
+                {pendingInPeriod.length === 1 ? "booking" : "bookings"} worth KES{" "}
+                {pendingValue.toLocaleString()} will count here once you accept{" "}
+                {pendingInPeriod.length === 1 ? "it" : "them"} in Bookings.
+              </Text>
+            </View>
+          )}
+
           <View style={s.chartCard}>
             <View style={s.chartHeaderRow}>
               <View>
-                <Text style={s.chartTitle}>Weekly Rhythm</Text>
-                <Text style={s.chartSub}>Income across this month&apos;s weeks</Text>
+                <Text style={s.chartTitle}>{copy.chartTitle}</Text>
+                <Text style={s.chartSub}>{copy.chartSub}</Text>
               </View>
             </View>
             <View style={s.chartRow}>
-              {weekBuckets.map((v, i) => {
+              {chart.map(({ label, value: v }, i) => {
                 const heightPct = Math.max(6, (v / maxBucket) * 100);
                 const isPeak = i === peakIdx && v > 0;
                 return (
-                  <View key={i} style={s.chartBarCol}>
+                  <View key={label} style={s.chartBarCol}>
                     <Text style={s.chartBarValue}>{v > 0 ? `${Math.round(v / 100) / 10}k` : "—"}</Text>
                     <View style={s.chartBarTrack}>
                       {isPeak ? (
@@ -167,7 +339,7 @@ export default function SalesScreen() {
                       )}
                     </View>
                     <Text style={[s.chartBarLabel, isPeak && { color: mc.primary, fontFamily: mf.bold }]}>
-                      Wk {i + 1}
+                      {label}
                     </Text>
                   </View>
                 );
@@ -200,7 +372,7 @@ export default function SalesScreen() {
             icon="flag"
             iconColor={mc.primaryContainer}
             label={`${now.toLocaleDateString(undefined, { month: "long" })} Milestone`}
-            value={income}
+            value={monthIncome}
             target={goals.monthly}
             barColor={mc.primaryContainer}
             onEdit={() => setEditingGoal("monthly")}
@@ -209,10 +381,10 @@ export default function SalesScreen() {
           <View style={s.logHeader}>
             <Text style={s.sectionTitle}>Recent Cashflows</Text>
           </View>
-          {transactions.length === 0 ? (
-            <Text style={s.emptyText}>No transactions yet.</Text>
+          {periodEntries.length === 0 ? (
+            <Text style={s.emptyText}>{copy.empty}</Text>
           ) : (
-            transactions.slice(0, 12).map((t) => (
+            periodEntries.slice(0, 12).map((t) => (
               <View key={t.id} style={s.txRow}>
                 <View style={s.txLeft}>
                   <View
@@ -222,7 +394,9 @@ export default function SalesScreen() {
                     ]}
                   >
                     <MaterialIcons
-                      name={t.type === "income" ? "content-cut" : "inventory-2"}
+                      name={
+                        t.fromBooking ? "event-available" : t.type === "income" ? "content-cut" : "inventory-2"
+                      }
                       size={18}
                       color={t.type === "income" ? mc.tertiary : mc.error}
                     />
@@ -240,7 +414,11 @@ export default function SalesScreen() {
                   <Text style={[s.txAmount, { color: t.type === "income" ? mc.tertiary : mc.error }]}>
                     {t.type === "income" ? "+" : "-"}KES {t.amount.toLocaleString()}
                   </Text>
-                  <Text style={s.txTime}>{t.time}</Text>
+                  <Text style={s.txTime}>
+                    {period === "Daily"
+                      ? t.time
+                      : `${parseLocalDate(t.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · ${t.time}`}
+                  </Text>
                 </View>
               </View>
             ))
@@ -259,8 +437,9 @@ export default function SalesScreen() {
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={(input) => {
-          addTransaction(input);
-          setAddOpen(false);
+          addTransaction(input)
+            .then(() => setAddOpen(false))
+            .catch((err: Error) => Alert.alert("Couldn't save transaction", err.message));
         }}
       />
       <EditGoalModal
@@ -268,7 +447,11 @@ export default function SalesScreen() {
         currentValue={editingGoal ? goals[editingGoal] : 0}
         onClose={() => setEditingGoal(null)}
         onSave={(v) => {
-          if (editingGoal) setGoal(editingGoal, v);
+          if (editingGoal) {
+            setGoal(editingGoal, v).catch((err: Error) =>
+              Alert.alert("Couldn't save target", err.message),
+            );
+          }
           setEditingGoal(null);
         }}
       />

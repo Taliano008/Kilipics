@@ -3,6 +3,7 @@
  * "Photos & Hours"
  */
 import { useAuth } from "@/auth/auth-context";
+import { resolveMediaUrl } from "@/config/env";
 import {
   fetchMerchantBusiness,
   saveMerchantStep3,
@@ -318,7 +319,7 @@ export default function OnboardStep3() {
           <View style={s.photoGrid}>
             {photos.map((p, i) => (
               <View key={i} style={s.photoTile}>
-                <Image source={{ uri: p.uri }} style={s.photoImage} resizeMode="cover" />
+                <Image source={{ uri: resolveMediaUrl(p.uri) ?? undefined }} style={s.photoImage} resizeMode="cover" />
                 <View style={s.photoOverlay} />
                 <Pressable
                   style={s.photoRemove}

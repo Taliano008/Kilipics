@@ -1,0 +1,23 @@
+diff --git a/node_modules/@adminjs/sql/lib/dialects/postgres.parser.js b/node_modules/@adminjs/sql/lib/dialects/postgres.parser.js
+index ea43916..ee0ada0 100644
+--- a/node_modules/@adminjs/sql/lib/dialects/postgres.parser.js
++++ b/node_modules/@adminjs/sql/lib/dialects/postgres.parser.js
+@@ -117,7 +117,8 @@ export class PostgresParser extends BaseDatabaseParser {
+             .select('col.column_name', 'col.ordinal_position', 'col.column_default', 'col.is_nullable', 'col.is_updatable', 'col.data_type', 'tco.constraint_type as key_type')
+             .leftJoin('information_schema.key_column_usage as kcu', (c) => c
+             .on('kcu.column_name', 'col.column_name')
+-            .on('kcu.table_name', 'col.table_name'))
++            .on('kcu.table_name', 'col.table_name')
++            .on('kcu.table_schema', 'col.table_schema'))
+             .leftJoin('information_schema.table_constraints as tco', (c) => c
+             .on('tco.constraint_name', 'kcu.constraint_name')
+             .on('tco.constraint_schema', 'kcu.constraint_schema')
+@@ -132,7 +133,7 @@ export class PostgresParser extends BaseDatabaseParser {
+         where attrelid = c.conrelid and ARRAY[attnum] <@ c.conkey) as col, 
+         (select r.relname from pg_class r where r.oid = c.confrelid) as referenced_table
+       from pg_constraint c
+-      where c.conrelid = (select oid from pg_class where relname = '${table}')
++      where c.conrelid = '"${schemaName}"."${table}"'::regclass
+       and (select r.relname from pg_class r where r.oid = c.confrelid) is not null
+     `);
+         const relations = await relQuery;

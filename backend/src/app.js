@@ -9,12 +9,18 @@ import fastifyStatic from "@fastify/static";
 import { ApiError } from "./lib/http-errors.js";
 import consumerAuthRoutes from "./routes/auth/consumer.js";
 import consumerMediaRoutes from "./routes/consumer/media.js";
+import consumerReviewRoutes from "./routes/consumer/reviews.js";
+import consumerBookingRoutes from "./routes/consumer/bookings.js";
+import consumerNotificationRoutes from "./routes/consumer/notifications.js";
 import merchantAuthRoutes from "./routes/auth/merchant.js";
 import merchantBusinessRoutes from "./routes/merchant/business.js";
 import merchantMediaRoutes from "./routes/merchant/media.js";
 import merchantServicesRoutes from "./routes/merchant/services.js";
+import merchantBookingsRoutes from "./routes/merchant/bookings.js";
+import merchantSalesRoutes from "./routes/merchant/sales.js";
 import publicCatalogRoutes from "./routes/public/catalog.js";
 import publicAvailabilityRequestRoutes from "./routes/public/availability-requests.js";
+import publicReviewRoutes from "./routes/public/reviews.js";
 import analyticsRoutes from "./routes/public/analytics.js";
 
 assertEnv();
@@ -26,6 +32,9 @@ mkdirSync(env.uploadsDir, { recursive: true });
 
 const app = Fastify({
   logger: true,
+  // Makes request.ip the real client address when deployed behind a proxy
+  // (see TRUST_PROXY_HOPS in env.js) — it's what rate limiting keys on.
+  trustProxy: env.trustProxyHops > 0 ? env.trustProxyHops : false,
   ajv: {
     customOptions: {
       allErrors: true,
@@ -39,9 +48,14 @@ const app = Fastify({
   bodyLimit: 6 * 1024 * 1024,
 });
 
+// The mobile app is a native client: it sends no Origin header and isn't
+// subject to CORS at all, so this only decides which *websites* may call
+// the API from a browser. In production that's nobody unless listed in
+// CORS_ORIGINS; in development any origin is allowed so Expo web
+// (localhost:8081) keeps working.
 await app.register(cors, {
-  origin: "*",
-  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  origin: env.corsOrigins.length > 0 ? env.corsOrigins : env.nodeEnv !== "production",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-App-Token"],
 });
 
@@ -109,12 +123,18 @@ app.setErrorHandler((err, request, reply) => {
 // consumer route tree since it requires a consumer session.
 await app.register(consumerAuthRoutes, { prefix: "/api/auth/consumer" });
 await app.register(consumerMediaRoutes, { prefix: "/api/consumer/media" });
+await app.register(consumerReviewRoutes, { prefix: "/api/consumer" });
+await app.register(consumerBookingRoutes, { prefix: "/api/consumer/bookings" });
+await app.register(consumerNotificationRoutes, { prefix: "/api/consumer/notifications" });
 await app.register(merchantAuthRoutes, { prefix: "/api/auth/merchant" });
 await app.register(merchantBusinessRoutes, { prefix: "/api/merchant/business" });
 await app.register(merchantMediaRoutes, { prefix: "/api/merchant/media" });
 await app.register(merchantServicesRoutes, { prefix: "/api/merchant/services" });
+await app.register(merchantBookingsRoutes, { prefix: "/api/merchant/bookings" });
+await app.register(merchantSalesRoutes, { prefix: "/api/merchant/sales" });
 await app.register(publicCatalogRoutes, { prefix: "/api/public" });
 await app.register(publicAvailabilityRequestRoutes, { prefix: "/api/public" });
+await app.register(publicReviewRoutes, { prefix: "/api/public" });
 await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
 app.get("/healthz", async (request, reply) => {

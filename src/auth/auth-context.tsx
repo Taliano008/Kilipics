@@ -1,7 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { clearSession, loadSession, saveSession } from "@/auth/session-storage";
 import {
   becomeMerchant as requestBecomeMerchant,
   getCurrentConsumer,
+  isAuthRejection,
   signInWithEmail as requestEmailSignIn,
   signOutConsumer,
   signOutMerchant,
@@ -18,10 +19,9 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-
-const SESSION_KEY = "kilipicks.auth.session.v2";
 
 export type AuthStatus = "loading" | "signed_out" | "signed_in";
 export type AuthUser = ConsumerProfile;
@@ -53,7 +53,9 @@ type AuthState = {
   merchantLinked: boolean;
   merchantNeedsSignIn: boolean;
   signUpWithEmail: (input: EmailSignUpInput) => Promise<void>;
-  signInWithEmail: (input: { email: string; password: string }) => Promise<void>;
+  // remember: false keeps the session for this run of the app only —
+  // nothing is written to the device, so closing the app signs them out.
+  signInWithEmail: (input: { email: string; password: string; remember?: boolean }) => Promise<void>;
   signOut: () => Promise<void>;
   becomeMerchant: (input: { fullName: string; password: string }) => Promise<void>;
   saveMerchantSession: (token: string, profile?: MerchantProfile) => Promise<void>;
@@ -70,13 +72,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
   const [merchantNeedsSignIn, setMerchantNeedsSignIn] = useState(false);
 
+  // Whether this session may be written to the device ("Keep me logged in"
+  // on the log-in screen). A ref, not state: every later persist() call —
+  // a refreshed merchant token, a profile edit — has to honour the choice
+  // made at sign-in without re-rendering anything.
+  const rememberRef = useRef(true);
+
   const persist = useCallback(async (session: StoredSession) => {
     setConsumerToken(session.consumerToken);
     setConsumer(session.consumer);
     setMerchantToken(session.merchantToken);
     setMerchant(session.merchant);
     setStatus("signed_in");
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    if (rememberRef.current) {
+      await saveSession(JSON.stringify(session));
+    } else {
+      await clearSession();
+    }
   }, []);
 
   const clear = useCallback(async () => {
@@ -86,17 +98,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setMerchantToken(null);
     setMerchant(null);
     setMerchantNeedsSignIn(false);
-    await AsyncStorage.removeItem(SESSION_KEY);
+    await clearSession();
   }, []);
 
   useEffect(() => {
     let active = true;
     void (async () => {
       try {
-        const stored = await AsyncStorage.getItem(SESSION_KEY);
+        const stored = await loadSession();
         if (!stored) return;
         const session = JSON.parse(stored) as StoredSession;
-        const response = await getCurrentConsumer(session.consumerToken);
+
+        let response: Awaited<ReturnType<typeof getCurrentConsumer>>;
+        try {
+          response = await getCurrentConsumer(session.consumerToken);
+        } catch (reason) {
+          // Only the server saying "this token is no good" ends the session.
+          // With no signal (or the server down) we can't know either way, so
+          // stay signed in with what's stored — the app is meant to open
+          // offline, and the profile is refreshed on the next launch that
+          // does reach the server.
+          if (isAuthRejection(reason)) throw reason;
+          if (active) await persist(session);
+          return;
+        }
         if (!active) return;
         // /me reports only whether a merchant is linked, never a token —
         // carry forward whatever merchant session this device already had.
@@ -110,7 +135,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
             : null,
         });
       } catch {
-        await AsyncStorage.removeItem(SESSION_KEY);
+        await clearSession();
       } finally {
         if (active) setStatus((current) => (current === "signed_in" ? current : "signed_out"));
       }
@@ -123,6 +148,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const signUpWithEmail = useCallback(
     async (input: EmailSignUpInput) => {
       const response = await requestEmailSignUp(input);
+      rememberRef.current = true;
       setMerchantNeedsSignIn(false);
       await persist({
         consumerToken: response.consumer.token,
@@ -135,8 +161,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const signInWithEmail = useCallback(
-    async (input: { email: string; password: string }) => {
+    async ({ remember = true, ...input }: { email: string; password: string; remember?: boolean }) => {
       const response = await requestEmailSignIn(input);
+      rememberRef.current = remember;
       const hasMerchantToken = Boolean(response.merchant && "token" in response.merchant);
       setMerchantNeedsSignIn(Boolean(response.merchant && !hasMerchantToken));
       await persist({

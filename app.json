@@ -11,6 +11,7 @@
       "expo-splash-screen",
       "expo-image",
       "expo-font",
+      "expo-secure-store",
       "./plugins/withWhatsAppQuery.js",
       [
         "expo-image-picker",

@@ -66,7 +66,7 @@ export default function InboxScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: mc.surface }}>
       <DashboardHeader title="Inbox" />
-      <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
+      <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
           <View style={s.statusStrip}>
             <View style={s.statusLeft}>

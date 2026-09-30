@@ -1,5 +1,5 @@
 import "dotenv/config";
-import mysql from "mysql2/promise";
+import pg from "pg";
 import { readdirSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "src", "db", "migrations");
 
-const dbName = process.env.DB_NAME || "kilipicks";
 const statusOnly = process.argv.includes("--status");
 const dryRun = process.argv.includes("--dry-run");
 
@@ -16,34 +15,37 @@ function checksum(contents) {
 }
 
 async function main() {
-  const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    multipleStatements: true,
-    charset: "utf8mb4",
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl || databaseUrl.includes("[YOUR-PASSWORD]")) {
+    console.error("DATABASE_URL is not set in backend/.env (see .env.example for the Supabase connection string).");
+    process.exitCode = 1;
+    return;
+  }
+
+  // Same TLS rule as src/db/connection.js.
+  const client = new pg.Client({
+    connectionString: databaseUrl,
+    ssl: process.env.DATABASE_SSL !== "false" ? { rejectUnauthorized: false } : false,
   });
+  await client.connect();
 
   try {
-    await connection.query(
-      `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;`,
-    );
-    await connection.query(`USE \`${dbName}\`;`);
-
-    await connection.query(`
+    // RLS for the same reason as 022_enable_row_level_security.sql — this
+    // table is in the public schema too.
+    await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         filename   VARCHAR(255) NOT NULL PRIMARY KEY,
         checksum   CHAR(64)     NOT NULL,
-        applied_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+        applied_at TIMESTAMP(3) NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
       );
+      ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
     `);
 
     const files = readdirSync(migrationsDir)
       .filter((name) => name.endsWith(".sql"))
       .sort();
 
-    const [appliedRows] = await connection.query("SELECT filename, checksum FROM schema_migrations");
+    const { rows: appliedRows } = await client.query("SELECT filename, checksum FROM schema_migrations");
     const applied = new Map(appliedRows.map((row) => [row.filename, row.checksum]));
 
     if (statusOnly) {
@@ -77,24 +79,25 @@ async function main() {
         continue;
       }
 
+      // Postgres DDL is transactional: a migration that fails partway
+      // leaves nothing behind, and is simply retried on the next run.
       console.log(`apply  ${file}`);
       try {
-        await connection.query(contents);
+        await client.query("BEGIN");
+        await client.query(contents);
+        await client.query("INSERT INTO schema_migrations (filename, checksum) VALUES ($1, $2)", [file, sum]);
+        await client.query("COMMIT");
       } catch (err) {
+        await client.query("ROLLBACK");
         console.error(`\nMigration "${file}" failed: ${err.message}`);
         process.exitCode = 1;
         return;
       }
-
-      await connection.execute(
-        "INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)",
-        [file, sum],
-      );
     }
 
     if (!dryRun) console.log("\nMigrations up to date.");
   } finally {
-    await connection.end();
+    await client.end();
   }
 }
 

@@ -1,8 +1,9 @@
 import { track } from "@/analytics/events";
 import { uploadConsumerPhoto } from "@/api/auth";
+import { fetchNotifications } from "@/api/notifications";
 import { useAuth } from "@/auth/auth-context";
 import { CameraModal } from "@/components/CameraModal";
-import { SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
+import { resolveMediaUrl, SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { colors, radii, spacing } from "@/theme/tokens";
@@ -19,8 +20,8 @@ import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
 import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   type ImageSourcePropType,
@@ -84,6 +85,19 @@ export default function AccountScreen() {
   const router = useRouter();
   const { status, user, merchant, merchantNeedsSignIn, signOut, becomeMerchant, consumerToken, updateProfile } =
     useAuth();
+  // Unread notifications for the bell badge, refetched whenever this tab
+  // gains focus. Kept with the session it was loaded for so a count never
+  // carries over to another account.
+  const [unread, setUnread] = useState<{ token: string; count: number } | null>(null);
+  const unreadCount = unread && unread.token === consumerToken ? unread.count : 0;
+  useFocusEffect(
+    useCallback(() => {
+      if (!consumerToken) return;
+      fetchNotifications(consumerToken)
+        .then((res) => setUnread({ token: consumerToken, count: res.unreadCount }))
+        .catch(() => {});
+    }, [consumerToken]),
+  );
   const [sellerFormOpen, setSellerFormOpen] = useState(false);
   const [sellerBusinessName, setSellerBusinessName] = useState("");
   const [sellerPassword, setSellerPassword] = useState("");
@@ -172,6 +186,13 @@ export default function AccountScreen() {
               accessibilityLabel="Notifications"
             >
               <Image source={ringingIcon} style={styles.bellIcon} />
+              {unreadCount > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           ) : null}
         </View>
@@ -202,7 +223,7 @@ export default function AccountScreen() {
             >
               <View style={styles.avatar}>
                 {user.photoUrl ? (
-                  <Image source={{ uri: user.photoUrl }} style={styles.avatarImage} />
+                  <Image source={{ uri: resolveMediaUrl(user.photoUrl) ?? undefined }} style={styles.avatarImage} />
                 ) : (
                   <Text style={styles.avatarText}>{getInitials(user.fullName)}</Text>
                 )}
@@ -231,7 +252,7 @@ export default function AccountScreen() {
           <Row
             icon={bookingIcon}
             title="My Bookings"
-            copy="Availability requests you've sent"
+            copy="Track or cancel bookings you've made"
             onPress={() => {
               void track("page_viewed", {
                 pagePath: "/activity",
@@ -257,7 +278,11 @@ export default function AccountScreen() {
           <Row
             icon={ringingIcon}
             title="Notifications"
-            copy="You're all caught up"
+            copy={
+              unreadCount > 0
+                ? `${unreadCount} new ${unreadCount === 1 ? "update" : "updates"}`
+                : "You're all caught up"
+            }
             isLast
             onPress={() => router.push("/notifications")}
           />
@@ -477,6 +502,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   bellIcon: { width: 18, height: 18 },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: colors.clay,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: colors.white, fontSize: 10, fontWeight: "800" },
   signInCard: {
     flexDirection: "row",
     alignItems: "center",
