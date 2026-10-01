@@ -31,12 +31,12 @@
     "bcrypt": "^5",
     "dotenv": "^16",
     "fastify": "^4",
+    "patch-package": "^8.0.1",
     "pg": "^8.23.0",
     "tslib": "^2.8.1",
     "ulid": "^2"
   },
   "devDependencies": {
-    "nodemon": "^3",
-    "patch-package": "^8.0.1"
+    "nodemon": "^3"
   }
 }

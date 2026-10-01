@@ -4,17 +4,24 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "22.14.0",
+      "pnpm": "11.9.0"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true
     }
   },
