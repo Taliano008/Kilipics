@@ -6,7 +6,10 @@
   "build": {
     "base": {
       "node": "22.14.0",
-      "pnpm": "11.9.0"
+      "pnpm": "11.9.0",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      }
     },
     "development": {
       "extends": "base",
@@ -16,13 +19,21 @@
     "preview": {
       "extends": "base",
       "distribution": "internal",
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_API_BASE_URL": "https://kilipics.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "extends": "base",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_API_BASE_URL": "https://kilipics.onrender.com"
+      }
     }
   },
   "submit": {

@@ -137,6 +137,10 @@ await app.register(publicAvailabilityRequestRoutes, { prefix: "/api/public" });
 await app.register(publicReviewRoutes, { prefix: "/api/public" });
 await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
+// Someone opening the server's bare address in a browser gets a pointer
+// rather than a 404 that looks like a failure. Only the app uses this API.
+app.get("/", async () => ({ service: "KiliPicks API", ok: true, health: "/healthz" }));
+
 app.get("/healthz", async (request, reply) => {
   try {
     await ping();
