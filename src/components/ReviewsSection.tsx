@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/auth/auth-context";
 import { resolveMediaUrl } from "@/config/env";
 import { mf } from "@/theme/merchant";
+import { neu, neuColors } from "@/theme/neumorphism";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -383,7 +384,8 @@ function ReviewForm({
   );
 }
 
-const softShadow = { boxShadow: "0px 8px 30px -4px rgba(186, 72, 42, 0.08)" } as const;
+// Raised soft-UI shadow, as on the rest of the business page.
+const softShadow = { boxShadow: neu.raised.boxShadow } as const;
 
 const s = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -402,12 +404,11 @@ const s = StyleSheet.create({
     gap: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: P.blush50,
+    backgroundColor: neuColors.surface,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(186,72,42,0.1)",
     padding: 18,
     minHeight: 80,
+    boxShadow: neu.raised.boxShadow,
   },
   summaryScore: { alignItems: "center" },
   summaryValue: { fontFamily: SERIF, fontSize: 32, color: P.ink900 },
@@ -419,9 +420,7 @@ const s = StyleSheet.create({
   row: { gap: 12, paddingTop: 12, paddingBottom: 4 },
   card: {
     width: 240,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    backgroundColor: neuColors.surface,
     borderRadius: 20,
     padding: 16,
     ...softShadow,
@@ -438,10 +437,10 @@ const s = StyleSheet.create({
     marginTop: 14,
     height: 46,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: P.terracotta,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: neuColors.surface,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   writeBtnText: { color: P.terracotta, fontSize: 14, fontFamily: mf.bold },
 
@@ -456,7 +455,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(26,22,20,0.42)",
   },
   sheet: {
-    backgroundColor: "#FFFDF9",
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingHorizontal: 20,
@@ -470,11 +469,10 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E8DFDC",
-    backgroundColor: P.white,
+    backgroundColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: neu.raisedSm.boxShadow,
   },
   closeIcon: { color: P.ink900, fontSize: 20, lineHeight: 22 },
   hiddenNote: {
@@ -491,9 +489,7 @@ const s = StyleSheet.create({
   ratingWord: { textAlign: "center", fontSize: 13, fontFamily: mf.semibold, color: P.ink500 },
   input: {
     minHeight: 110,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: "#E8DFDC",
+    ...neu.inset,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingTop: 12,

@@ -3,6 +3,7 @@ import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
+import { NEU_SHADOW_ROOM, neu, neuColors, neuPressable } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { adminIcon, starIcon } from "@/utils/icon-assets";
@@ -147,17 +148,27 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.logoIcon}>
+            <View style={[styles.logoIcon, neu.raisedSm]}>
               <Text style={styles.logoIconText}>K</Text>
             </View>
             <Text style={styles.logoText}>KiliPicks</Text>
           </View>
           <View style={styles.headerRight}>
-            <Pressable style={styles.searchBtn} onPress={() => router.push("/search-overlay")}>
+            <Pressable
+              style={({ pressed }) => [styles.searchBtn, neuPressable(pressed, "sm")]}
+              onPress={() => router.push("/search-overlay")}
+              accessibilityRole="button"
+              accessibilityLabel="Search"
+            >
               <Text style={styles.searchIcon}>⌕</Text>
             </Pressable>
-            <Pressable style={styles.avatarBtn} onPress={() => router.push("/(tabs)/account")}>
-              <Image source={adminIcon} style={styles.avatarIconImage} tintColor="#fff" />
+            <Pressable
+              style={({ pressed }) => [styles.avatarBtn, neuPressable(pressed, "sm")]}
+              onPress={() => router.push("/(tabs)/account")}
+              accessibilityRole="button"
+              accessibilityLabel="Account"
+            >
+              <Image source={adminIcon} style={styles.avatarIconImage} tintColor={neuColors.accent} />
             </Pressable>
           </View>
         </View>
@@ -165,27 +176,39 @@ export default function HomeScreen() {
 
         {/* Hero Categories */}
         <View style={styles.heroRow}>
-          <Pressable style={[styles.heroCard, { backgroundColor: '#5B1830' }]} onPress={() => selectCategory("all")}>
-            <Image source={PHOTOS.beauty} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <LinearGradient colors={['rgba(165,51,90,0.15)', 'rgba(43,13,24,0.45)', 'rgba(43,13,24,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
-            <View style={styles.heroIconBox}>
-              <Image source={ICONS.hair} style={{ width: 16, height: 16, tintColor: "#fff" }} />
-            </View>
-            <View style={styles.heroTextContainer}>
-              <Text style={styles.heroTitle}>Beauty and personal care</Text>
-              <Text style={styles.heroSubtitle}>Explore beauty ›</Text>
+          {/* Soft-UI frame around each photo: the frame is raised (pressed in
+              while touched); the photo inside keeps its own rounded clip. */}
+          <Pressable
+            style={({ pressed }) => [styles.heroFrame, neuPressable(pressed)]}
+            onPress={() => selectCategory("all")}
+          >
+            <View style={[styles.heroCard, { backgroundColor: '#5B1830' }]}>
+              <Image source={PHOTOS.beauty} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <LinearGradient colors={['rgba(165,51,90,0.15)', 'rgba(43,13,24,0.45)', 'rgba(43,13,24,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
+              <View style={styles.heroIconBox}>
+                <Image source={ICONS.hair} style={{ width: 16, height: 16, tintColor: "#fff" }} />
+              </View>
+              <View style={styles.heroTextContainer}>
+                <Text style={styles.heroTitle}>Beauty and personal care</Text>
+                <Text style={styles.heroSubtitle}>Explore beauty ›</Text>
+              </View>
             </View>
           </Pressable>
 
-          <Pressable style={[styles.heroCard, { backgroundColor: '#153E2E' }]} onPress={() => selectCategory("fitness")}>
-            <Image source={PHOTOS.gym} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <LinearGradient colors={['rgba(43,107,82,0.15)', 'rgba(11,33,26,0.45)', 'rgba(11,33,26,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
-            <View style={styles.heroIconBox}>
-              <Image source={ICONS.gym} style={{ width: 16, height: 16, tintColor: "#fff" }} />
-            </View>
-            <View style={styles.heroTextContainer}>
-              <Text style={styles.heroTitle}>Fitness and wellness</Text>
-              <Text style={styles.heroSubtitle}>View category ›</Text>
+          <Pressable
+            style={({ pressed }) => [styles.heroFrame, neuPressable(pressed)]}
+            onPress={() => selectCategory("fitness")}
+          >
+            <View style={[styles.heroCard, { backgroundColor: '#153E2E' }]}>
+              <Image source={PHOTOS.gym} style={StyleSheet.absoluteFill} contentFit="cover" />
+              <LinearGradient colors={['rgba(43,107,82,0.15)', 'rgba(11,33,26,0.45)', 'rgba(11,33,26,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
+              <View style={styles.heroIconBox}>
+                <Image source={ICONS.gym} style={{ width: 16, height: 16, tintColor: "#fff" }} />
+              </View>
+              <View style={styles.heroTextContainer}>
+                <Text style={styles.heroTitle}>Fitness and wellness</Text>
+                <Text style={styles.heroSubtitle}>View category ›</Text>
+              </View>
             </View>
           </Pressable>
         </View>
@@ -194,12 +217,14 @@ export default function HomeScreen() {
         <Text style={styles.sectionSubtitle}>More of Nairobi, coming soon</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.comingSoonScroll}>
           {COMING_SOON.map((item, idx) => (
-            <View key={idx} style={styles.comingSoonCard}>
-              <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-              <LinearGradient colors={['rgba(28,26,23,0.05)', 'rgba(28,26,23,0.55)']} style={StyleSheet.absoluteFill} />
-              <View style={styles.comingSoonOverlay}>
-                <View style={styles.comingSoonBadge}><Text style={styles.comingSoonBadgeText}>Coming soon</Text></View>
-                <Text style={styles.comingSoonTitle}>• {item.name}</Text>
+            <View key={idx} style={[styles.comingSoonFrame, neu.raised]}>
+              <View style={styles.comingSoonCard}>
+                <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <LinearGradient colors={['rgba(28,26,23,0.05)', 'rgba(28,26,23,0.55)']} style={StyleSheet.absoluteFill} />
+                <View style={styles.comingSoonOverlay}>
+                  <View style={styles.comingSoonBadge}><Text style={styles.comingSoonBadgeText}>Coming soon</Text></View>
+                  <Text style={styles.comingSoonTitle}>• {item.name}</Text>
+                </View>
               </View>
             </View>
           ))}
@@ -212,15 +237,27 @@ export default function HomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreScroll}>
           {categoryData.map(cat => (
-            <Pressable key={cat.id} style={styles.exploreItem} onPress={() => selectCategory(cat.id)}>
-              <View style={[styles.exploreIconBox, { backgroundColor: cat.bg, borderColor: cat.border !== 'none' ? 'rgba(28,26,23,0.15)' : 'transparent', borderWidth: cat.border !== 'none' ? 1.5 : 0 }]}>
-                {cat.icon && ('photo' in cat && cat.photo ? (
-                  <Image source={cat.icon} style={styles.explorePhoto} contentFit="cover" />
-                ) : (
-                  <Image source={cat.icon} style={{ width: 32, height: 32, tintColor: cat.fg }} />
-                ))}
-              </View>
-              <Text style={styles.exploreItemText}>{cat.label} · {cat.count}</Text>
+            <Pressable
+              key={cat.id}
+              style={styles.exploreItem}
+              onPress={() => selectCategory(cat.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${cat.label}, ${cat.count} businesses`}
+            >
+              {({ pressed }) => (
+                <>
+                  {/* Raised disc on the surface; the icon keeps its category
+                      colour so it still reads at a glance. */}
+                  <View style={[styles.exploreIconBox, neuPressable(pressed)]}>
+                    {cat.icon && ('photo' in cat && cat.photo ? (
+                      <Image source={cat.icon} style={styles.explorePhoto} contentFit="cover" />
+                    ) : (
+                      <Image source={cat.icon} style={{ width: 30, height: 30, tintColor: cat.fg }} />
+                    ))}
+                  </View>
+                  <Text style={styles.exploreItemText}>{cat.label} · {cat.count}</Text>
+                </>
+              )}
             </Pressable>
           ))}
         </ScrollView>
@@ -229,7 +266,7 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitleSpaced}>New to KiliPicks</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
           {newListings.map(item => (
-            <Pressable key={item.id} style={styles.newListingCard} onPress={() => router.push(`/provider/${item.id}`)}>
+            <Pressable key={item.id} style={({ pressed }) => [styles.newListingCard, neuPressable(pressed)]} onPress={() => router.push(`/provider/${item.id}`)}>
               <View style={styles.newListingImageContainer}>
                 <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
                 <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
@@ -244,7 +281,7 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitleSpaced}>Nearby venues</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
           {nearbyVenues.map(item => (
-            <Pressable key={item.id} style={styles.venueCard} onPress={() => router.push(`/provider/${item.id}`)}>
+            <Pressable key={item.id} style={({ pressed }) => [styles.venueCard, neuPressable(pressed)]} onPress={() => router.push(`/provider/${item.id}`)}>
               <View style={styles.venueImageContainer}>
                 <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
               </View>
@@ -264,8 +301,8 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitleSpaced}>Nearby professionals</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
           {NEARBY_PROS.map((pro, idx) => (
-            <View key={idx} style={styles.proCard}>
-              <View style={[styles.proAvatar, { backgroundColor: pro.bg }]}>
+            <View key={idx} style={[styles.proCard, neu.raised]}>
+              <View style={[styles.proAvatar, neu.inset]}>
                 <Text style={[styles.proInitials, { color: pro.fg }]}>{pro.initials}</Text>
               </View>
               <Text style={styles.listingTitle} numberOfLines={1}>{pro.name}</Text>
@@ -280,7 +317,7 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitleSpaced}>Recently viewed</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentScroll}>
               {recentlyViewed.map(item => (
-                <Pressable key={item.id} style={styles.recentCard} onPress={() => router.push(`/provider/${item.id}`)}>
+                <Pressable key={item.id} style={({ pressed }) => [styles.recentCard, neuPressable(pressed, "sm")]} onPress={() => router.push(`/provider/${item.id}`)}>
                   <View style={styles.recentImageContainer}>
                     <Image source={{ uri: resolveMediaUrl(item.cover) || "" }} style={StyleSheet.absoluteFill} contentFit="cover" />
                   </View>
@@ -298,7 +335,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FBF7EF" },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   content: { paddingBottom: 40 },
   header: {
     flexDirection: "row",
@@ -321,7 +358,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoIconText: {
-    color: "#fff",
+    color: neuColors.accent,
     fontSize: 20,
     fontWeight: "bold",
   },
@@ -340,8 +377,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    borderWidth: 1.5,
-    borderColor: "rgba(28,26,23,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -369,13 +404,17 @@ const styles = StyleSheet.create({
   },
   heroRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 14,
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: 16,
+  },
+  heroFrame: {
+    flex: 1,
+    borderRadius: 22,
+    padding: 6,
   },
   heroCard: {
-    flex: 1,
-    height: 210,
+    height: 198,
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -417,13 +456,17 @@ const styles = StyleSheet.create({
   },
   comingSoonScroll: {
     paddingHorizontal: 18,
-    paddingTop: 12,
-    gap: 10,
+    paddingVertical: NEU_SHADOW_ROOM,
+    gap: 14,
+  },
+  comingSoonFrame: {
+    borderRadius: 18,
+    padding: 5,
   },
   comingSoonCard: {
     width: 130,
     height: 120,
-    borderRadius: 14,
+    borderRadius: 13,
     overflow: "hidden",
   },
   comingSoonOverlay: {
@@ -450,7 +493,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     paddingHorizontal: 18,
-    paddingTop: 28,
+    paddingTop: 20,
   },
   sectionTitle: {
     fontSize: 19,
@@ -459,7 +502,7 @@ const styles = StyleSheet.create({
   },
   sectionTitleSpaced: {
     paddingHorizontal: 18,
-    paddingTop: 30,
+    paddingTop: 18,
     fontSize: 19,
     fontWeight: "700",
     color: "#1C1A17",
@@ -471,8 +514,8 @@ const styles = StyleSheet.create({
   },
   exploreScroll: {
     paddingHorizontal: 18,
-    paddingTop: 16,
-    gap: 16,
+    paddingVertical: NEU_SHADOW_ROOM,
+    gap: 18,
   },
   exploreItem: {
     alignItems: "center",
@@ -494,12 +537,15 @@ const styles = StyleSheet.create({
   },
   horizontalScroll: {
     paddingHorizontal: 18,
-    paddingTop: 14,
-    gap: 12,
+    paddingVertical: NEU_SHADOW_ROOM,
+    gap: 16,
   },
   newListingCard: {
-    width: 158,
+    width: 170,
     gap: 8,
+    padding: 8,
+    paddingBottom: 12,
+    borderRadius: 20,
   },
   newListingImageContainer: {
     height: 110,
@@ -530,8 +576,11 @@ const styles = StyleSheet.create({
     color: "rgba(28,26,23,0.55)",
   },
   venueCard: {
-    width: 170,
+    width: 182,
     gap: 8,
+    padding: 8,
+    paddingBottom: 12,
+    borderRadius: 20,
   },
   venueImageContainer: {
     height: 110,
@@ -557,9 +606,12 @@ const styles = StyleSheet.create({
     color: "#1C1A17",
   },
   proCard: {
-    width: 104,
+    width: 116,
     alignItems: "center",
     gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 20,
   },
   proAvatar: {
     width: 76,
@@ -574,13 +626,16 @@ const styles = StyleSheet.create({
   },
   recentScroll: {
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: NEU_SHADOW_ROOM,
     paddingBottom: 26,
-    gap: 12,
+    gap: 14,
   },
   recentCard: {
-    width: 118,
+    width: 130,
     gap: 6,
+    padding: 6,
+    paddingBottom: 10,
+    borderRadius: 16,
   },
   recentImageContainer: {
     height: 80,

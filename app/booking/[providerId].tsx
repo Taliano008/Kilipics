@@ -32,7 +32,8 @@ import { useCatalog } from "@/catalog/catalog-context";
 import { useAuth } from "@/auth/auth-context";
 import { resolveMediaUrl } from "@/config/env";
 import type { PublicCatalogService } from "@/types/catalog";
-import { colors, radii, shadow, spacing } from "@/theme/tokens";
+import { neu, neuBarBottom, neuColors } from "@/theme/neumorphism";
+import { colors, radii, spacing } from "@/theme/tokens";
 import { localIsoDate } from "@/utils/dates";
 import { normalizeKenyanPhone } from "@/utils/phone";
 import { Image } from "expo-image";
@@ -1144,7 +1145,7 @@ export default function BookingScreen() {
 
 // Styles
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
 
   header: {
     minHeight: 64,
@@ -1154,9 +1155,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    backgroundColor: colors.white,
+    ...neuBarBottom,
   },
   headerTitleWrap: { flex: 1, paddingRight: spacing.sm },
   headerEyebrow: {
@@ -1172,12 +1171,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    backgroundColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   closeIcon: { color: colors.ink, fontSize: 20, lineHeight: 22 },
 
@@ -1222,13 +1220,10 @@ const styles = StyleSheet.create({
 
   // Business card
   card: {
-    backgroundColor: colors.white,
+    ...neu.raised,
     borderRadius: radii.md,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.line,
     gap: 4,
-    ...shadow,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -1250,13 +1245,14 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 8 },
   addOnRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   addOnChip: {
-    backgroundColor: "#FBF5F6",
+    backgroundColor: neuColors.surface,
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: "transparent",
     paddingHorizontal: 14,
     paddingVertical: 8,
     maxWidth: "100%",
+    boxShadow: neu.raisedSm.boxShadow,
   },
   addOnChipOn: { backgroundColor: colors.blush, borderColor: colors.clay },
   addOnText: { color: colors.clay, fontSize: 13.5, fontWeight: "700" },
@@ -1325,10 +1321,11 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
-    backgroundColor: colors.white,
+    backgroundColor: neuColors.surface,
     borderWidth: 1.5,
-    borderColor: colors.line,
+    borderColor: "transparent",
     borderRadius: radii.md,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   dateFieldErr: { borderColor: colors.clay },
   dateIcon: {
@@ -1362,9 +1359,7 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.ink, fontSize: 13, fontWeight: "600" },
   fieldError: { color: colors.clay, fontSize: 12 },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
+    ...neu.inset,
     borderRadius: radii.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: 13,
@@ -1378,18 +1373,16 @@ const styles = StyleSheet.create({
   phoneRow: {
     flexDirection: "row",
     alignItems: "stretch",
-    borderWidth: 1,
-    borderColor: colors.line,
     borderRadius: radii.sm,
-    backgroundColor: colors.white,
+    ...neu.inset,
     overflow: "hidden",
   },
   phonePrefix: {
     justifyContent: "center",
     paddingHorizontal: 14,
-    backgroundColor: colors.sand,
+    backgroundColor: "transparent",
     borderRightWidth: 1,
-    borderRightColor: colors.line,
+    borderRightColor: "rgba(163,142,124,0.3)",
   },
   phonePrefixText: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   phoneInput: {
@@ -1512,8 +1505,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: "transparent",
+    backgroundColor: neuColors.surface,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   shortcutLabel: { color: colors.ink, fontSize: 14, fontWeight: "800" },
   shortcutSub: { color: colors.ink, fontSize: 12, opacity: 0.8 },
@@ -1530,11 +1524,12 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: spacing.md,
     borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: "transparent",
+    backgroundColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   stripWeekday: {
     color: colors.ink,
@@ -1564,10 +1559,11 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: radii.sm,
     borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: "transparent",
+    backgroundColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: neu.raisedSm.boxShadow,
   },
   timeChipOn: { backgroundColor: colors.clay, borderColor: colors.clay },
   timeChipText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
@@ -1641,11 +1637,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   gateBack: {
-    borderWidth: 1,
-    borderColor: colors.clay,
+    backgroundColor: neuColors.surface,
     borderRadius: radii.md,
     paddingHorizontal: 24,
     paddingVertical: 13,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   gateBackText: { color: colors.clay, fontWeight: "800" },
 
@@ -1656,7 +1652,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: spacing.xl,
     paddingBottom: spacing.xl + 24,
-    backgroundColor: colors.sand,
+    backgroundColor: neuColors.surface,
     gap: spacing.md,
   },
   resultIcon: {

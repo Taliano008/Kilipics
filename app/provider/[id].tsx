@@ -12,6 +12,7 @@ import { fetchMerchantBusinessPreview } from "@/api/merchant";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { mf } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
 import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { starIcon, verifiedBadgeIcon } from "@/utils/icon-assets";
@@ -86,7 +87,8 @@ const P = {
   blush50: "#FDF7F6",
   blush100: "#FCECE9",
   blush200: "#F9DCD7",
-  surface: "#FAF8F5",
+  // Soft-UI surface shared with the rest of the customer app.
+  surface: neuColors.surface,
   ink900: "#1F1A18",
   ink700: "#4A423E",
   ink500: "#7B726C",
@@ -692,7 +694,7 @@ export default function ProviderDetailScreen() {
           {/* About card */}
           <View onLayout={registerOffset("overview")}>
             <LinearGradient
-              colors={["#FFF5F3", P.blush50, "#FCEDE9"]}
+              colors={["#F4EFE9", P.surface, "#ECE5DD"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.aboutCard}
@@ -1082,7 +1084,8 @@ export default function ProviderDetailScreen() {
   );
 }
 
-const softShadow = { boxShadow: "0px 8px 30px -4px rgba(186, 72, 42, 0.08)" } as const;
+// Raised soft-UI shadow (light top-left, dark bottom-right).
+const softShadow = { boxShadow: neu.raised.boxShadow } as const;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: P.surface },
@@ -1103,10 +1106,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: P.white,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 1px 3px rgba(31, 26, 24, 0.08)",
   },
   navLabel: {
     flex: 1,
@@ -1192,10 +1194,8 @@ const styles = StyleSheet.create({
 
   // Tabs
   tabBarWrap: {
-    backgroundColor: P.white,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: P.hairline,
+    backgroundColor: P.surface,
+    boxShadow: "0px 4px 10px rgba(163,142,124,0.22)",
   },
   tabBar: { paddingHorizontal: 20, gap: 24, height: TAB_BAR_HEIGHT, alignItems: "flex-end" },
   tab: { paddingBottom: 10 },
@@ -1234,8 +1234,6 @@ const styles = StyleSheet.create({
   aboutCard: {
     borderRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(186,72,42,0.1)",
     ...softShadow,
   },
   aboutPill: {
@@ -1261,7 +1259,8 @@ const styles = StyleSheet.create({
   },
   aboutTitle: { fontFamily: SERIF, fontSize: 24, lineHeight: 30, color: P.ink900 },
   aboutText: { marginTop: 10, fontSize: 13, lineHeight: 21, fontFamily: mf.regular, color: P.ink700 },
-  perkRow: { gap: 10, paddingTop: 16 },
+  // Room so the horizontal row doesn't clip the chips' shadows.
+  perkRow: { gap: 12, paddingTop: 16, paddingBottom: 10, paddingHorizontal: 4 },
   perkChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -1269,15 +1268,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderWidth: 1,
-    borderColor: P.terracottaLine,
+    ...neu.raisedSm,
   },
   perkIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   perkText: { fontSize: 11, fontFamily: mf.semibold, color: P.ink700 },
 
   // Contact
-  contactGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  contactGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
   contactTile: {
     flexBasis: "30%",
     flexGrow: 1,
@@ -1288,9 +1285,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 16,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    ...neu.raisedSm,
   },
   contactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   contactText: { fontSize: 12, fontFamily: mf.semibold, color: P.ink900, flexShrink: 1 },
@@ -1300,9 +1295,8 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: P.hairline,
-    marginBottom: 10,
+    ...softShadow,
+    marginBottom: 14,
   },
   mapExpandBtn: {
     position: "absolute",
@@ -1327,7 +1321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: P.terracotta,
+    ...neuAccent(false, P.terracotta),
   },
   directionsText: { fontSize: 13, fontFamily: mf.semibold, color: P.white },
   mapModal: { flex: 1, backgroundColor: P.surface },
@@ -1351,37 +1345,39 @@ const styles = StyleSheet.create({
     gap: 6,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: P.white,
+    ...neuBarTop,
   },
   mapModalName: { fontFamily: SERIF, fontSize: 20, color: P.ink900 },
   mapModalDirections: { alignSelf: "stretch", justifyContent: "center", marginTop: 8, paddingVertical: 14 },
 
   // Services
-  filterRow: { gap: 8, paddingBottom: 4 },
+  filterRow: { gap: 12, paddingVertical: 10, paddingHorizontal: 4 },
   filterPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: P.blush50,
-    borderWidth: 1,
-    borderColor: P.terracottaLine,
+    ...neu.raisedSm,
   },
-  filterPillActive: { backgroundColor: P.terracotta, borderColor: P.terracotta },
+  filterPillActive: neuAccent(false, P.terracotta),
   filterText: { fontSize: 12, fontFamily: mf.medium, color: P.ink700 },
   filterTextActive: { color: P.white, fontFamily: mf.semibold },
-  serviceList: { gap: 12, marginTop: 12 },
+  serviceList: { gap: 16, marginTop: 12 },
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     padding: 14,
     borderRadius: 24,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    backgroundColor: P.surface,
     ...softShadow,
   },
-  serviceCardSelected: { borderWidth: 2, borderColor: P.terracotta, padding: 13 },
+  // Selected: pressed into the surface, with an accent edge.
+  serviceCardSelected: {
+    borderWidth: 2,
+    borderColor: P.terracotta,
+    padding: 12,
+    boxShadow: neu.inset.boxShadow,
+  },
   serviceThumb: {
     width: 64,
     height: 64,
@@ -1425,15 +1421,14 @@ const styles = StyleSheet.create({
   selectBtnTextActive: { color: P.white },
 
   // Gallery
-  galleryRow: { gap: 12, paddingBottom: 4 },
+  galleryRow: { gap: 14, paddingVertical: 10, paddingHorizontal: 4 },
   galleryTile: {
     width: 96,
     height: 96,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: P.blush100,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    boxShadow: neu.raisedSm.boxShadow,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1452,9 +1447,7 @@ const styles = StyleSheet.create({
 
   // Hours + info
   card: {
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    ...neu.raised,
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 6,

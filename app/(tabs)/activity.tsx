@@ -7,6 +7,7 @@ import {
 } from "@/api/bookings";
 import { useAuth } from "@/auth/auth-context";
 import { EmptyState } from "@/components/ScreenState";
+import { neu, neuAccent, neuColors, neuPressable } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { localIsoDate, parseLocalDate } from "@/utils/dates";
 import { bookingIcon } from "@/utils/icon-assets";
@@ -207,7 +208,7 @@ export default function ActivityScreen() {
       ) : signedIn && error ? (
         <View style={styles.body}>
           <EmptyState title="Couldn't load your bookings" copy={error}>
-            <Pressable style={styles.primary} onPress={() => void load()}>
+            <Pressable style={({ pressed }) => [styles.primary, neuAccent(pressed)]} onPress={() => void load()}>
               <Text style={styles.primaryText}>Try again</Text>
             </Pressable>
           </EmptyState>
@@ -224,14 +225,14 @@ export default function ActivityScreen() {
             }
           >
             <Pressable
-              style={styles.primary}
+              style={({ pressed }) => [styles.primary, neuAccent(pressed)]}
               onPress={() => router.push("/(tabs)/search")}
             >
               <Text style={styles.primaryText}>Search venues</Text>
             </Pressable>
             {status === "signed_out" ? (
               <Pressable
-                style={styles.secondary}
+                style={({ pressed }) => [styles.secondary, neuPressable(pressed, "sm")]}
                 onPress={() => router.push("/auth")}
               >
                 <Text style={styles.secondaryText}>Log in or sign up</Text>
@@ -299,7 +300,7 @@ function BookingCard({
         </Pressable>
         {onCancel && isCancellable(booking) && (
           <Pressable
-            style={[styles.cancelBtn, cancelling && { opacity: 0.6 }]}
+            style={({ pressed }) => [styles.cancelBtn, neuPressable(pressed, "sm"), cancelling && { opacity: 0.6 }]}
             onPress={onCancel}
             disabled={cancelling}
           >
@@ -316,14 +317,13 @@ function BookingCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   title: { color: colors.ink, fontSize: 34, fontWeight: "900" },
   body: { flex: 1, justifyContent: "center", padding: spacing.lg },
   emptyIcon: { width: 40, height: 40, marginBottom: spacing.xs },
   primary: {
     marginTop: spacing.md,
-    backgroundColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,
@@ -332,9 +332,7 @@ const styles = StyleSheet.create({
   },
   primaryText: { color: colors.white, fontSize: 15, fontWeight: "700" },
   secondary: {
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.line,
+    marginTop: spacing.md,
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,
@@ -343,7 +341,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: colors.ink, fontSize: 15, fontWeight: "700" },
 
-  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
+  list: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xl },
   sectionLabel: {
     color: colors.inkMuted,
     fontSize: 11,
@@ -353,10 +351,8 @@ const styles = StyleSheet.create({
   },
   errorText: { color: colors.clay, fontSize: 13, fontWeight: "600" },
   card: {
-    backgroundColor: colors.white,
+    ...neu.raised,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.line,
     padding: spacing.md,
     gap: 10,
   },
@@ -377,7 +373,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   pillConfirmed: { backgroundColor: colors.moss },
-  pillInactive: { backgroundColor: colors.sand },
+  pillInactive: neu.inset,
   pillText: { color: colors.warning, fontSize: 11.5, fontWeight: "700" },
   pillTextConfirmed: { color: colors.white },
   pillTextInactive: { color: colors.inkMuted },
@@ -394,14 +390,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: "rgba(163,142,124,0.22)",
     paddingTop: 10,
     minHeight: 46,
   },
   linkText: { color: colors.clay, fontSize: 13.5, fontWeight: "700" },
   cancelBtn: {
-    borderWidth: 1,
-    borderColor: colors.clay,
     borderRadius: radii.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,

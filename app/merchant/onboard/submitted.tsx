@@ -5,6 +5,7 @@
 import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, type MerchantBusiness } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import {
   adminIcon,
   bookingIcon,
@@ -267,8 +268,8 @@ export default function OnboardSubmitted() {
 }
 
 const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: mc.surface },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: mc.surface },
+  safe:        { flex: 1, backgroundColor: neuColors.surface },
+  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: neuColors.surface },
   backBtn:     { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: mr.full },
   backIcon:    { fontSize: 22, color: mc.onSurface },
   headerTitle: { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
@@ -277,7 +278,7 @@ const s = StyleSheet.create({
 
   // Celebration hero
   heroWrap:      { alignItems: "center", paddingVertical: ms.md },
-  heroOuter:     { width: 96, height: 96, borderRadius: 48, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center", marginBottom: ms.sm, position: "relative" },
+  heroOuter:     { width: 96, height: 96, borderRadius: 48, ...neu.raised, alignItems: "center", justifyContent: "center", marginBottom: ms.sm, position: "relative" },
   heroMiddle:    { width: 80, height: 80, borderRadius: 40, backgroundColor: mc.secondaryContainer, alignItems: "center", justifyContent: "center" },
   heroInner:     { width: 56, height: 56, borderRadius: 28, backgroundColor: mc.secondary, alignItems: "center", justifyContent: "center" },
   heroCheck:     { color: mc.onSecondary, fontSize: 28, fontFamily: mf.bold },
@@ -289,7 +290,7 @@ const s = StyleSheet.create({
   heroSub:       { fontSize: 14, color: mc.onSurfaceVariant, textAlign: "center", lineHeight: 20, maxWidth: 280 },
 
   // Status banner
-  statusBanner:  { backgroundColor: mc.surfaceContainer, borderRadius: mr.xl, overflow: "hidden", flexDirection: "row" },
+  statusBanner:  { ...neu.raised, borderRadius: mr.xl, overflow: "hidden", flexDirection: "row" },
   statusAccent:  { width: 6, backgroundColor: mc.primaryContainer },
   statusContent: { flex: 1, padding: ms.md, gap: ms.sm },
   statusTop:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -309,7 +310,7 @@ const s = StyleSheet.create({
   etaText:       { fontSize: 12, color: mc.onSurfaceVariant },
 
   // Card
-  card:       { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.md },
+  card:       { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.md },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardTitle:  { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
   stepBadge:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh },
@@ -338,9 +339,9 @@ const s = StyleSheet.create({
   whileHeader:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   whileTitle:   { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
   whileBoost:   { fontSize: 12, fontFamily: mf.semibold, color: mc.primary },
-  whileCard:    { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  whileCard:    { ...neu.raised, borderRadius: mr.xl, padding: ms.md, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   whileCardLeft: { flexDirection: "row", alignItems: "center", gap: ms.sm, flex: 1 },
-  whileCardIcon: { width: 48, height: 48, borderRadius: mr.xl, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
+  whileCardIcon: { width: 48, height: 48, borderRadius: mr.xl, ...neu.inset, alignItems: "center", justifyContent: "center" },
   whileCardIconText: { fontSize: 24 },
   whileCardIconImage: { width: 24, height: 24 },
   whileCardBody: { flex: 1 },
@@ -349,10 +350,10 @@ const s = StyleSheet.create({
   whileCardArrow: { color: mc.primary, fontSize: 22 },
 
   // Footer
-  footer:           { padding: ms.md, gap: ms.xs, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant },
-  ctaPrimary:       { height: 48, borderRadius: mr.full, backgroundColor: mc.primaryContainer, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  footer:           { padding: ms.md, gap: ms.xs, ...neuBarTop },
+  ctaPrimary:       { height: 48, borderRadius: mr.full, ...neuAccent(false, mc.primaryContainer), flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   ctaPrimaryIcon:   { width: 16, height: 16 },
   ctaPrimaryText:   { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
-  ctaSecondary:     { height: 48, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
+  ctaSecondary:     { height: 48, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   ctaSecondaryText: { color: mc.onSurface, fontSize: 15, fontFamily: mf.semibold },
 });

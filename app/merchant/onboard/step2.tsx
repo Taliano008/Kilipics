@@ -7,6 +7,7 @@ import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, saveMerchantStep2 } from "@/api/merchant";
 import { StoreLocationPicker } from "@/components/StoreMap";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import {
   adminIcon,
   bookingIcon,
@@ -517,8 +518,8 @@ export default function OnboardStep2() {
 }
 
 const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: mc.surface },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: mc.surface },
+  safe:        { flex: 1, backgroundColor: neuColors.surface },
+  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: neuColors.surface },
   backBtn:     { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: mr.full },
   backIcon:    { fontSize: 22, color: mc.onSurface },
   headerTitle: { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
@@ -542,7 +543,7 @@ const s = StyleSheet.create({
   subtext:          { fontSize: 14, color: mc.onSurfaceVariant, lineHeight: 20 },
 
   // Search
-  searchBar:   { flexDirection: "row", alignItems: "center", backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, paddingHorizontal: ms.sm, paddingVertical: 6, gap: ms.xs },
+  searchBar:   { flexDirection: "row", alignItems: "center", ...neu.inset, borderRadius: mr.xl, paddingHorizontal: ms.sm, paddingVertical: 6, gap: ms.xs },
   searchIcon:  { fontSize: 18 },
   searchIconImage: { width: 18, height: 18 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
@@ -561,9 +562,9 @@ const s = StyleSheet.create({
 
   // Business model
   sectionLabel: { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurfaceVariant, marginBottom: ms.xs },
-  segmented:    { flexDirection: "row", gap: ms.xs, padding: 4, backgroundColor: mc.surfaceContainer, borderRadius: mr.xl },
+  segmented:    { flexDirection: "row", gap: ms.xs, padding: 4, ...neu.inset, borderRadius: mr.xl },
   seg:          { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: ms.xs, paddingVertical: 10, paddingHorizontal: ms.sm, borderRadius: mr.lg },
-  segActive:    { backgroundColor: mc.surfaceContainerLowest },
+  segActive:    { ...neu.raisedSm },
   segInactive:  { backgroundColor: "transparent" },
   segIcon:      { fontSize: 16 },
   segIconImage: { width: 16, height: 16 },
@@ -572,14 +573,14 @@ const s = StyleSheet.create({
   segTextInactive: { color: mc.onSurfaceVariant },
 
   // Card
-  card:           { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
+  card:           { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
   cardHeader:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.xs },
   cardHeaderIcon: { fontSize: 18 },
   cardHeaderIconImage: { width: 18, height: 18 },
   cardHeaderTitle: { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   editLink:       { color: mc.primary, fontSize: 12, fontFamily: mf.semibold },
-  addrField:      { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, paddingHorizontal: ms.sm, paddingVertical: 8 },
+  addrField:      { ...neu.inset, borderRadius: mr.lg, paddingHorizontal: ms.sm, paddingVertical: 8 },
   addrFieldLabel: { fontSize: 11, fontFamily: mf.semibold, color: mc.onSurfaceVariant },
   addrFieldValue: { fontSize: 14, fontFamily: mf.medium, color: mc.onSurface, marginTop: 2 },
   addrRow:        { flexDirection: "row", gap: ms.xs },
@@ -594,26 +595,26 @@ const s = StyleSheet.create({
   radiusSubtitle:   { fontSize: 13, color: mc.onSurfaceVariant },
   toggle:           { width: 48, height: 24, borderRadius: mr.full, padding: 2, justifyContent: "center" },
   toggleOn:         { backgroundColor: mc.primaryContainer },
-  toggleOff:        { backgroundColor: mc.surfaceContainerHighest },
-  toggleThumb:      { width: 20, height: 20, borderRadius: 10, backgroundColor: mc.surfaceContainerLowest },
+  toggleOff:        { ...neu.inset },
+  toggleThumb:      { width: 20, height: 20, borderRadius: 10, ...neu.raisedSm },
   toggleThumbLeft:  { alignSelf: "flex-start" },
   toggleThumbRight: { alignSelf: "flex-end" },
   radiusSliderSection: { gap: ms.xs },
-  radiusValueRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: mc.surfaceContainerLow, paddingHorizontal: ms.sm, paddingVertical: 8, borderRadius: mr.lg },
+  radiusValueRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...neu.inset, paddingHorizontal: ms.sm, paddingVertical: 8, borderRadius: mr.lg },
   radiusValueLabel: { fontSize: 13, color: mc.onSurfaceVariant },
   radiusValueBadge: { backgroundColor: mc.primaryFixed, paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.sm },
   radiusValueText:  { color: mc.primary, fontSize: 13, fontFamily: mf.bold },
-  sliderTrack:      { flexDirection: "row", height: 6, borderRadius: mr.full, overflow: "hidden", backgroundColor: mc.surfaceContainerHighest },
+  sliderTrack:      { flexDirection: "row", height: 6, borderRadius: mr.full, overflow: "hidden", ...neu.inset },
   sliderFill:       { backgroundColor: mc.primary },
   sliderEmpty:      { backgroundColor: mc.surfaceContainerHighest },
   sliderLabels:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sliderLabelText:  { fontSize: 11, color: mc.onSurfaceVariant },
   sliderBtns:       { flexDirection: "row", gap: ms.xs },
-  sliderBtn:        { width: 36, height: 36, borderRadius: mr.full, backgroundColor: mc.surfaceContainerLow, alignItems: "center", justifyContent: "center" },
+  sliderBtn:        { width: 36, height: 36, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   sliderBtnText:    { fontSize: 20, color: mc.onSurface, lineHeight: 24 },
 
   // Tip
-  tipCard:    { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, padding: ms.sm, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
+  tipCard:    { ...neu.raised, borderRadius: mr.xl, padding: ms.sm, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   tipIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: mc.secondaryFixed, alignItems: "center", justifyContent: "center" },
   tipIconText: { fontSize: 16 },
   tipIconImage: { width: 16, height: 16 },
@@ -621,9 +622,9 @@ const s = StyleSheet.create({
   tipBody:    { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18, marginTop: 2 },
 
   // Footer
-  footer:           { flexDirection: "row", gap: ms.sm, padding: ms.md, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant },
-  backFooterBtn:    { flex: 1, height: 48, borderRadius: mr.full, backgroundColor: mc.surfaceContainer, alignItems: "center", justifyContent: "center" },
+  footer:           { flexDirection: "row", gap: ms.sm, padding: ms.md, ...neuBarTop },
+  backFooterBtn:    { flex: 1, height: 48, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   backFooterText:   { color: mc.onSurface, fontSize: 15, fontFamily: mf.semibold },
-  cta:              { flex: 2, height: 48, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
+  cta:              { flex: 2, height: 48, borderRadius: mr.full, ...neuAccent(false, mc.primaryContainer), alignItems: "center", justifyContent: "center" },
   ctaText:          { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
 });

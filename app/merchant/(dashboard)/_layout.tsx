@@ -3,11 +3,27 @@ import { MerchantBusinessProvider } from "@/merchant/business-context";
 import { BookingsProvider, localIsoDate, useBookings } from "@/merchant/bookings-context";
 import { SalesProvider } from "@/merchant/sales-context";
 import { mc, mf } from "@/theme/merchant";
+import { neu, neuBarTop, neuColors } from "@/theme/neumorphism";
 import { Tabs } from "expo-router";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type IconName = keyof typeof MaterialIcons.glyphMap;
+
+// The active tab sits in a small pressed-in well (soft UI, matching the
+// customer app — see src/theme/neumorphism.ts).
+function TabWell({ focused, children }: { focused: boolean; children: React.ReactNode }) {
+  return (
+    <View
+      style={[
+        { width: 52, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: neuColors.surface },
+        focused && neu.inset,
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
 
 function TabIcon({ name, color, size = 24 }: { name: IconName; color: string; size?: number }) {
   return <MaterialIcons name={name} size={size} color={color} />;
@@ -82,9 +98,9 @@ function DashboardTabs() {
         tabBarActiveTintColor: mc.primary,
         tabBarInactiveTintColor: mc.onSurfaceVariant,
         tabBarStyle: {
-          backgroundColor: mc.surface,
-          borderTopColor: mc.outlineVariant,
-          height: 64 + insets.bottom,
+          ...neuBarTop,
+          borderTopWidth: 0,
+          height: 68 + insets.bottom,
           paddingTop: 6,
           paddingBottom: insets.bottom,
         },
@@ -95,35 +111,55 @@ function DashboardTabs() {
         name="bookings"
         options={{
           title: "Bookings",
-          tabBarIcon: ({ color }) => <BookingsTabIcon color={String(color)} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabWell focused={focused}>
+              <BookingsTabIcon color={String(color)} />
+            </TabWell>
+          ),
         }}
       />
       <Tabs.Screen
         name="sales"
         options={{
           title: "Sales",
-          tabBarIcon: ({ color }) => <TabIcon name="payments" color={String(color)} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabWell focused={focused}>
+              <TabIcon name="payments" color={String(color)} />
+            </TabWell>
+          ),
         }}
       />
       <Tabs.Screen
         name="looks"
         options={{
           title: "Looks",
-          tabBarIcon: ({ color }) => <TabIcon name="photo-library" color={String(color)} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabWell focused={focused}>
+              <TabIcon name="photo-library" color={String(color)} />
+            </TabWell>
+          ),
         }}
       />
       <Tabs.Screen
         name="inbox"
         options={{
           title: "Inbox",
-          tabBarIcon: ({ color }) => <InboxTabIcon color={String(color)} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabWell focused={focused}>
+              <InboxTabIcon color={String(color)} />
+            </TabWell>
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color }) => <TabIcon name="storefront" color={String(color)} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabWell focused={focused}>
+              <TabIcon name="storefront" color={String(color)} />
+            </TabWell>
+          ),
         }}
       />
     </Tabs>

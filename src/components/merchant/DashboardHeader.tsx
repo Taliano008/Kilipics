@@ -7,6 +7,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarBottom, neuColors } from "@/theme/neumorphism";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -92,7 +93,7 @@ export function DashboardHeader({ title }: { title: string }) {
 }
 
 const s = StyleSheet.create({
-  safe: { backgroundColor: mc.surface },
+  safe: { ...neuBarBottom },
   row: {
     height: 64,
     paddingHorizontal: ms.md,
@@ -100,15 +101,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: ms.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: mc.outlineVariant,
   },
   left: { flexDirection: "row", alignItems: "center", gap: ms.sm, flex: 1, minWidth: 0 },
   mark: {
     width: 32,
     height: 32,
     borderRadius: mr.sm,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -130,7 +129,7 @@ const s = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: 12,
     borderRadius: mr.full,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -140,7 +139,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -152,7 +151,7 @@ const s = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCard: {
-    backgroundColor: mc.surfaceContainerLowest,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: mr["2xl"],
     borderTopRightRadius: mr["2xl"],
     padding: ms.lg,
@@ -165,7 +164,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -173,7 +172,7 @@ const s = StyleSheet.create({
   modalPrimary: {
     minHeight: 48,
     borderRadius: mr.xl,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -183,7 +182,7 @@ const s = StyleSheet.create({
   modalSecondary: {
     minHeight: 44,
     borderRadius: mr.xl,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },

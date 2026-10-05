@@ -15,6 +15,7 @@
 import { useAuth } from "@/auth/auth-context";
 import { report } from "@/observability/report";
 import { mf } from "@/theme/merchant";
+import { neu, neuColors } from "@/theme/neumorphism";
 import { colors, radii } from "@/theme/tokens";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -515,7 +516,7 @@ function Checkbox({ on, accent, error }: { on: boolean; accent: string; error?: 
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
 
   // Welcome
   welcome: { flex: 1, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20, gap: 20 },
@@ -546,11 +547,10 @@ const s = StyleSheet.create({
   outlineBtn: {
     height: 56,
     borderRadius: radii.pill,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    backgroundColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: neu.raisedSm.boxShadow,
   },
   outlineBtnText: { fontFamily: mf.bold, fontSize: 16, color: colors.ink },
 
@@ -573,9 +573,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: "transparent",
+    backgroundColor: neuColors.surface,
     gap: 3,
+    boxShadow: neu.raisedSm.boxShadow,
   },
   typeTitle: { fontFamily: mf.bold, fontSize: 14, color: colors.ink },
   typeCopy: { fontFamily: mf.medium, fontSize: 12, lineHeight: 16, color: colors.inkMuted },
@@ -585,7 +586,7 @@ const s = StyleSheet.create({
     gap: 10,
     height: 54,
     paddingHorizontal: 16,
-    backgroundColor: colors.white,
+    ...neu.inset,
     borderWidth: 1.5,
     borderRadius: 18,
   },
@@ -620,7 +621,7 @@ const s = StyleSheet.create({
     borderRadius: 7,
     borderWidth: 1.5,
     borderColor: BORDER_STRONG,
-    backgroundColor: colors.white,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
