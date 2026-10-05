@@ -1,17 +1,21 @@
 import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
 import { useCatalog } from "@/catalog/catalog-context";
+import { HeroCarousel } from "@/components/HeroCarousel";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { ProviderCard } from "@/components/ProviderCard";
 import { ReviewsSection } from "@/components/ReviewsSection";
+import { StoreLocationMap } from "@/components/StoreMap";
 import { resolveMediaUrl } from "@/config/env";
 import { fetchMerchantBusinessPreview } from "@/api/merchant";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { mf } from "@/theme/merchant";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
-import { categoryLabel } from "@/utils/categories";
+import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { starIcon, verifiedBadgeIcon } from "@/utils/icon-assets";
+import { directionsUrl, mapLocation, mapsSearchUrl } from "@/utils/location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
@@ -34,6 +38,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,6 +50,34 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+
+// Where customers can find the business: a map position (exact when the
+// merchant placed a pin, approximate when looked up from the address) plus
+// the address. Mobile services are included — many also have a base clients
+// can visit. Null when there's nothing more specific than the city to show.
+function storeLocation(provider: PublicCatalogProvider | null | undefined) {
+  if (!provider) return null;
+  const address = (provider.location.fullAddress || provider.address || "").trim();
+  const map = mapLocation(provider.location);
+  const addressIsJustCity = !address || address.toLowerCase() === "nairobi";
+  if (!map && addressIsJustCity) return null;
+  return {
+    map,
+    address,
+    area: provider.area || provider.location.area || "Nairobi",
+    mobile: provider.location.locationType === "MOBILE_SERVICE",
+    // Route straight to an exact pin; for anything less, let Google Maps
+    // search for the business itself, which may know the precise spot.
+    googleMapsUrl:
+      map && !map.approximate
+        ? directionsUrl(map.coordinate)
+        : mapsSearchUrl(`${provider.name}, ${address}, Nairobi`),
+  };
+}
+
+function openExternal(url: string) {
+  void Linking.openURL(url).catch((reason) => report(reason, { scope: "provider_map_open" }));
+}
 
 // Palette from Inspo/restructer_details.html.
 const P = {
@@ -134,7 +167,15 @@ function formatTotal(services: PublicCatalogService[]): string {
 // load." Track failures per-photo and let a tap re-attempt — bumping `key`
 // forces expo-image to re-issue the request instead of reusing its cached
 // failure.
-function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
+function GalleryPhoto({
+  uri,
+  moreCount,
+  onOpen,
+}: {
+  uri: string;
+  moreCount?: number;
+  onOpen: () => void;
+}) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -153,7 +194,12 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
   }
 
   return (
-    <View style={styles.galleryTile}>
+    <Pressable
+      style={styles.galleryTile}
+      onPress={onOpen}
+      accessibilityRole="imagebutton"
+      accessibilityLabel={moreCount !== undefined ? `View all photos, ${moreCount} more` : "View photo"}
+    >
       <Image
         key={attempt}
         source={{ uri }}
@@ -169,7 +215,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
       ) : (
         <View style={styles.galleryTint} />
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -189,6 +235,15 @@ export default function ProviderDetailScreen() {
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(isPreview);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // Full-screen photo viewer. `opening` changes on every tap so the viewer
+  // remounts and starts on the photo that was tapped.
+  const [viewer, setViewer] = useState<{ index: number; opening: number } | null>(null);
+  const openPhoto = (index: number) =>
+    setViewer((prev) => ({ index, opening: (prev?.opening ?? 0) + 1 }));
+  const [mapExpanded, setMapExpanded] = useState(false);
+  // The photo the hero carousel is showing.
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
 
   const loadPreview = useCallback(() => {
     if (!isPreview) return;
@@ -266,7 +321,6 @@ export default function ProviderDetailScreen() {
       .filter((row) => row.day && row.time);
   }, [provider]);
 
-  const cover = provider ? resolveMediaUrl(provider.cover) : null;
   const gallery = useMemo(
     () =>
       provider
@@ -280,6 +334,15 @@ export default function ProviderDetailScreen() {
         : [],
     [provider],
   );
+  // Captions are keyed by the stored URL; `gallery` holds resolved ones.
+  const galleryCaptions = useMemo(() => {
+    const byResolvedUrl = new Map(
+      Object.entries(provider?.galleryCaptions ?? {}).map(
+        ([url, caption]) => [resolveMediaUrl(url), caption] as const,
+      ),
+    );
+    return gallery.map((url) => byResolvedUrl.get(url));
+  }, [provider, gallery]);
 
   const serviceCategories = useMemo(
     () => Array.from(new Set(services.map((s) => s.categoryId))),
@@ -296,11 +359,12 @@ export default function ProviderDetailScreen() {
   const nearbyProviders = useMemo(() => {
     if (isPreview || !catalog || !provider || provider.limitedListing) return [];
     const others = catalog.providers.filter((p) => p.id !== provider.id);
-    const sameCategory = others.filter(
-      (p) => p.categoryId === provider.categoryId,
-    );
+    const ownCategories = providerCategoryIds(provider);
+    const sharesCategory = (p: typeof provider) =>
+      providerCategoryIds(p).some((id) => ownCategories.includes(id));
+    const sameCategory = others.filter(sharesCategory);
     const sameArea = others.filter(
-      (p) => p.area === provider.area && p.categoryId !== provider.categoryId,
+      (p) => p.area === provider.area && !sharesCategory(p),
     );
     let pool = sameCategory.slice(0, 6);
     if (pool.length < 6) {
@@ -318,6 +382,7 @@ export default function ProviderDetailScreen() {
     if (services.length > 0) list.push({ key: "services", label: "Services" });
     if (gallery.length > 0) list.push({ key: "photos", label: "Photos" });
     list.push({ key: "reviews", label: "Reviews" });
+    if (storeLocation(provider)) list.push({ key: "location", label: "Location" });
     list.push({ key: "hours", label: "Hours" });
     return list;
   }, [provider, services, gallery]);
@@ -480,6 +545,7 @@ export default function ProviderDetailScreen() {
   };
 
   const heroIndex = isPreview ? 1 : 0;
+  const location = storeLocation(provider);
   const galleryStrip = gallery.slice(0, GALLERY_STRIP_COUNT);
   const hiddenPhotoCount = gallery.length - GALLERY_STRIP_COUNT;
 
@@ -543,17 +609,20 @@ export default function ProviderDetailScreen() {
         {/* Hero photo + identity */}
         <View>
           <View style={styles.hero}>
-            {cover ? (
-              <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            {gallery.length > 0 ? (
+              // Cover first, then the rest of the storefront gallery.
+              <HeroCarousel photos={gallery} onPressPhoto={openPhoto} onIndexChange={setHeroPhotoIndex} />
             ) : (
               <View style={[StyleSheet.absoluteFill, styles.heroPlaceholder]}>
                 <Text style={styles.heroPlaceholderLetter}>{provider.name.slice(0, 1)}</Text>
               </View>
             )}
             {gallery.length > 1 && (
-              <View style={styles.heroCounter}>
+              <View style={styles.heroCounter} pointerEvents="none">
                 <Feather name="image" size={12} color={P.white} />
-                <Text style={styles.heroCounterText}>{gallery.length}</Text>
+                <Text style={styles.heroCounterText}>
+                  {Math.min(heroPhotoIndex, gallery.length - 1) + 1} / {gallery.length}
+                </Text>
               </View>
             )}
             {provider.verified && (
@@ -783,6 +852,7 @@ export default function ProviderDetailScreen() {
                   <GalleryPhoto
                     key={img}
                     uri={img}
+                    onOpen={() => openPhoto(idx)}
                     moreCount={
                       idx === galleryStrip.length - 1 && hiddenPhotoCount > 0
                         ? hiddenPhotoCount
@@ -805,6 +875,57 @@ export default function ProviderDetailScreen() {
               onRatingChanged={() => void refresh()}
             />
           </View>
+
+          {/* Location */}
+          {location && (
+            <View style={styles.section} onLayout={registerOffset("location")}>
+              <Text style={styles.sectionLabel}>Location</Text>
+              {location.mobile ? (
+                <Text style={styles.sectionSub}>Also travels to clients</Text>
+              ) : null}
+              {location.map ? (
+                <>
+                  <View style={styles.mapWrap}>
+                    <StoreLocationMap
+                      coordinate={location.map.coordinate}
+                      approximate={location.map.approximate}
+                      title={provider.name}
+                    />
+                    <Pressable
+                      style={styles.mapExpandBtn}
+                      onPress={() => setMapExpanded(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Open full-screen map"
+                    >
+                      <Feather name="maximize-2" size={15} color={P.ink900} />
+                    </Pressable>
+                  </View>
+                  {location.map.approximate ? (
+                    <Text style={styles.mapApproxNote}>
+                      Approximate location, based on the address.
+                    </Text>
+                  ) : null}
+                </>
+              ) : null}
+              <View style={styles.mapFooter}>
+                <View style={styles.mapAddressWrap}>
+                  <Feather name="map-pin" size={15} color={P.terracotta} />
+                  <Text style={styles.mapAddress} numberOfLines={2}>
+                    {location.address || location.area}
+                  </Text>
+                </View>
+                <Pressable
+                  style={styles.directionsBtn}
+                  onPress={() => openExternal(location.googleMapsUrl)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${provider.name} in Google Maps`}
+                >
+                  <Feather name="navigation" size={13} color={P.white} />
+                  <Text style={styles.directionsText}>Google Maps</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* Opening times & info */}
           <View style={styles.section} onLayout={registerOffset("hours")}>
@@ -907,6 +1028,56 @@ export default function ProviderDetailScreen() {
           </View>
         </View>
       )}
+
+      {location?.map ? (
+        <Modal
+          visible={mapExpanded}
+          animationType="slide"
+          onRequestClose={() => setMapExpanded(false)}
+        >
+          <View style={styles.mapModal}>
+            <StoreLocationMap
+              coordinate={location.map.coordinate}
+              approximate={location.map.approximate}
+              title={provider.name}
+            />
+            <View style={[styles.mapModalTop, { top: insets.top + 12 }]}>
+              <Pressable
+                style={styles.mapModalClose}
+                onPress={() => setMapExpanded(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close map"
+              >
+                <Feather name="x" size={20} color={P.ink900} />
+              </Pressable>
+            </View>
+            <View style={[styles.mapModalCard, { paddingBottom: insets.bottom + 16 }]}>
+              <Text style={styles.mapModalName}>{provider.name}</Text>
+              <Text style={styles.mapAddress} numberOfLines={2}>
+                {location.address || location.area}
+              </Text>
+              <Pressable
+                style={[styles.directionsBtn, styles.mapModalDirections]}
+                onPress={() => openExternal(location.googleMapsUrl)}
+                accessibilityRole="button"
+              >
+                <Feather name="navigation" size={14} color={P.white} />
+                <Text style={styles.directionsText}>Directions in Google Maps</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
+      {viewer && gallery.length > 0 ? (
+        <PhotoViewer
+          key={viewer.opening}
+          photos={gallery}
+          captions={galleryCaptions}
+          startIndex={viewer.index}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1123,6 +1294,67 @@ const styles = StyleSheet.create({
   },
   contactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   contactText: { fontSize: 12, fontFamily: mf.semibold, color: P.ink900, flexShrink: 1 },
+
+  // Location
+  mapWrap: {
+    height: 220,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: P.hairline,
+    marginBottom: 10,
+  },
+  mapExpandBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: P.white,
+    ...softShadow,
+  },
+  mapFooter: { flexDirection: "row", alignItems: "center", gap: 12 },
+  mapApproxNote: { fontSize: 11.5, fontFamily: mf.regular, color: P.ink500, marginTop: -4, marginBottom: 10 },
+  mapAddressWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  mapAddress: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: mf.regular, color: P.ink700 },
+  directionsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: P.terracotta,
+  },
+  directionsText: { fontSize: 13, fontFamily: mf.semibold, color: P.white },
+  mapModal: { flex: 1, backgroundColor: P.surface },
+  mapModalTop: { position: "absolute", left: 16 },
+  mapModalClose: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: P.white,
+    ...softShadow,
+  },
+  mapModalCard: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 18,
+    paddingHorizontal: 20,
+    gap: 6,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: P.white,
+  },
+  mapModalName: { fontFamily: SERIF, fontSize: 20, color: P.ink900 },
+  mapModalDirections: { alignSelf: "stretch", justifyContent: "center", marginTop: 8, paddingVertical: 14 },
 
   // Services
   filterRow: { gap: 8, paddingBottom: 4 },

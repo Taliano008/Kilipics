@@ -3,7 +3,11 @@ import { useCatalog } from "@/catalog/catalog-context";
 import { ProviderCard } from "@/components/ProviderCard";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ScreenState";
 import { colors, radii, spacing } from "@/theme/tokens";
-import { categoryLabel } from "@/utils/categories";
+import {
+  canonicalCategoryId,
+  categoryLabel,
+  providerCategoryIds,
+} from "@/utils/categories";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,11 +25,17 @@ export default function SearchScreen() {
   const params = useLocalSearchParams<{ category?: string; query?: string; type?: string }>();
   const { catalog, loading, error, refresh } = useCatalog();
   const [query, setQuery] = useState(params.query ?? "");
-  const [category, setCategory] = useState(params.category ?? "all");
+  const [category, setCategory] = useState(
+    params.category ? canonicalCategoryId(params.category) : "all",
+  );
+  // "all" is also the default before anything is picked, so this tells an
+  // explicit All (chip or home tile) apart from a fresh, untouched screen.
+  const [browseAll, setBrowseAll] = useState(params.category === "all");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  
+
   useEffect(() => {
-    if (params.category) setCategory(params.category);
+    if (params.category) setCategory(canonicalCategoryId(params.category));
+    if (params.category === "all") setBrowseAll(true);
   }, [params.category]);
   useEffect(() => {
     if (params.query) setQuery(params.query);
@@ -47,15 +57,16 @@ export default function SearchScreen() {
   
   const providers = catalog?.providers ?? [];
   const categoryIds = useMemo(
-    () => [...new Set(providers.map((provider) => provider.categoryId))],
+    () => [...new Set(providers.flatMap(providerCategoryIds))],
     [providers],
   );
   
   const results = useMemo(() => {
     const term = query.trim().toLocaleLowerCase();
-    let filtered = providers.filter(
-      (provider) =>
-        (category === "all" || provider.categoryId === category) &&
+    let filtered = providers.filter((provider) => {
+      const providerCategories = providerCategoryIds(provider);
+      return (
+        (category === "all" || providerCategories.includes(category)) &&
         (params.type !== "directory" || provider.limitedListing) &&
         (params.type !== "bookable" || (!provider.limitedListing && provider.bookingEnabled)) &&
         (!term ||
@@ -64,9 +75,10 @@ export default function SearchScreen() {
             provider.area,
             provider.subcategory,
             provider.mainOffering,
-            categoryLabel(provider.categoryId),
-          ].some((value) => value?.toLocaleLowerCase().includes(term))),
-    );
+            ...providerCategories.map(categoryLabel),
+          ].some((value) => value?.toLocaleLowerCase().includes(term)))
+      );
+    });
 
     filtered.sort((a, b) => {
       const aBookable = !a.limitedListing && a.bookingEnabled ? 1 : 0;
@@ -126,7 +138,8 @@ export default function SearchScreen() {
   if (loading && !catalog) return <LoadingState />;
   if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
   
-  const showEmptyQueryState = query.trim() === "" && category === "all";
+  const showEmptyQueryState =
+    query.trim() === "" && category === "all" && !browseAll;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -172,9 +185,7 @@ export default function SearchScreen() {
                   ]}
                   onPress={() => {
                     setCategory(item);
-                    if (query.trim() === "" && item !== "all") {
-                       // Do nothing, let it show results for the category
-                    }
+                    if (item === "all") setBrowseAll(true);
                   }}
                 >
                   <Text

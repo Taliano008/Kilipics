@@ -130,7 +130,7 @@ const MOCK_PROVIDERS: PublicCatalogProvider[] = [
     slug: "gentlemans-cut",
     name: "The Gentleman's Cut",
     industry: "beauty",
-    categoryId: "barber",
+    categoryId: "barbering",
     subcategory: "Men's grooming",
     mainOffering: "Men's grooming",
     area: "Kilimani",
@@ -431,7 +431,7 @@ export const MOCK_CATALOG: PublicCatalogSnapshot = {
     {
       id: "srv-4",
       providerId: "mock-3",
-      categoryId: "barber",
+      categoryId: "barbering",
       industry: "beauty",
       name: "Fade Haircut",
       description: "Clean fade with hot towel finish.",
@@ -444,7 +444,7 @@ export const MOCK_CATALOG: PublicCatalogSnapshot = {
     {
       id: "srv-5",
       providerId: "mock-3",
-      categoryId: "barber",
+      categoryId: "barbering",
       industry: "beauty",
       name: "Beard Trim",
       description: "Beard shaping and trim.",

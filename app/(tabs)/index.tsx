@@ -4,7 +4,7 @@ import { useCatalog } from "@/catalog/catalog-context";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
 import { resolveMediaUrl } from "@/config/env";
 import { colors, radii, spacing } from "@/theme/tokens";
-import { categoryLabel } from "@/utils/categories";
+import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { adminIcon, starIcon } from "@/utils/icon-assets";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -26,10 +26,16 @@ const ICONS = {
   hair: require("../../assets/icons/massage.png"),
   barber: require("../../assets/icons/barber.png"),
   nails: require("../../assets/icons/nail-artist.png"),
-  makeup: require("../../assets/images/Beauty.webp"),
   spa: require("../../assets/icons/sauna.png"),
-  gym: require("../../assets/images/gym.webp"),
+  gym: require("../../assets/icons/gym.png"),
   tattoo: require("../../assets/icons/tattoo.png"),
+};
+
+// Full-colour photos. Drawn as-is, never with tintColor — tinting an opaque
+// photo paints it into a solid square.
+const PHOTOS = {
+  beauty: require("../../assets/images/Beauty.webp"),
+  gym: require("../../assets/images/gym.webp"),
 };
 
 // Mock data
@@ -93,17 +99,19 @@ export default function HomeScreen() {
     const counts: Record<string, number> = {};
     counts["all"] = providers.length;
     for (const p of providers) {
-      counts[p.categoryId] = (counts[p.categoryId] || 0) + 1;
+      for (const id of providerCategoryIds(p)) {
+        counts[id] = (counts[id] || 0) + 1;
+      }
     }
 
     const rawCats = [
       { id: 'all', label: 'All', icon: ICONS.all, fg: '#1C1A17', bg: '#fff', border: '1.5px solid rgba(28,26,23,0.15)' },
       { id: 'hair', label: 'Hair', icon: ICONS.hair, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
-      { id: 'barber', label: 'Barber', icon: ICONS.barber, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'barbering', label: 'Barber', icon: ICONS.barber, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
       { id: 'nails', label: 'Nails', icon: ICONS.nails, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
-      { id: 'makeup', label: 'Makeup', icon: ICONS.makeup, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
+      { id: 'makeup', label: 'Makeup', icon: PHOTOS.beauty, photo: true, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
       { id: 'spa', label: 'Spa', icon: ICONS.spa, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
-      { id: 'gym', label: 'Gym', icon: ICONS.gym, fg: '#1F4A3D', bg: '#DCE9E2', border: 'none' },
+      { id: 'fitness', label: 'Gym', icon: ICONS.gym, fg: '#1F4A3D', bg: '#DCE9E2', border: 'none' },
       { id: 'tattoo', label: 'Tattoos', icon: ICONS.tattoo, fg: '#C1502E', bg: '#F6DCE0', border: 'none' },
     ];
 
@@ -158,10 +166,10 @@ export default function HomeScreen() {
         {/* Hero Categories */}
         <View style={styles.heroRow}>
           <Pressable style={[styles.heroCard, { backgroundColor: '#5B1830' }]} onPress={() => selectCategory("all")}>
-            <Image source={require("../../assets/images/spa_massage_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image source={PHOTOS.beauty} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient colors={['rgba(165,51,90,0.15)', 'rgba(43,13,24,0.45)', 'rgba(43,13,24,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.heroIconBox}>
-              <Image source={require("../../assets/images/Beauty.webp")} style={{width:16,height:16,tintColor:'#fff'}} />
+              <Image source={ICONS.hair} style={{ width: 16, height: 16, tintColor: "#fff" }} />
             </View>
             <View style={styles.heroTextContainer}>
               <Text style={styles.heroTitle}>Beauty and personal care</Text>
@@ -169,11 +177,11 @@ export default function HomeScreen() {
             </View>
           </Pressable>
 
-          <Pressable style={[styles.heroCard, { backgroundColor: '#153E2E' }]} onPress={() => selectCategory("gym")}>
-            <Image source={require("../../assets/images/mens_grooming_cover.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Pressable style={[styles.heroCard, { backgroundColor: '#153E2E' }]} onPress={() => selectCategory("fitness")}>
+            <Image source={PHOTOS.gym} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient colors={['rgba(43,107,82,0.15)', 'rgba(11,33,26,0.45)', 'rgba(11,33,26,0.85)']} locations={[0, 0.62, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.heroIconBox}>
-              <Image source={require("../../assets/images/gym.webp")} style={{width:16,height:16,tintColor:'#fff'}} />
+              <Image source={ICONS.gym} style={{ width: 16, height: 16, tintColor: "#fff" }} />
             </View>
             <View style={styles.heroTextContainer}>
               <Text style={styles.heroTitle}>Fitness and wellness</Text>
@@ -206,7 +214,11 @@ export default function HomeScreen() {
           {categoryData.map(cat => (
             <Pressable key={cat.id} style={styles.exploreItem} onPress={() => selectCategory(cat.id)}>
               <View style={[styles.exploreIconBox, { backgroundColor: cat.bg, borderColor: cat.border !== 'none' ? 'rgba(28,26,23,0.15)' : 'transparent', borderWidth: cat.border !== 'none' ? 1.5 : 0 }]}>
-                {cat.icon && <Image source={cat.icon} style={{ width: 32, height: 32, tintColor: cat.fg }} />}
+                {cat.icon && ('photo' in cat && cat.photo ? (
+                  <Image source={cat.icon} style={styles.explorePhoto} contentFit="cover" />
+                ) : (
+                  <Image source={cat.icon} style={{ width: 32, height: 32, tintColor: cat.fg }} />
+                ))}
               </View>
               <Text style={styles.exploreItemText}>{cat.label} · {cat.count}</Text>
             </Pressable>
@@ -376,6 +388,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.35)",
     borderRadius: 9,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -473,6 +486,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  explorePhoto: { width: 64, height: 64, borderRadius: 32 },
   exploreItemText: {
     fontSize: 12.5,
     color: "#1C1A17",

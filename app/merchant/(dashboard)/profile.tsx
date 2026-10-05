@@ -21,15 +21,17 @@ import {
   type MerchantService,
 } from "@/api/merchant";
 import { CameraModal } from "@/components/CameraModal";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { categoryLabel } from "@/utils/categories";
 import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
+import { formatServicePrice } from "@/utils/price";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -51,10 +53,20 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { business, loading, activeToken, refresh } = useMerchantBusiness();
+  // Set by onboarding step 3, which lands here straight after submitting.
+  const { submitted } = useLocalSearchParams<{ submitted?: string }>();
 
   const [services, setServices] = useState<MerchantService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(
+    submitted === "1" ? "Submitted for review. We'll notify you when it's approved." : null,
+  );
+
+  useEffect(() => {
+    if (submitted !== "1") return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [submitted]);
   const [editOpen, setEditOpen] = useState(false);
   const [aboutInput, setAboutInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
@@ -67,6 +79,11 @@ export default function ProfileScreen() {
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
+  // The gallery photo whose caption is being edited, if any.
+  const [captionUrl, setCaptionUrl] = useState<string | null>(null);
+  const [captionTitle, setCaptionTitle] = useState("");
+  const [captionPrice, setCaptionPrice] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
   const [logoModalOpen, setLogoModalOpen] = useState(false);
   const [logoCameraOpen, setLogoCameraOpen] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -102,7 +119,9 @@ export default function ProfileScreen() {
 
   const businessName = business?.name || "My Business";
   const initials = businessName.slice(0, 2).toUpperCase();
-  const categoryDisplay = business?.categoryId ? categoryLabel(business.categoryId) : "Beauty & Wellness";
+  const categoryDisplay = business?.categoryId
+    ? (business.categoryIds?.length ? business.categoryIds : [business.categoryId]).map(categoryLabel).join(", ")
+    : "Beauty & Wellness";
   const areaLabel = business?.area || (business?.fullAddress ? business.fullAddress.split(",")[0].trim() : "Nairobi");
   const hasRating = business?.rating !== null && business?.rating !== undefined && (business?.rating ?? 0) > 0;
   const ratingVal = hasRating ? (business?.rating ?? 0).toFixed(1) : "New";
@@ -256,6 +275,34 @@ export default function ProfileScreen() {
     setLogoCameraOpen(false);
     const compressed = await compressPhoto(rawPhoto);
     await appendLogoPhoto(compressed);
+  };
+
+  const openCaptionEditor = (url: string) => {
+    const existing = business?.galleryCaptions?.[url];
+    setCaptionTitle(existing?.title ?? "");
+    setCaptionPrice(existing?.price ?? "");
+    setCaptionUrl(url);
+  };
+
+  // Empty title and price removes the caption (the backend drops blank ones).
+  const saveCaption = async (title: string, price: string) => {
+    if (!activeToken || !captionUrl) return;
+    setSavingCaption(true);
+    try {
+      await updateMerchantBusiness(activeToken, {
+        galleryCaptions: {
+          ...(business?.galleryCaptions ?? {}),
+          [captionUrl]: { title: title.trim(), price: price.trim() },
+        },
+      });
+      refresh();
+      setCaptionUrl(null);
+      showToast(title.trim() || price.trim() ? "Caption saved" : "Caption removed");
+    } catch {
+      showToast("Couldn't save that caption. Try again.");
+    } finally {
+      setSavingCaption(false);
+    }
   };
 
   const removeGalleryPhoto = async (url: string) => {
@@ -561,7 +608,21 @@ export default function ProfileScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.galleryRow}>
                 {(business?.galleryUrls ?? []).map((url) => (
                   <View key={url} style={s.galleryTile}>
-                    <Image source={{ uri: resolveMediaUrl(url) ?? undefined }} style={StyleSheet.absoluteFill} />
+                    <Pressable
+                      style={StyleSheet.absoluteFill}
+                      onPress={() => openCaptionEditor(url)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit photo caption"
+                    >
+                      <Image source={{ uri: resolveMediaUrl(url) ?? undefined }} style={StyleSheet.absoluteFill} />
+                      <View style={s.galleryCaptionTag}>
+                        <Text style={s.galleryCaptionTagText} numberOfLines={1}>
+                          {business?.galleryCaptions?.[url]?.title ||
+                            business?.galleryCaptions?.[url]?.price ||
+                            "+ Caption"}
+                        </Text>
+                      </View>
+                    </Pressable>
                     <Pressable
                       style={s.galleryRemove}
                       disabled={removingGalleryUrl === url}
@@ -669,6 +730,7 @@ export default function ProfileScreen() {
       <Toast message={toast} />
 
       <Modal visible={editOpen} animationType="slide" transparent onRequestClose={() => setEditOpen(false)}>
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.editCard}>
             <View style={s.formHeader}>
@@ -699,6 +761,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+        </KeyboardAvoider>
       </Modal>
 
       <Modal
@@ -707,6 +770,7 @@ export default function ProfileScreen() {
         transparent
         onRequestClose={() => setContactEditOpen(false)}
       >
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.editCard}>
             <View style={s.formHeader}>
@@ -747,6 +811,89 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+        </KeyboardAvoider>
+      </Modal>
+
+      <Modal
+        visible={captionUrl !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCaptionUrl(null)}
+      >
+        <KeyboardAvoider>
+        <View style={s.modalBackdrop}>
+          <View style={s.editCard}>
+            <View style={s.formHeader}>
+              <Text style={s.formTitle}>Photo caption</Text>
+              <Pressable style={s.modalCloseBtn} onPress={() => setCaptionUrl(null)}>
+                <MaterialIcons name="close" size={16} color={mc.onSurface} />
+              </Pressable>
+            </View>
+            <Text style={s.captionHelp}>
+              Shown when customers open this photo — e.g. the service and its price.
+            </Text>
+
+            {services.length > 0 ? (
+              <>
+                <Text style={s.editLabel}>Fill from a service</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.captionChips}>
+                  {services.map((svc) => (
+                    <Pressable
+                      key={svc.id}
+                      style={s.captionChip}
+                      onPress={() => {
+                        setCaptionTitle(svc.name);
+                        setCaptionPrice(formatServicePrice(svc));
+                      }}
+                    >
+                      <Text style={s.captionChipText} numberOfLines={1}>{svc.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
+
+            <Text style={s.editLabel}>Title</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={captionTitle}
+              onChangeText={setCaptionTitle}
+              placeholder="e.g. Knotless braids"
+              placeholderTextColor={mc.outline}
+              maxLength={80}
+            />
+            <Text style={s.editLabel}>Price</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={captionPrice}
+              onChangeText={setCaptionPrice}
+              placeholder="e.g. KES 4,500"
+              placeholderTextColor={mc.outline}
+              maxLength={40}
+            />
+            <Pressable
+              style={[s.formSubmit, savingCaption && { opacity: 0.6 }]}
+              disabled={savingCaption}
+              onPress={() => void saveCaption(captionTitle, captionPrice)}
+            >
+              {savingCaption ? (
+                <ActivityIndicator color={mc.onPrimary} size="small" />
+              ) : (
+                <Text style={s.formSubmitText}>Save caption</Text>
+              )}
+            </Pressable>
+            {captionUrl && business?.galleryCaptions?.[captionUrl] ? (
+              <Pressable
+                style={s.captionRemove}
+                disabled={savingCaption}
+                onPress={() => void saveCaption("", "")}
+              >
+                <Text style={s.captionRemoveText}>Remove caption</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+        </KeyboardAvoider>
       </Modal>
 
       <Modal
@@ -1146,6 +1293,16 @@ const s = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: mc.surfaceContainer,
   },
+  galleryCaptionTag: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  galleryCaptionTagText: { fontFamily: mf.semibold, fontSize: 10.5, color: "#fff" },
   galleryRemove: {
     position: "absolute",
     top: 6,
@@ -1324,4 +1481,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   formSubmitText: { fontFamily: mf.bold, fontSize: 15, color: mc.onPrimary },
+  captionHelp: { fontFamily: mf.regular, fontSize: 12.5, color: mc.onSurfaceVariant },
+  captionChips: { gap: ms.xs, paddingVertical: 2 },
+  captionChip: {
+    maxWidth: 180,
+    paddingHorizontal: ms.sm,
+    paddingVertical: 7,
+    borderRadius: mr.full,
+    backgroundColor: mc.surfaceContainerHigh,
+  },
+  captionChipText: { fontFamily: mf.semibold, fontSize: 12.5, color: mc.onSurface },
+  captionRemove: { alignItems: "center", paddingVertical: ms.xs },
+  captionRemoveText: { fontFamily: mf.semibold, fontSize: 13, color: mc.error },
 });

@@ -28,6 +28,10 @@ const providerLocationSchema = z.object({
   area: z.string(),
   city: z.literal("Nairobi"),
   locationType: z.enum(["FIXED_VENUE", "MOBILE_SERVICE", "BOTH"]),
+  // How far to trust latitude/longitude: placed by the merchant, looked up
+  // from the address (approximate), or still the city-centre placeholder.
+  // Optional for older backends; read it via mapLocation() in @/utils/location.
+  precision: z.enum(["pin", "address", "none"]).optional(),
   serviceAreas: z.array(z.string()),
   landmark: z.string(),
   parkingAvailable: z.boolean(),
@@ -53,11 +57,20 @@ export const publicContactsSchema = z
   })
   .partial();
 
+// Text shown over a gallery photo in the full-screen viewer.
+export const galleryCaptionSchema = z
+  .object({ title: z.string(), price: z.string() })
+  .partial();
+
 export const publicCatalogProviderSchema = z.object({
   id: z.string(),
   slug: z.string(),
   industry: z.enum(["beauty", "wellness"]),
+  // Primary category; categoryIds is every category the business is listed
+  // under (primary first). Optional because older backends don't send it —
+  // read both through providerCategoryIds() in @/utils/categories.
   categoryId: z.string(),
+  categoryIds: z.array(z.string()).optional(),
   subcategory: z.string().nullish(),
   name: z.string(),
   area: z.string(),
@@ -90,6 +103,8 @@ export const publicCatalogProviderSchema = z.object({
   recommended: z.boolean(),
   featured: z.boolean(),
   gallery: z.array(z.string()),
+  // Keyed by the photo's URL exactly as it appears in `gallery`/`cover`.
+  galleryCaptions: z.record(z.string(), galleryCaptionSchema).optional(),
   publicContacts: publicContactsSchema,
   about: z.string().optional(),
   team: z.array(z.object({
@@ -162,6 +177,7 @@ export type PartnershipStatus = z.infer<typeof partnershipStatusSchema>;
 export type PublicationStatus = z.infer<typeof publicationStatusSchema>;
 export type BookingMethod = z.infer<typeof bookingMethodSchema>;
 export type PublicContacts = z.infer<typeof publicContactsSchema>;
+export type GalleryCaption = z.infer<typeof galleryCaptionSchema>;
 export type PublicCatalogProvider = z.infer<typeof publicCatalogProviderSchema>;
 export type PublicCatalogService = z.infer<typeof publicCatalogServiceSchema>;
 export type PublicCatalogAvailability = z.infer<

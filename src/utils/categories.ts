@@ -20,6 +20,34 @@ const labels: Record<string, string> = {
 // actually appear in the data, so an off-taxonomy id silently fragments).
 export const CATALOG_CATEGORY_IDS = Object.keys(labels);
 
+// Merchants may pick more than one category during onboarding, up to this
+// many (the backend enforces the same cap).
+export const MAX_BUSINESS_CATEGORIES = 5;
+
+// Short names used by older data and home-screen links, mapped onto the
+// canonical ids above so "barber" and "barbering" are one category, not two.
+const CATEGORY_ALIASES: Record<string, string> = {
+  barber: "barbering",
+  gym: "fitness",
+};
+
+export function canonicalCategoryId(id: string) {
+  return CATEGORY_ALIASES[id] ?? id;
+}
+
+// Every category a business is listed under, primary first. Falls back to
+// the single categoryId for catalog payloads that predate categoryIds.
+export function providerCategoryIds(provider: {
+  categoryId: string;
+  categoryIds?: string[];
+}): string[] {
+  return [
+    ...new Set(
+      [provider.categoryId, ...(provider.categoryIds ?? [])].map(canonicalCategoryId),
+    ),
+  ];
+}
+
 export function categoryLabel(id: string) {
   return (
     labels[id] ??

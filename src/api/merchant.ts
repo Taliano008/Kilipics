@@ -1,5 +1,9 @@
 import { AUTH_API_BASE_URL } from "@/config/env";
-import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
+import type {
+  GalleryCaption,
+  PublicCatalogProvider,
+  PublicCatalogService,
+} from "@/types/catalog";
 
 export type DaySchedule = {
   name: string;
@@ -20,6 +24,7 @@ export type MerchantBusiness = {
   name: string;
   industry: "beauty" | "wellness";
   categoryId: string;
+  categoryIds?: string[];
   subcategory?: string | null;
   email?: string | null;
   phone: string;
@@ -27,6 +32,9 @@ export type MerchantBusiness = {
   fullAddress: string;
   latitude: number;
   longitude: number;
+  // pin = placed by the merchant; address = looked up from the street
+  // address (approximate); none = city-centre placeholder.
+  locationPrecision?: "pin" | "address" | "none";
   locationType: "physical" | "mobile";
   travelRadius: number;
   radiusEnabled: boolean;
@@ -38,6 +46,8 @@ export type MerchantBusiness = {
   coverUrl?: string | null;
   logoUrl?: string | null;
   galleryUrls: string[];
+  // Optional title/price per gallery photo, keyed by its URL in galleryUrls.
+  galleryCaptions?: Record<string, GalleryCaption>;
   onboardingStep: number;
   submittedAt?: string | null;
   publicationStatus: "draft" | "published" | "hidden" | "archived";
@@ -56,6 +66,9 @@ export type MerchantBusiness = {
 
 export type Step1Input = {
   name: string;
+  // Primary first. `category` is the primary alone, kept for backends that
+  // predate multi-category support.
+  categories: string[];
   category: string;
   description: string;
   phone: string;
@@ -68,6 +81,9 @@ export type Step2Input = {
   locationType: "physical" | "mobile";
   radius: number;
   radiusEnabled: boolean;
+  // The store's map pin; omitted until the merchant places one.
+  latitude?: number;
+  longitude?: number;
 };
 
 export type Step3Input = {

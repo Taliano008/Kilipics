@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { categoryLabel } from "@/utils/categories";
+import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { compareVersions } from "@/utils/version";
 
 describe("compareVersions", () => {
@@ -15,5 +15,24 @@ describe("categoryLabel", () => {
   it("uses curated labels and humanizes unknown category ids", () => {
     expect(categoryLabel("spa")).toBe("Spa & Massage");
     expect(categoryLabel("body-care_special")).toBe("Body Care Special");
+  });
+});
+
+describe("providerCategoryIds", () => {
+  it("falls back to the single categoryId when categoryIds is absent", () => {
+    expect(providerCategoryIds({ categoryId: "spa" })).toEqual(["spa"]);
+  });
+
+  it("maps legacy short ids onto the canonical category", () => {
+    expect(providerCategoryIds({ categoryId: "barber", categoryIds: ["barbering", "gym"] })).toEqual([
+      "barbering",
+      "fitness",
+    ]);
+  });
+
+  it("lists the primary first and drops duplicates", () => {
+    expect(
+      providerCategoryIds({ categoryId: "hair", categoryIds: ["nails", "hair", "nails"] }),
+    ).toEqual(["hair", "nails"]);
   });
 });

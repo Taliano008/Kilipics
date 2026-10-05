@@ -6,7 +6,11 @@
 import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, saveMerchantStep1 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
-import { CATALOG_CATEGORY_IDS, categoryLabel } from "@/utils/categories";
+import {
+  CATALOG_CATEGORY_IDS,
+  MAX_BUSINESS_CATEGORIES,
+  categoryLabel,
+} from "@/utils/categories";
 import { normalizeKenyanPhone } from "@/utils/phone";
 import {
   adminIcon,
@@ -44,7 +48,8 @@ export default function OnboardStep1() {
   const activeToken = merchantToken || consumerToken;
 
   const [businessName, setBusinessName] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  // In tap order; the first one is the business's main category.
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -62,7 +67,10 @@ export default function OnboardStep1() {
         }
         if (res.business) {
           setBusinessName(res.business.name || "");
-          if (res.business.categoryId) setSelectedCategory(res.business.categoryId);
+          const saved = res.business.categoryIds?.length
+            ? res.business.categoryIds
+            : [res.business.categoryId].filter(Boolean);
+          setSelectedCategories(saved);
           setDescription(res.business.positioning || res.business.about || "");
           setPhone(res.business.phone || "");
           setEmail(res.business.email || "");
@@ -72,13 +80,35 @@ export default function OnboardStep1() {
       .finally(() => setLoading(false));
   }, [activeToken, saveMerchantSession]);
 
+  const toggleCategory = (id: string) => {
+    if (selectedCategories.includes(id)) {
+      setSelectedCategories(selectedCategories.filter((c) => c !== id));
+      return;
+    }
+    if (selectedCategories.length >= MAX_BUSINESS_CATEGORIES) {
+      setError(`You can choose up to ${MAX_BUSINESS_CATEGORIES} categories.`);
+      return;
+    }
+    setError(null);
+    setSelectedCategories([...selectedCategories, id]);
+  };
+
+  const step1Payload = () => ({
+    name: businessName.trim(),
+    categories: selectedCategories,
+    category: selectedCategories[0] ?? "",
+    description: description.trim(),
+    phone: phone.trim(),
+    email: email.trim(),
+  });
+
   const handleContinue = async () => {
     if (!businessName.trim()) {
       setError("Please enter your business name.");
       return;
     }
-    if (!selectedCategory) {
-      setError("Please select a primary category for your business.");
+    if (selectedCategories.length === 0) {
+      setError("Please select at least one category for your business.");
       return;
     }
     if (phone.trim() && !normalizeKenyanPhone(phone)) {
@@ -93,13 +123,7 @@ export default function OnboardStep1() {
     setSaving(true);
     try {
       if (activeToken) {
-        const res = await saveMerchantStep1(activeToken, {
-          name: businessName.trim(),
-          category: selectedCategory,
-          description: description.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-        });
+        const res = await saveMerchantStep1(activeToken, step1Payload());
         if (res.merchantToken) {
           await saveMerchantSession(res.merchantToken);
         }
@@ -115,13 +139,7 @@ export default function OnboardStep1() {
   const handleSaveAndExit = async () => {
     if (businessName.trim() && activeToken) {
       try {
-        const res = await saveMerchantStep1(activeToken, {
-          name: businessName.trim(),
-          category: selectedCategory,
-          description: description.trim(),
-          phone: phone.trim(),
-          email: email.trim(),
-        });
+        const res = await saveMerchantStep1(activeToken, step1Payload());
         if (res.merchantToken) {
           await saveMerchantSession(res.merchantToken);
         }
@@ -248,20 +266,25 @@ export default function OnboardStep1() {
           </Text>
         </View>
 
-        {/* ── Primary Category ── */}
+        {/* ── Categories ── */}
         <View style={s.card}>
           <View style={s.fieldHeaderRow}>
-            <Text style={s.fieldLabel}>Primary Category</Text>
-            <Text style={s.fieldSubLabel}>Select 1 core focus</Text>
+            <Text style={s.fieldLabel}>Categories</Text>
+            <Text style={s.fieldSubLabel}>
+              Select up to {MAX_BUSINESS_CATEGORIES}
+            </Text>
           </View>
           <View style={s.pillWrap}>
             {CATEGORIES.map((cat) => {
-              const active = cat.id === selectedCategory;
+              const active = selectedCategories.includes(cat.id);
+              const isMain = selectedCategories[0] === cat.id;
               return (
                 <Pressable
                   key={cat.id}
                   style={[s.pill, active ? s.pillActive : s.pillInactive]}
-                  onPress={() => setSelectedCategory(cat.id)}
+                  onPress={() => toggleCategory(cat.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: active }}
                 >
                   <Text
                     style={[
@@ -269,12 +292,17 @@ export default function OnboardStep1() {
                       active ? s.pillTextActive : s.pillTextInactive,
                     ]}
                   >
+                    {active ? "✓ " : ""}
                     {cat.label}
+                    {isMain && selectedCategories.length > 1 ? " · Main" : ""}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+          <Text style={s.fieldHint}>
+            The first one you pick is your main category.
+          </Text>
         </View>
 
         {/* ── Description ── */}
@@ -381,7 +409,9 @@ export default function OnboardStep1() {
                 {businessName || "Your Business Name"}
               </Text>
               <Text style={s.previewBizCat}>
-                {selectedCategory ? `${selectedCategory} • Verified Artisan` : "Category not selected"}
+                {selectedCategories.length > 0
+                  ? `${selectedCategories.map(categoryLabel).join(" · ")} • Verified Artisan`
+                  : "Category not selected"}
               </Text>
             </View>
           </View>
