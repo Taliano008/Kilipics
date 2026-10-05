@@ -83,9 +83,29 @@ export async function getMerchantSales(businessId) {
   return { transactions: rows.map(serializeTransaction), goals: serializeGoals(goals) };
 }
 
+// Merchants can back-date an entry (yesterday's takings recorded this
+// morning) but not into the future. The server only knows UTC, so "future"
+// allows one day of slack for time zones ahead of it, like Nairobi's.
+const MAX_BACKDATE_DAYS = 90;
+
+function assertRecordableDate(date) {
+  const shift = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  if (date > shift(1)) {
+    throw badRequest("future_date", "Transactions can't be dated in the future.", ["date"]);
+  }
+  if (date < shift(-MAX_BACKDATE_DAYS)) {
+    throw badRequest(
+      "date_too_old",
+      `Transactions can be back-dated up to ${MAX_BACKDATE_DAYS} days.`,
+      ["date"],
+    );
+  }
+}
+
 export async function createSalesTransaction(businessId, input) {
   requireBusinessId(businessId);
   const tx = parseTransaction(input);
+  assertRecordableDate(tx.date);
   const id = newId();
   await execute(
     `INSERT INTO sales_transactions (id, business_id, type, amount, description, method, occurred_on)
@@ -97,10 +117,13 @@ export async function createSalesTransaction(businessId, input) {
 
 export async function deleteSalesTransaction(businessId, transactionId) {
   requireBusinessId(businessId);
-  await execute("DELETE FROM sales_transactions WHERE id = ? AND business_id = ?", [
+  const result = await execute("DELETE FROM sales_transactions WHERE id = ? AND business_id = ?", [
     transactionId,
     businessId,
   ]);
+  // Already gone (e.g. deleted on another phone) is still a success: the
+  // merchant wanted it removed, and it is.
+  return { deleted: result.affectedRows > 0 };
 }
 
 export async function saveSalesGoals(businessId, input) {

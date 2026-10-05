@@ -511,6 +511,13 @@ export function createSalesTransaction(token: string, input: SalesTransactionInp
   );
 }
 
+export function deleteSalesTransaction(token: string, id: string) {
+  return request<{ ok: boolean; merchantToken?: string | null }>(
+    `/api/merchant/sales/transactions/${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
 export function saveSalesGoals(token: string, goals: Partial<SalesGoals>) {
   return request<{ ok: boolean; goals: SalesGoals; merchantToken?: string | null }>(
     "/api/merchant/sales/goals",
@@ -535,5 +542,39 @@ export function importLocalSales(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(input),
+  });
+}
+
+export type StoreVisitsRange = "today" | "week" | "month";
+
+// Counts for the Profile tab's Store visits card. Anonymous: no visitor
+// identities are ever returned.
+export type StoreVisits = {
+  range: StoreVisitsRange;
+  visits: number;
+  people: number;
+  contacted: number;
+  bookTaps: number;
+  saves: number;
+  previousVisits: number;
+  // Null until the previous period has visits to compare against.
+  comparison: { delta: number; percent: number } | null;
+  series: { label: string; value: number }[];
+  currentIndex: number;
+  lifetimeVisits: number;
+  merchantToken?: string | null;
+};
+
+export function fetchStoreVisits(
+  token: string,
+  params: { range: StoreVisitsRange; tzOffset: number; exclude?: string },
+) {
+  const qs = new URLSearchParams({
+    range: params.range,
+    tzOffset: String(params.tzOffset),
+    ...(params.exclude ? { exclude: params.exclude } : {}),
+  });
+  return request<StoreVisits>(`/api/merchant/insights/visits?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

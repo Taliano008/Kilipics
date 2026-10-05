@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/auth/auth-context";
 import {
   createSalesTransaction,
+  deleteSalesTransaction,
   fetchMerchantSales,
   importLocalSales,
   saveSalesGoals,
@@ -60,6 +61,8 @@ type NewTransactionInput = {
   amount: number;
   description: string;
   method?: string;
+  // The day it happened, "YYYY-MM-DD"; defaults to today.
+  date?: string;
 };
 
 type SalesState = {
@@ -69,6 +72,7 @@ type SalesState = {
   error: string | null;
   refresh: () => void;
   addTransaction: (input: NewTransactionInput) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   setGoal: (key: keyof SalesGoals, value: number) => Promise<void>;
 };
 
@@ -171,10 +175,20 @@ export function SalesProvider({ children }: PropsWithChildren) {
         description: input.description,
         method: input.method || "Cash",
         // The merchant's own calendar day — the server only knows UTC.
-        date: localIsoDate(),
+        date: input.date ?? localIsoDate(),
       });
       if (res.merchantToken) void saveMerchantSession(res.merchantToken);
       setTransactions((prev) => [fromServer(res.transaction), ...prev]);
+    },
+    [activeToken, saveMerchantSession],
+  );
+
+  const deleteTransaction = useCallback(
+    async (id: string) => {
+      if (!activeToken) throw new Error("You're signed out. Sign in again to change sales.");
+      const res = await deleteSalesTransaction(activeToken, id);
+      if (res.merchantToken) void saveMerchantSession(res.merchantToken);
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
     },
     [activeToken, saveMerchantSession],
   );
@@ -190,8 +204,8 @@ export function SalesProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo(
-    () => ({ transactions, goals, loaded, error, refresh, addTransaction, setGoal }),
-    [transactions, goals, loaded, error, refresh, addTransaction, setGoal],
+    () => ({ transactions, goals, loaded, error, refresh, addTransaction, deleteTransaction, setGoal }),
+    [transactions, goals, loaded, error, refresh, addTransaction, deleteTransaction, setGoal],
   );
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>;
