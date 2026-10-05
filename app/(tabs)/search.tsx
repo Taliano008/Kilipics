@@ -2,13 +2,14 @@ import { track } from "@/analytics/events";
 import { useCatalog } from "@/catalog/catalog-context";
 import { ProviderCard } from "@/components/ProviderCard";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ScreenState";
+import { NEU_SHADOW_ROOM, neu, neuAccent, neuColors, neuPressable } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import {
   canonicalCategoryId,
   categoryLabel,
   providerCategoryIds,
 } from "@/utils/categories";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -22,21 +23,33 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SearchScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ category?: string; query?: string; type?: string }>();
   const { catalog, loading, error, refresh } = useCatalog();
   const [query, setQuery] = useState(params.query ?? "");
   const [category, setCategory] = useState(
     params.category ? canonicalCategoryId(params.category) : "all",
   );
-  // "all" is also the default before anything is picked, so this tells an
-  // explicit All (chip or home tile) apart from a fresh, untouched screen.
-  const [browseAll, setBrowseAll] = useState(params.category === "all");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   useEffect(() => {
     if (params.category) setCategory(canonicalCategoryId(params.category));
-    if (params.category === "all") setBrowseAll(true);
   }, [params.category]);
+
+  // Tapping Search in the tab bar starts fresh on every business. The tab
+  // stays mounted, so without this a filter from last time (or from a home
+  // category tile) would still be applied. Coming back from a business page
+  // isn't a tab press, so an in-progress search is kept then.
+  const navigation = useNavigation();
+  useEffect(
+    () =>
+      navigation.addListener("tabPress" as never, () => {
+        setQuery("");
+        setCategory("all");
+        router.setParams({ category: undefined, query: undefined, type: undefined });
+      }),
+    [navigation, router],
+  );
   useEffect(() => {
     if (params.query) setQuery(params.query);
   }, [params.query]);
@@ -138,13 +151,10 @@ export default function SearchScreen() {
   if (loading && !catalog) return <LoadingState />;
   if (error && !catalog) return <ErrorState message={error} retry={refresh} />;
   
-  const showEmptyQueryState =
-    query.trim() === "" && category === "all" && !browseAll;
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <FlatList
-        data={showEmptyQueryState ? [] : results}
+        data={results}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <ProviderCard provider={item} compact />}
         contentContainerStyle={styles.list}
@@ -167,7 +177,7 @@ export default function SearchScreen() {
                 style={styles.input}
                 accessibilityLabel="Search businesses"
               />
-              <Pressable onPress={submit} style={styles.go}>
+              <Pressable onPress={submit} style={({ pressed }) => [styles.go, neuAccent(pressed)]}>
                 <Text style={styles.goText}>Go</Text>
               </Pressable>
             </View>
@@ -179,14 +189,14 @@ export default function SearchScreen() {
               contentContainerStyle={styles.filters}
               renderItem={({ item }) => (
                 <Pressable
-                  style={[
+                  // Selected = pressed into the surface; the others raised.
+                  style={({ pressed }) => [
                     styles.filter,
-                    item === category && styles.activeFilter,
+                    item === category ? neu.inset : neuPressable(pressed, "sm"),
                   ]}
-                  onPress={() => {
-                    setCategory(item);
-                    if (item === "all") setBrowseAll(true);
-                  }}
+                  onPress={() => setCategory(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: item === category }}
                 >
                   <Text
                     style={[
@@ -199,54 +209,37 @@ export default function SearchScreen() {
                 </Pressable>
               )}
             />
-            {showEmptyQueryState ? (
-              <View style={styles.emptyQueryContainer}>
-                {recentSearches.length > 0 ? (
-                  <View style={styles.recentSection}>
-                    <Text style={styles.recentTitle}>Recent searches</Text>
-                    <View style={styles.recentList}>
-                      {recentSearches.map(term => (
-                        <Pressable key={term} style={styles.recentItem} onPress={() => executeSearch(term)}>
-                          <Text style={styles.recentItemText}>{term}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                ) : null}
-                
-                <View style={styles.shortcutsSection}>
-                  <Text style={styles.recentTitle}>Popular categories</Text>
-                  <View style={styles.shortcutList}>
-                    {categoryIds.slice(0, 6).map(id => (
-                      <Pressable key={id} style={styles.shortcutItem} onPress={() => setCategory(id)}>
-                        <Text style={styles.shortcutItemText}>{categoryLabel(id)}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+            {query.trim() === "" && recentSearches.length > 0 ? (
+              <View style={styles.recentSection}>
+                <Text style={styles.recentTitle}>Recent searches</Text>
+                <View style={styles.recentList}>
+                  {recentSearches.map((term) => (
+                    <Pressable
+                      key={term}
+                      style={({ pressed }) => [styles.recentItem, neuPressable(pressed, "sm")]}
+                      onPress={() => executeSearch(term)}
+                    >
+                      <Text style={styles.recentItemText}>{term}</Text>
+                    </Pressable>
+                  ))}
                 </View>
               </View>
-            ) : (
-              <Text style={styles.resultCount}>
-                {results.length} results · {bookableCount} bookable
-              </Text>
-            )}
+            ) : null}
+            <Text style={styles.resultCount}>
+              {query.trim() === "" && category === "all"
+                ? `All ${results.length} businesses · ${bookableCount} bookable`
+                : `${results.length} results · ${bookableCount} bookable`}
+            </Text>
           </>
         }
-        ListEmptyComponent={
-          !showEmptyQueryState ? (
-            <EmptyState
-              title="No matches yet"
-              copy={noResultsCopy}
-            />
-          ) : null
-        }
+        ListEmptyComponent={<EmptyState title="No matches yet" copy={noResultsCopy} />}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   list: { padding: spacing.lg, paddingBottom: 40 },
   eyebrow: {
     color: colors.clay,
@@ -261,9 +254,8 @@ const styles = StyleSheet.create({
     height: 58,
     paddingLeft: 15,
     paddingRight: 6,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
+    // A well pressed into the surface — the soft-UI look for inputs.
+    ...neu.inset,
     borderRadius: radii.md,
     flexDirection: "row",
     alignItems: "center",
@@ -271,52 +263,33 @@ const styles = StyleSheet.create({
   searchIcon: { color: colors.clay, fontSize: 25 },
   input: { flex: 1, color: colors.ink, fontSize: 16, paddingHorizontal: 10 },
   go: {
-    backgroundColor: colors.clay,
     borderRadius: 13,
     paddingHorizontal: 17,
     paddingVertical: 11,
   },
   goText: { color: colors.white, fontWeight: "800" },
-  filters: { gap: 8, paddingVertical: spacing.md },
+  // Room on every side so the horizontal list doesn't clip the chip shadows.
+  filters: { gap: 12, paddingVertical: NEU_SHADOW_ROOM, paddingHorizontal: 6 },
   filter: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
     borderRadius: radii.pill,
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 9,
   },
-  activeFilter: { borderColor: colors.clay, backgroundColor: colors.clay },
   filterText: { color: colors.ink, fontWeight: "700", fontSize: 13 },
-  activeFilterText: { color: colors.white },
+  activeFilterText: { color: colors.clay },
   resultCount: {
     color: colors.muted,
     fontSize: 13,
     fontWeight: "700",
     marginBottom: spacing.md,
   },
-  emptyQueryContainer: { marginTop: spacing.md },
   recentSection: { marginBottom: spacing.lg },
-  shortcutsSection: { marginBottom: spacing.lg },
   recentTitle: { color: colors.ink, fontSize: 17, fontWeight: "800", marginBottom: spacing.sm },
-  recentList: { gap: 8, flexDirection: "row", flexWrap: "wrap" },
-  shortcutList: { gap: 8, flexDirection: "row", flexWrap: "wrap" },
+  recentList: { gap: 12, flexDirection: "row", flexWrap: "wrap" },
   recentItem: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radii.md,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  shortcutItem: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
     borderRadius: radii.md,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
   recentItemText: { color: colors.ink, fontSize: 14, fontWeight: "600" },
-  shortcutItemText: { color: colors.ink, fontSize: 14, fontWeight: "600" },
 });

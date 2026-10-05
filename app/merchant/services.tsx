@@ -23,6 +23,7 @@ import {
   type ServiceInput,
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import { CATALOG_CATEGORY_IDS, categoryLabel } from "@/utils/categories";
 import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
 import { CameraModal } from "@/components/CameraModal";
@@ -39,7 +40,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PRICE_TYPES: { key: ServiceInput["priceType"]; label: string }[] = [
   { key: "fixed", label: "Fixed" },
@@ -109,6 +110,10 @@ function draftFromService(svc: MerchantService): Draft {
 }
 
 export default function MerchantServicesScreen() {
+  // The screen only reserves the top safe area, so the two bars pinned to the
+  // bottom add the navigation bar / gesture area themselves — otherwise Save
+  // and Add Service sit underneath Android's buttons.
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { merchantToken, consumerToken, saveMerchantSession } = useAuth();
   const activeToken = merchantToken || consumerToken;
@@ -514,7 +519,7 @@ export default function MerchantServicesScreen() {
                     </View>
                   ))
                 )}
-                <View style={{ height: services.length > 0 ? 96 : 24 }} />
+                <View style={{ height: (services.length > 0 ? 96 : 24) + insets.bottom }} />
               </ScrollView>
 
               {kebabOpenId && (
@@ -525,7 +530,7 @@ export default function MerchantServicesScreen() {
               )}
 
               {services.length > 0 && (
-                <View style={s.bottomBar}>
+                <View style={[s.bottomBar, { paddingBottom: ms.md + insets.bottom }]}>
                   <Pressable style={s.addBtn} onPress={openAdd}>
                     <Text style={s.addBtnText}>+ Add Service</Text>
                   </Pressable>
@@ -767,7 +772,7 @@ export default function MerchantServicesScreen() {
             </View>
           </ScrollView>
 
-          <View style={s.formFooter}>
+          <View style={[s.formFooter, { paddingBottom: ms.md + insets.bottom }]}>
             <Pressable
               style={[s.saveBtn, !draft.name.trim() && s.saveBtnDisabled]}
               disabled={!draft.name.trim() || saving}
@@ -826,7 +831,7 @@ export default function MerchantServicesScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: mc.surface },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: ms.lg },
   errorText: { color: mc.error, fontSize: 13.5, fontFamily: mf.medium, textAlign: "center" },
 
@@ -843,9 +848,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -866,14 +869,12 @@ const s = StyleSheet.create({
   previewCard: {
     width: 128,
     borderRadius: mr.md,
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     overflow: "hidden",
   },
   previewImageWrap: {
     height: 76,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -886,18 +887,18 @@ const s = StyleSheet.create({
     paddingVertical: 4,
     alignItems: "center",
     borderRadius: 7,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
   },
   previewCtaText: { fontSize: 10, fontFamily: mf.semibold, color: mc.onPrimary },
 
   // List rows
-  listContent: { paddingHorizontal: ms.md, paddingTop: ms.sm, gap: ms.xs },
+  listContent: { paddingHorizontal: ms.md, paddingTop: ms.sm, gap: ms.md },
   emptyWrap: { alignItems: "center", padding: ms.xl, gap: ms.xs },
   emptyIcon: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -915,15 +916,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: mr.md,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
   },
   emptyAddBtnText: { color: mc.onPrimary, fontFamily: mf.semibold, fontSize: 14 },
 
   row: {
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
     borderRadius: mr.lg,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     padding: ms.sm,
     position: "relative",
   },
@@ -935,7 +934,7 @@ const s = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: mr.sm,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -954,9 +953,7 @@ const s = StyleSheet.create({
     position: "absolute",
     right: 10,
     top: 40,
-    backgroundColor: mc.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
+    ...neu.raised,
     borderRadius: mr.md,
     overflow: "hidden",
     zIndex: 5,
@@ -972,13 +969,11 @@ const s = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: ms.md,
-    backgroundColor: mc.surface,
-    borderTopWidth: 1,
-    borderTopColor: mc.outlineVariant,
+    ...neuBarTop,
   },
   addBtn: {
     borderRadius: mr.lg,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     paddingVertical: 15,
     alignItems: "center",
   },
@@ -1013,9 +1008,7 @@ const s = StyleSheet.create({
   charCount: { fontSize: 12, color: mc.outline },
 
   input: {
-    backgroundColor: mc.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
+    ...neu.inset,
     borderRadius: mr.md,
     paddingHorizontal: ms.sm,
     paddingVertical: 13,
@@ -1032,7 +1025,7 @@ const s = StyleSheet.create({
     borderColor: mc.outlineVariant,
     borderStyle: "dashed",
     overflow: "hidden",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.inset,
   },
   photoBoxImage: { width: "100%", height: "100%" },
   photoBoxEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6 },
@@ -1043,47 +1036,41 @@ const s = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     justifyContent: "center",
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     borderRadius: mr.md,
     paddingVertical: 11,
   },
   photoActionBtnText: { color: mc.onPrimary, fontFamily: mf.semibold, fontSize: 13 },
   uploadingText: { fontSize: 12.5, color: mc.onSurfaceVariant, fontFamily: mf.medium },
 
-  pillWrap: { flexDirection: "row", flexWrap: "wrap", gap: ms.xs },
+  pillWrap: { flexDirection: "row", flexWrap: "wrap", gap: ms.sm },
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: mr.full,
-    borderWidth: 1.5,
-    borderColor: mc.outlineVariant,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
   },
-  pillSelected: { backgroundColor: mc.primary, borderColor: mc.primary },
+  pillSelected: { ...neuAccent(false, mc.primary), borderColor: mc.primary },
   pillText: { fontSize: 12.5, fontFamily: mf.semibold, color: mc.onSurface },
   pillTextSelected: { color: mc.onPrimary },
 
-  priceTypeRow: { flexDirection: "row", gap: 6 },
+  priceTypeRow: { flexDirection: "row", gap: 10 },
   priceTypeBtn: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: mr.sm,
-    borderWidth: 1.5,
-    borderColor: mc.outlineVariant,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
   },
-  priceTypeBtnSelected: { backgroundColor: mc.primary, borderColor: mc.primary },
+  priceTypeBtnSelected: { ...neuAccent(false, mc.primary), borderColor: mc.primary },
   priceTypeText: { fontSize: 12.5, fontFamily: mf.semibold, color: mc.onSurface },
   priceTypeTextSelected: { color: mc.onPrimary },
 
   priceInputRow: {
     flexDirection: "row",
     alignItems: "stretch",
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
     borderRadius: mr.md,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.inset,
     overflow: "hidden",
   },
   pricePrefix: {
@@ -1121,10 +1108,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderWidth: 1,
-    borderColor: mc.outlineVariant,
     borderRadius: mr.md,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.inset,
     paddingHorizontal: ms.sm,
     paddingVertical: 8,
     alignSelf: "flex-start",
@@ -1133,7 +1118,7 @@ const s = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1153,7 +1138,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 24,
     borderRadius: 12,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.inset,
     padding: 2,
     justifyContent: "center",
   },
@@ -1162,19 +1147,17 @@ const s = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
   },
   switchThumbOn: { alignSelf: "flex-end" },
 
   formFooter: {
     padding: ms.md,
-    backgroundColor: mc.surface,
-    borderTopWidth: 1,
-    borderTopColor: mc.outlineVariant,
+    ...neuBarTop,
   },
   saveBtn: {
     borderRadius: mr.lg,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     paddingVertical: 15,
     alignItems: "center",
   },
@@ -1191,7 +1174,7 @@ const s = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: mc.surface,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: mr.xl,
     borderTopRightRadius: mr.xl,
     padding: ms.lg,
@@ -1201,7 +1184,7 @@ const s = StyleSheet.create({
   sheetBody: { fontSize: 13.5, color: mc.onSurfaceVariant, lineHeight: 20 },
   sheetPrimaryBtn: {
     borderRadius: mr.md,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     paddingVertical: 14,
     alignItems: "center",
   },
