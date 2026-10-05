@@ -8,7 +8,7 @@ const icons: Partial<Record<string, ImageSourcePropType>> = {
   nails: require("../../assets/icons/nail-artist.png"),
   tattoo: require("../../assets/icons/tattoo.png"),
   barbering: require("../../assets/icons/barber.png"),
-  fitness: require("../../assets/icons/weightlifting.png"),
+  fitness: require("../../assets/icons/gym.png"),
   recovery: require("../../assets/icons/sauna.png"),
   facials: require("../../assets/icons/tray.png"),
 };

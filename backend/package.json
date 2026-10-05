@@ -17,6 +17,7 @@
     "init:env": "node scripts/init-env.mjs",
     "seed:dev": "node scripts/seed-dev.mjs",
     "smoke": "node scripts/smoke.mjs",
+    "geocode": "node scripts/geocode-businesses.mjs",
     "check:catalog": "node scripts/check-catalog.mjs",
     "check:open-now": "node scripts/check-open-now.mjs"
   },

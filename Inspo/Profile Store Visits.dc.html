@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block"><style>body{margin:0;background:#EDE9E5;font-family:system-ui,sans-serif}a{color:#B33A0F}a:hover{color:#8E2C0A}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}</style></helmet>
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Store visits card · Profile tab</span></div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Main screen · Week (tap Today / Week / Month)</div>
+      <div style="width:390px;height:844px;border:10px solid #1E1B19;border-radius:46px;overflow:hidden;background:#FBF6F2;display:flex;flex-direction:column;font-family:Outfit,system-ui,sans-serif;color:#1F1A17;position:relative">
+        <div style="height:30px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:14px;font-weight:500;color:#3A332F">
+          <span>10:25</span>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-family:'Material Symbols Rounded';font-size:16px">wifi</span><span style="font-family:'Material Symbols Rounded';font-size:16px">signal_cellular_alt</span><span style="background:#3A332F;color:#FBF6F2;font-size:11px;font-weight:600;padding:1px 6px;border-radius:999px">96</span></div>
+        </div>
+        <div style="flex:none;display:flex;align-items:center;gap:12px;padding:4px 16px 10px;border-bottom:1px solid #EBD3C9">
+          <div style="width:44px;height:44px;border-radius:12px;background:#B33A0F;color:#FFFFFF;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">K</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px;flex:1;min-width:0">
+            <div style="font-size:19px;font-weight:600;line-height:1.1">Taliano spa</div>
+            <span style="background:#FDE3DA;font-size:13px;font-weight:500;padding:2px 10px;border-radius:999px">Seller Mode</span>
+            <div style="font-size:13px;color:#6B625C">Profile</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="display:flex;align-items:center;gap:4px;background:#ECE7E3;color:#6B625C;font-size:14px;font-weight:500;padding:10px 14px;border-radius:999px;white-space:nowrap">Consumer view<span style="font-family:'Material Symbols Rounded';font-size:16px">arrow_outward</span></span>
+            <span style="width:38px;height:38px;border-radius:50%;background:#ECE7E3;color:#6B625C;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center">TA</span>
+          </div>
+        </div>
+
+        <div ref="{{scrollRef}}" style="flex:1;overflow-y:auto;scrollbar-width:none;position:relative">
+          <div style="height:180px;background:linear-gradient(180deg,#F3F0EE 0%,#DAD6D3 55%,#8F8A87 100%);position:relative">
+            <span style="position:absolute;top:18px;right:16px;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.88);font-size:14px;font-weight:500;padding:7px 14px;border-radius:999px"><span style="width:8px;height:8px;border-radius:50%;background:#0E7A4F"></span>Store Live</span>
+          </div>
+          <div style="margin:-50px 16px 0;position:relative;background:#FFFFFF;border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div style="position:relative;width:76px;height:76px">
+                <div style="width:76px;height:76px;border-radius:22px;background:repeating-linear-gradient(135deg,#ECE7E3 0 6px,#E3DDD8 6px 12px);display:flex;align-items:center;justify-content:center;font:500 9px ui-monospace,Menlo,monospace;color:#7D746E">photo</div>
+                <span style="position:absolute;left:-4px;bottom:-4px;width:26px;height:26px;border-radius:50%;background:#B33A0F;border:2px solid #FFFFFF;display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-family:'Material Symbols Rounded';font-size:15px">photo_camera</span>
+              </div>
+              <span style="display:flex;align-items:center;gap:8px;background:#ECE7E3;color:#3A332F;font-size:14px;font-weight:500;padding:10px 14px;border-radius:999px"><span style="font-family:'Material Symbols Rounded';font-size:17px;font-variation-settings:'FILL' 1">edit</span>Edit business profile</span>
+            </div>
+            <div style="font-size:24px;font-weight:600;margin-top:4px">Taliano spa</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:15px;color:#3A332F"><span style="font-family:'Material Symbols Rounded';font-size:18px;color:#B33A0F;font-variation-settings:'FILL' 1">spa</span>Spa &amp; Massage · Nairobi</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span style="display:flex;align-items:center;gap:5px;background:#F3EFEC;font-size:14px;padding:6px 12px;border-radius:999px"><span style="font-family:'Material Symbols Rounded';font-size:16px;color:#B33A0F;font-variation-settings:'FILL' 1">star</span><b style="font-weight:600">5.0</b><span style="color:#6B625C">(1 reviews)</span></span>
+              <span style="display:flex;align-items:center;gap:6px;background:#F3EFEC;font-size:14px;padding:6px 6px 6px 12px;border-radius:999px"><span style="font-family:'Material Symbols Rounded';font-size:16px;font-variation-settings:'FILL' 1">group</span>0 Followers<span style="background:#ECE7E3;color:#6B625C;font-size:11px;padding:2px 8px;border-radius:999px">Coming soon</span></span>
+            </div>
+          </div>
+
+          <sc-if value="{{showSetup}}">
+            <div style="margin:16px 16px 0;background:#FFFFFF;border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:48px;height:48px;border-radius:16px;background:#FDE3DA;display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:'Material Symbols Rounded';font-size:24px;color:#B33A0F">checklist</span></div>
+                <div style="flex:1"><div style="font-size:17px;font-weight:600">Finish setting up your listing</div><div style="font-size:14px;color:#6B625C">3 of 5 steps · Add opening hours</div></div>
+                <span style="font-family:'Material Symbols Rounded';font-size:22px;color:#3A332F">chevron_right</span>
+              </div>
+              <div style="height:8px;border-radius:999px;background:#ECE7E3;overflow:hidden"><div style="width:60%;height:100%;background:#B33A0F;border-radius:999px"></div></div>
+            </div>
+          </sc-if>
+
+          <div style="margin:16px 16px 0">
+            <dc-import name="StoreVisitsCard" range="week" state="{{mainState}}" trend="{{trend}}" hint-size="100%,440px"></dc-import>
+          </div>
+
+          <div style="margin:16px 16px 0;border-radius:24px;padding:16px 18px;background:linear-gradient(135deg,#B33A0F,#D2541E);color:#FFFFFF;display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+            <span style="display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.18);font-size:11px;font-weight:600;letter-spacing:.06em;padding:4px 10px;border-radius:999px"><span style="font-family:'Material Symbols Rounded';font-size:14px">rocket_launch</span>KILIPICKS GROWTH</span>
+            <div style="font-size:18px;font-weight:700;line-height:1.2">Grow your business with KiliPicks Pro</div>
+            <div style="font-size:14px;line-height:1.35">Get featured placement in Nairobi search and a top verified badge.</div>
+            <span style="display:flex;align-items:center;gap:6px;background:#FFFFFF;color:#B33A0F;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;margin-top:2px">Upgrade to Pro<span style="font-family:'Material Symbols Rounded';font-size:16px">arrow_forward</span></span>
+          </div>
+
+          <div style="margin:24px 16px 0;display:flex;align-items:center;gap:10px">
+            <div style="font-size:20px;font-weight:600">Your Services</div>
+            <span style="background:#ECE7E3;color:#6B625C;font-size:13px;padding:3px 10px;border-radius:999px">2 total</span>
+            <span style="margin-left:auto;display:flex;align-items:center;gap:4px;background:#FDE3DA;font-size:14px;font-weight:500;padding:9px 14px;border-radius:999px"><span style="font-family:'Material Symbols Rounded';font-size:18px">add</span>Add Service</span>
+          </div>
+          <div style="margin:14px 16px 20px;background:#FFFFFF;border-radius:28px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+            <div style="width:52px;height:52px;border-radius:16px;background:repeating-linear-gradient(135deg,#ECE7E3 0 6px,#E3DDD8 6px 12px);flex:none"></div>
+            <div><div style="font-size:17px;font-weight:600">Full makeup</div><div style="font-size:14px;color:#6B625C">KSh 3,500 · 90 min</div></div>
+          </div>
+        </div>
+
+        <div style="flex:none;height:70px;border-top:1px solid #EFE4DE;background:#FBF6F2;display:flex;align-items:center;justify-content:space-around;padding:0 4px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#4A433F;font-size:12px"><span style="font-family:'Material Symbols Rounded';font-size:26px;font-variation-settings:'FILL' 1">calendar_today</span>Bookings</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#4A433F;font-size:12px"><span style="font-family:'Material Symbols Rounded';font-size:26px;font-variation-settings:'FILL' 1">payments</span>Sales</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#4A433F;font-size:12px"><span style="font-family:'Material Symbols Rounded';font-size:26px;font-variation-settings:'FILL' 1">photo_library</span>Looks</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#4A433F;font-size:12px;position:relative"><span style="font-family:'Material Symbols Rounded';font-size:26px;font-variation-settings:'FILL' 1">chat</span>Inbox<span style="position:absolute;top:-6px;right:-8px;width:18px;height:18px;border-radius:50%;background:#0E7A4F;color:#FFFFFF;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">5</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;color:#B33A0F;font-size:12px;font-weight:600"><span style="font-family:'Material Symbols Rounded';font-size:26px">storefront</span>Profile</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>A · Today selected</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" range="today" state="normal" hint-size="100%,440px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>B · Month selected</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" range="month" state="normal" hint-size="100%,440px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>C · No comparison yet</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" range="week" state="noCompare" hint-size="100%,440px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1i">
+      <div class="dv-olabel"><a class="dv-oid" href="#1i">1i</a>Down-trend reference</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" range="week" state="normal" trend="down" hint-size="100%,440px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1j">
+      <div class="dv-olabel"><a class="dv-oid" href="#1j">1j</a>Collapsed (tap title to expand)</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" range="week" state="normal" collapsed="{{ true }}" hint-size="100%,74px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1e">
+      <div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>D · No visits yet</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" state="empty" hint-size="100%,260px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1f">
+      <div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>E · Listing not live (setup card above)</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px;display:flex;flex-direction:column;gap:16px;font-family:Outfit,system-ui,sans-serif;color:#1F1A17">
+        <div style="background:#FFFFFF;border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:48px;height:48px;border-radius:16px;background:#FDE3DA;display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:'Material Symbols Rounded';font-size:24px;color:#B33A0F">checklist</span></div>
+            <div style="flex:1"><div style="font-size:17px;font-weight:600">Finish setting up your listing</div><div style="font-size:14px;color:#6B625C">3 of 5 steps · Add opening hours</div></div>
+            <span style="font-family:'Material Symbols Rounded';font-size:22px;color:#3A332F">chevron_right</span>
+          </div>
+          <div style="height:8px;border-radius:999px;background:#ECE7E3;overflow:hidden"><div style="width:60%;height:100%;background:#B33A0F;border-radius:999px"></div></div>
+        </div>
+        <dc-import name="StoreVisitsCard" state="notLive" hint-size="100%,200px"></dc-import>
+      </div>
+    </div>
+    <div class="dv-opt" id="1g">
+      <div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>F · Loading</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" state="loading" hint-size="100%,340px"></dc-import></div>
+    </div>
+    <div class="dv-opt" id="1h">
+      <div class="dv-olabel"><a class="dv-oid" href="#1h">1h</a>G · Error (tap to retry)</div>
+      <div class="dv-card" style="width:390px;background:#FBF6F2;padding:16px;box-sizing:border-box;border-radius:24px"><dc-import name="StoreVisitsCard" state="error" hint-size="100%,240px"></dc-import></div>
+    </div>
+  </div>
+  <p class="dv-next">Try next: "make the chart in <a class="dv-oid" href="#1a">1a</a> shorter" · "add a 'See who's searching' upsell to the Pro card" · "show <a class="dv-oid" href="#1i">1i</a> on the main screen"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;trend&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;up&quot;,&quot;down&quot;],&quot;default&quot;:&quot;up&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mainState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;noCompare&quot;,&quot;empty&quot;,&quot;notLive&quot;,&quot;loading&quot;,&quot;error&quot;],&quot;default&quot;:&quot;normal&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  scrollRef = React.createRef();
+  componentDidMount() {
+    setTimeout(() => { if (this.scrollRef.current) this.scrollRef.current.scrollTop = 290; }, 300);
+  }
+  renderVals() {
+    const mainState = this.props.mainState ?? 'normal';
+    return { scrollRef: this.scrollRef, mainState, trend: this.props.trend ?? 'up', showSetup: mainState === 'notLive' };
+  }
+}
+</script>
+</body>
+</html>

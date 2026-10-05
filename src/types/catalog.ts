@@ -4,6 +4,7 @@
 export type {
   AppConfig,
   BookingMethod,
+  GalleryCaption,
   PartnershipStatus,
   PublicationStatus,
   PublicCatalogAvailability,

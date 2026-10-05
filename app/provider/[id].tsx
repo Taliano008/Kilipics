@@ -1,17 +1,22 @@
 import { track } from "@/analytics/events";
 import { useAuth } from "@/auth/auth-context";
 import { useCatalog } from "@/catalog/catalog-context";
+import { HeroCarousel } from "@/components/HeroCarousel";
 import { ErrorState, LoadingState } from "@/components/ScreenState";
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { ProviderCard } from "@/components/ProviderCard";
 import { ReviewsSection } from "@/components/ReviewsSection";
+import { StoreLocationMap } from "@/components/StoreMap";
 import { resolveMediaUrl } from "@/config/env";
 import { fetchMerchantBusinessPreview } from "@/api/merchant";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
 import { mf } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
-import { categoryLabel } from "@/utils/categories";
+import { categoryLabel, providerCategoryIds } from "@/utils/categories";
 import { starIcon, verifiedBadgeIcon } from "@/utils/icon-assets";
+import { directionsUrl, mapLocation, mapsSearchUrl } from "@/utils/location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   buildContactChannels,
@@ -34,6 +39,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +52,34 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+// Where customers can find the business: a map position (exact when the
+// merchant placed a pin, approximate when looked up from the address) plus
+// the address. Mobile services are included — many also have a base clients
+// can visit. Null when there's nothing more specific than the city to show.
+function storeLocation(provider: PublicCatalogProvider | null | undefined) {
+  if (!provider) return null;
+  const address = (provider.location.fullAddress || provider.address || "").trim();
+  const map = mapLocation(provider.location);
+  const addressIsJustCity = !address || address.toLowerCase() === "nairobi";
+  if (!map && addressIsJustCity) return null;
+  return {
+    map,
+    address,
+    area: provider.area || provider.location.area || "Nairobi",
+    mobile: provider.location.locationType === "MOBILE_SERVICE",
+    // Route straight to an exact pin; for anything less, let Google Maps
+    // search for the business itself, which may know the precise spot.
+    googleMapsUrl:
+      map && !map.approximate
+        ? directionsUrl(map.coordinate)
+        : mapsSearchUrl(`${provider.name}, ${address}, Nairobi`),
+  };
+}
+
+function openExternal(url: string) {
+  void Linking.openURL(url).catch((reason) => report(reason, { scope: "provider_map_open" }));
+}
+
 // Palette from Inspo/restructer_details.html.
 const P = {
   terracotta: "#BA482A",
@@ -53,7 +87,8 @@ const P = {
   blush50: "#FDF7F6",
   blush100: "#FCECE9",
   blush200: "#F9DCD7",
-  surface: "#FAF8F5",
+  // Soft-UI surface shared with the rest of the customer app.
+  surface: neuColors.surface,
   ink900: "#1F1A18",
   ink700: "#4A423E",
   ink500: "#7B726C",
@@ -134,7 +169,15 @@ function formatTotal(services: PublicCatalogService[]): string {
 // load." Track failures per-photo and let a tap re-attempt — bumping `key`
 // forces expo-image to re-issue the request instead of reusing its cached
 // failure.
-function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
+function GalleryPhoto({
+  uri,
+  moreCount,
+  onOpen,
+}: {
+  uri: string;
+  moreCount?: number;
+  onOpen: () => void;
+}) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
@@ -153,7 +196,12 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
   }
 
   return (
-    <View style={styles.galleryTile}>
+    <Pressable
+      style={styles.galleryTile}
+      onPress={onOpen}
+      accessibilityRole="imagebutton"
+      accessibilityLabel={moreCount !== undefined ? `View all photos, ${moreCount} more` : "View photo"}
+    >
       <Image
         key={attempt}
         source={{ uri }}
@@ -169,7 +217,7 @@ function GalleryPhoto({ uri, moreCount }: { uri: string; moreCount?: number }) {
       ) : (
         <View style={styles.galleryTint} />
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -189,6 +237,15 @@ export default function ProviderDetailScreen() {
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(isPreview);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // Full-screen photo viewer. `opening` changes on every tap so the viewer
+  // remounts and starts on the photo that was tapped.
+  const [viewer, setViewer] = useState<{ index: number; opening: number } | null>(null);
+  const openPhoto = (index: number) =>
+    setViewer((prev) => ({ index, opening: (prev?.opening ?? 0) + 1 }));
+  const [mapExpanded, setMapExpanded] = useState(false);
+  // The photo the hero carousel is showing.
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
 
   const loadPreview = useCallback(() => {
     if (!isPreview) return;
@@ -266,7 +323,6 @@ export default function ProviderDetailScreen() {
       .filter((row) => row.day && row.time);
   }, [provider]);
 
-  const cover = provider ? resolveMediaUrl(provider.cover) : null;
   const gallery = useMemo(
     () =>
       provider
@@ -280,6 +336,15 @@ export default function ProviderDetailScreen() {
         : [],
     [provider],
   );
+  // Captions are keyed by the stored URL; `gallery` holds resolved ones.
+  const galleryCaptions = useMemo(() => {
+    const byResolvedUrl = new Map(
+      Object.entries(provider?.galleryCaptions ?? {}).map(
+        ([url, caption]) => [resolveMediaUrl(url), caption] as const,
+      ),
+    );
+    return gallery.map((url) => byResolvedUrl.get(url));
+  }, [provider, gallery]);
 
   const serviceCategories = useMemo(
     () => Array.from(new Set(services.map((s) => s.categoryId))),
@@ -296,11 +361,12 @@ export default function ProviderDetailScreen() {
   const nearbyProviders = useMemo(() => {
     if (isPreview || !catalog || !provider || provider.limitedListing) return [];
     const others = catalog.providers.filter((p) => p.id !== provider.id);
-    const sameCategory = others.filter(
-      (p) => p.categoryId === provider.categoryId,
-    );
+    const ownCategories = providerCategoryIds(provider);
+    const sharesCategory = (p: typeof provider) =>
+      providerCategoryIds(p).some((id) => ownCategories.includes(id));
+    const sameCategory = others.filter(sharesCategory);
     const sameArea = others.filter(
-      (p) => p.area === provider.area && p.categoryId !== provider.categoryId,
+      (p) => p.area === provider.area && !sharesCategory(p),
     );
     let pool = sameCategory.slice(0, 6);
     if (pool.length < 6) {
@@ -318,6 +384,7 @@ export default function ProviderDetailScreen() {
     if (services.length > 0) list.push({ key: "services", label: "Services" });
     if (gallery.length > 0) list.push({ key: "photos", label: "Photos" });
     list.push({ key: "reviews", label: "Reviews" });
+    if (storeLocation(provider)) list.push({ key: "location", label: "Location" });
     list.push({ key: "hours", label: "Hours" });
     return list;
   }, [provider, services, gallery]);
@@ -480,6 +547,7 @@ export default function ProviderDetailScreen() {
   };
 
   const heroIndex = isPreview ? 1 : 0;
+  const location = storeLocation(provider);
   const galleryStrip = gallery.slice(0, GALLERY_STRIP_COUNT);
   const hiddenPhotoCount = gallery.length - GALLERY_STRIP_COUNT;
 
@@ -543,17 +611,20 @@ export default function ProviderDetailScreen() {
         {/* Hero photo + identity */}
         <View>
           <View style={styles.hero}>
-            {cover ? (
-              <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            {gallery.length > 0 ? (
+              // Cover first, then the rest of the storefront gallery.
+              <HeroCarousel photos={gallery} onPressPhoto={openPhoto} onIndexChange={setHeroPhotoIndex} />
             ) : (
               <View style={[StyleSheet.absoluteFill, styles.heroPlaceholder]}>
                 <Text style={styles.heroPlaceholderLetter}>{provider.name.slice(0, 1)}</Text>
               </View>
             )}
             {gallery.length > 1 && (
-              <View style={styles.heroCounter}>
+              <View style={styles.heroCounter} pointerEvents="none">
                 <Feather name="image" size={12} color={P.white} />
-                <Text style={styles.heroCounterText}>{gallery.length}</Text>
+                <Text style={styles.heroCounterText}>
+                  {Math.min(heroPhotoIndex, gallery.length - 1) + 1} / {gallery.length}
+                </Text>
               </View>
             )}
             {provider.verified && (
@@ -623,7 +694,7 @@ export default function ProviderDetailScreen() {
           {/* About card */}
           <View onLayout={registerOffset("overview")}>
             <LinearGradient
-              colors={["#FFF5F3", P.blush50, "#FCEDE9"]}
+              colors={["#F4EFE9", P.surface, "#ECE5DD"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.aboutCard}
@@ -783,6 +854,7 @@ export default function ProviderDetailScreen() {
                   <GalleryPhoto
                     key={img}
                     uri={img}
+                    onOpen={() => openPhoto(idx)}
                     moreCount={
                       idx === galleryStrip.length - 1 && hiddenPhotoCount > 0
                         ? hiddenPhotoCount
@@ -805,6 +877,57 @@ export default function ProviderDetailScreen() {
               onRatingChanged={() => void refresh()}
             />
           </View>
+
+          {/* Location */}
+          {location && (
+            <View style={styles.section} onLayout={registerOffset("location")}>
+              <Text style={styles.sectionLabel}>Location</Text>
+              {location.mobile ? (
+                <Text style={styles.sectionSub}>Also travels to clients</Text>
+              ) : null}
+              {location.map ? (
+                <>
+                  <View style={styles.mapWrap}>
+                    <StoreLocationMap
+                      coordinate={location.map.coordinate}
+                      approximate={location.map.approximate}
+                      title={provider.name}
+                    />
+                    <Pressable
+                      style={styles.mapExpandBtn}
+                      onPress={() => setMapExpanded(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Open full-screen map"
+                    >
+                      <Feather name="maximize-2" size={15} color={P.ink900} />
+                    </Pressable>
+                  </View>
+                  {location.map.approximate ? (
+                    <Text style={styles.mapApproxNote}>
+                      Approximate location, based on the address.
+                    </Text>
+                  ) : null}
+                </>
+              ) : null}
+              <View style={styles.mapFooter}>
+                <View style={styles.mapAddressWrap}>
+                  <Feather name="map-pin" size={15} color={P.terracotta} />
+                  <Text style={styles.mapAddress} numberOfLines={2}>
+                    {location.address || location.area}
+                  </Text>
+                </View>
+                <Pressable
+                  style={styles.directionsBtn}
+                  onPress={() => openExternal(location.googleMapsUrl)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${provider.name} in Google Maps`}
+                >
+                  <Feather name="navigation" size={13} color={P.white} />
+                  <Text style={styles.directionsText}>Google Maps</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* Opening times & info */}
           <View style={styles.section} onLayout={registerOffset("hours")}>
@@ -907,11 +1030,62 @@ export default function ProviderDetailScreen() {
           </View>
         </View>
       )}
+
+      {location?.map ? (
+        <Modal
+          visible={mapExpanded}
+          animationType="slide"
+          onRequestClose={() => setMapExpanded(false)}
+        >
+          <View style={styles.mapModal}>
+            <StoreLocationMap
+              coordinate={location.map.coordinate}
+              approximate={location.map.approximate}
+              title={provider.name}
+            />
+            <View style={[styles.mapModalTop, { top: insets.top + 12 }]}>
+              <Pressable
+                style={styles.mapModalClose}
+                onPress={() => setMapExpanded(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close map"
+              >
+                <Feather name="x" size={20} color={P.ink900} />
+              </Pressable>
+            </View>
+            <View style={[styles.mapModalCard, { paddingBottom: insets.bottom + 16 }]}>
+              <Text style={styles.mapModalName}>{provider.name}</Text>
+              <Text style={styles.mapAddress} numberOfLines={2}>
+                {location.address || location.area}
+              </Text>
+              <Pressable
+                style={[styles.directionsBtn, styles.mapModalDirections]}
+                onPress={() => openExternal(location.googleMapsUrl)}
+                accessibilityRole="button"
+              >
+                <Feather name="navigation" size={14} color={P.white} />
+                <Text style={styles.directionsText}>Directions in Google Maps</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+
+      {viewer && gallery.length > 0 ? (
+        <PhotoViewer
+          key={viewer.opening}
+          photos={gallery}
+          captions={galleryCaptions}
+          startIndex={viewer.index}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
-const softShadow = { boxShadow: "0px 8px 30px -4px rgba(186, 72, 42, 0.08)" } as const;
+// Raised soft-UI shadow (light top-left, dark bottom-right).
+const softShadow = { boxShadow: neu.raised.boxShadow } as const;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: P.surface },
@@ -932,10 +1106,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: P.white,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0px 1px 3px rgba(31, 26, 24, 0.08)",
   },
   navLabel: {
     flex: 1,
@@ -1021,10 +1194,8 @@ const styles = StyleSheet.create({
 
   // Tabs
   tabBarWrap: {
-    backgroundColor: P.white,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: P.hairline,
+    backgroundColor: P.surface,
+    boxShadow: "0px 4px 10px rgba(163,142,124,0.22)",
   },
   tabBar: { paddingHorizontal: 20, gap: 24, height: TAB_BAR_HEIGHT, alignItems: "flex-end" },
   tab: { paddingBottom: 10 },
@@ -1063,8 +1234,6 @@ const styles = StyleSheet.create({
   aboutCard: {
     borderRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(186,72,42,0.1)",
     ...softShadow,
   },
   aboutPill: {
@@ -1090,7 +1259,8 @@ const styles = StyleSheet.create({
   },
   aboutTitle: { fontFamily: SERIF, fontSize: 24, lineHeight: 30, color: P.ink900 },
   aboutText: { marginTop: 10, fontSize: 13, lineHeight: 21, fontFamily: mf.regular, color: P.ink700 },
-  perkRow: { gap: 10, paddingTop: 16 },
+  // Room so the horizontal row doesn't clip the chips' shadows.
+  perkRow: { gap: 12, paddingTop: 16, paddingBottom: 10, paddingHorizontal: 4 },
   perkChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -1098,15 +1268,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderWidth: 1,
-    borderColor: P.terracottaLine,
+    ...neu.raisedSm,
   },
   perkIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   perkText: { fontSize: 11, fontFamily: mf.semibold, color: P.ink700 },
 
   // Contact
-  contactGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  contactGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
   contactTile: {
     flexBasis: "30%",
     flexGrow: 1,
@@ -1117,39 +1285,99 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 16,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    ...neu.raisedSm,
   },
   contactIconWrap: { width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   contactText: { fontSize: 12, fontFamily: mf.semibold, color: P.ink900, flexShrink: 1 },
 
+  // Location
+  mapWrap: {
+    height: 220,
+    borderRadius: 20,
+    overflow: "hidden",
+    ...softShadow,
+    marginBottom: 14,
+  },
+  mapExpandBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: P.white,
+    ...softShadow,
+  },
+  mapFooter: { flexDirection: "row", alignItems: "center", gap: 12 },
+  mapApproxNote: { fontSize: 11.5, fontFamily: mf.regular, color: P.ink500, marginTop: -4, marginBottom: 10 },
+  mapAddressWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  mapAddress: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: mf.regular, color: P.ink700 },
+  directionsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    ...neuAccent(false, P.terracotta),
+  },
+  directionsText: { fontSize: 13, fontFamily: mf.semibold, color: P.white },
+  mapModal: { flex: 1, backgroundColor: P.surface },
+  mapModalTop: { position: "absolute", left: 16 },
+  mapModalClose: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: P.white,
+    ...softShadow,
+  },
+  mapModalCard: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 18,
+    paddingHorizontal: 20,
+    gap: 6,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    ...neuBarTop,
+  },
+  mapModalName: { fontFamily: SERIF, fontSize: 20, color: P.ink900 },
+  mapModalDirections: { alignSelf: "stretch", justifyContent: "center", marginTop: 8, paddingVertical: 14 },
+
   // Services
-  filterRow: { gap: 8, paddingBottom: 4 },
+  filterRow: { gap: 12, paddingVertical: 10, paddingHorizontal: 4 },
   filterPill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: P.blush50,
-    borderWidth: 1,
-    borderColor: P.terracottaLine,
+    ...neu.raisedSm,
   },
-  filterPillActive: { backgroundColor: P.terracotta, borderColor: P.terracotta },
+  filterPillActive: neuAccent(false, P.terracotta),
   filterText: { fontSize: 12, fontFamily: mf.medium, color: P.ink700 },
   filterTextActive: { color: P.white, fontFamily: mf.semibold },
-  serviceList: { gap: 12, marginTop: 12 },
+  serviceList: { gap: 16, marginTop: 12 },
   serviceCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     padding: 14,
     borderRadius: 24,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    backgroundColor: P.surface,
     ...softShadow,
   },
-  serviceCardSelected: { borderWidth: 2, borderColor: P.terracotta, padding: 13 },
+  // Selected: pressed into the surface, with an accent edge.
+  serviceCardSelected: {
+    borderWidth: 2,
+    borderColor: P.terracotta,
+    padding: 12,
+    boxShadow: neu.inset.boxShadow,
+  },
   serviceThumb: {
     width: 64,
     height: 64,
@@ -1193,15 +1421,14 @@ const styles = StyleSheet.create({
   selectBtnTextActive: { color: P.white },
 
   // Gallery
-  galleryRow: { gap: 12, paddingBottom: 4 },
+  galleryRow: { gap: 14, paddingVertical: 10, paddingHorizontal: 4 },
   galleryTile: {
     width: 96,
     height: 96,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: P.blush100,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    boxShadow: neu.raisedSm.boxShadow,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1220,9 +1447,7 @@ const styles = StyleSheet.create({
 
   // Hours + info
   card: {
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.hairline,
+    ...neu.raised,
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 6,

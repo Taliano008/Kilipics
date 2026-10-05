@@ -42,12 +42,59 @@ function mergeGallery(galleryUrls, serviceImageUrls) {
   return merged;
 }
 
-export function serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness = new Map()) {
+// Primary category first, then the rest, deduplicated. Unioned rather than
+// read from category_ids alone so the primary is always present even if
+// category_id was edited without category_ids (see 031_business_category_ids.sql).
+// serviceCategoryIds adds the categories of the business's active services,
+// so a salon that adds a nails service is found under Nails too.
+export function businessCategoryIds(row, serviceCategoryIds = []) {
+  const extra = Array.isArray(row.category_ids) ? row.category_ids : [];
+  return [
+    ...new Set(
+      [row.category_id, ...extra, ...serviceCategoryIds].filter((id) => typeof id === "string" && id),
+    ),
+  ];
+}
+
+// Same wording the app uses on provider cards ("From KES 1,800").
+export function formatServicePrice(service) {
+  if (service.price_type === "contact_for_price" || service.price == null) return "";
+  const amount = `KES ${Number(service.price).toLocaleString("en-US")}`;
+  if (service.price_type === "from") return `From ${amount}`;
+  if (service.price_type === "range" && service.maximum_price != null) {
+    return `${amount} – ${Number(service.maximum_price).toLocaleString("en-US")}`;
+  }
+  return amount;
+}
+
+// Captions for the full-screen gallery viewer. A service's own photo is
+// captioned with that service's name and price automatically; anything the
+// merchant wrote for a photo in gallery_captions wins over that.
+export function galleryCaptions(row, services = []) {
+  const captions = {};
+  for (const service of services) {
+    if (service.image_url && !captions[service.image_url]) {
+      const price = formatServicePrice(service);
+      captions[service.image_url] = { title: service.name, ...(price ? { price } : {}) };
+    }
+  }
+  const own = row.gallery_captions && typeof row.gallery_captions === "object" ? row.gallery_captions : {};
+  return { ...captions, ...own };
+}
+
+export function serializeProvider(
+  row,
+  serviceIdsByBusiness,
+  serviceImagesByBusiness = new Map(),
+  serviceCategoriesByBusiness = new Map(),
+  servicesByBusiness = new Map(),
+) {
   const provider = {
     id: row.id,
     slug: row.slug,
     industry: row.industry,
     categoryId: row.category_id,
+    categoryIds: businessCategoryIds(row, serviceCategoriesByBusiness.get(row.id)),
     subcategory: row.subcategory ?? null,
     name: row.name,
     area: row.area,
@@ -65,6 +112,9 @@ export function serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusi
       area: row.area,
       city: "Nairobi",
       locationType: row.location_type,
+      // pin = placed by the merchant, address = looked up from the street
+      // address (approximate), none = placeholder; see 033_location_precision.sql.
+      precision: row.location_precision ?? "none",
       // The same `service_areas` column also stores a travel-radius config
       // ({ enabled, radiusMiles }[]) written by merchant onboarding Step 2
       // for "mobile" location-type businesses (see MerchantBusiness.serviceAreas
@@ -101,6 +151,7 @@ export function serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusi
     recommended: Boolean(row.recommended),
     featured: Boolean(row.featured),
     gallery: mergeGallery(row.gallery_urls, serviceImagesByBusiness.get(row.id)),
+    galleryCaptions: galleryCaptions(row, servicesByBusiness.get(row.id)),
     publicContacts: row.public_contacts ?? {},
   };
 
@@ -192,10 +243,20 @@ async function buildCatalogSnapshot() {
 
   const serviceIdsByBusiness = new Map();
   const serviceImagesByBusiness = new Map();
+  const serviceCategoriesByBusiness = new Map();
+  const servicesByBusiness = new Map();
   for (const service of services) {
+    const own = servicesByBusiness.get(service.business_id) ?? [];
+    own.push(service);
+    servicesByBusiness.set(service.business_id, own);
+
     const list = serviceIdsByBusiness.get(service.business_id) ?? [];
     list.push(service.id);
     serviceIdsByBusiness.set(service.business_id, list);
+
+    const categories = serviceCategoriesByBusiness.get(service.business_id) ?? [];
+    categories.push(service.category_id);
+    serviceCategoriesByBusiness.set(service.business_id, categories);
 
     if (service.image_url) {
       const images = serviceImagesByBusiness.get(service.business_id) ?? [];
@@ -207,7 +268,15 @@ async function buildCatalogSnapshot() {
   const appConfig = await getAppConfig();
 
   return {
-    providers: businesses.map((row) => serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness)),
+    providers: businesses.map((row) =>
+      serializeProvider(
+        row,
+        serviceIdsByBusiness,
+        serviceImagesByBusiness,
+        serviceCategoriesByBusiness,
+        servicesByBusiness,
+      ),
+    ),
     services: services.map(serializeService),
     availability: availability.map(serializeAvailability),
     managedMerchantIds: [],

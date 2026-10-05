@@ -1,3 +1,4 @@
+import { neuColors } from "@/theme/neumorphism";
 import { colors, spacing } from "@/theme/tokens";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -144,7 +145,7 @@ export default function PrivacyScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   header: {
     flexDirection: "row",
     alignItems: "center",

@@ -6,6 +6,7 @@ import {
 } from "@/api/notifications";
 import { useAuth } from "@/auth/auth-context";
 import { EmptyState } from "@/components/ScreenState";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import { ringingIcon } from "@/utils/icon-assets";
 import { Image } from "expo-image";
@@ -157,7 +158,7 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -169,6 +170,8 @@ const styles = StyleSheet.create({
   close: {
     width: 36,
     height: 36,
+    borderRadius: 18,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -177,7 +180,7 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 40, height: 40, marginBottom: spacing.xs },
   retry: {
     marginTop: spacing.md,
-    backgroundColor: colors.clay,
+    ...neuAccent(),
     borderRadius: radii.pill,
     paddingHorizontal: 22,
     paddingVertical: 13,
@@ -186,16 +189,15 @@ const styles = StyleSheet.create({
   },
   retryText: { color: colors.white, fontSize: 15, fontWeight: "700" },
 
-  list: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
+  list: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xl },
   card: {
-    backgroundColor: colors.white,
+    ...neu.raised,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.line,
     padding: spacing.md,
     gap: 6,
   },
-  cardUnread: { borderColor: colors.clay, backgroundColor: colors.blush },
+  // Unread: an accent edge on the raised card (a tint would fight the soft UI).
+  cardUnread: { borderLeftWidth: 4, borderLeftColor: colors.clay },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   unreadDot: {
     width: 8,

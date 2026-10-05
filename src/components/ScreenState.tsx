@@ -1,3 +1,4 @@
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import type { PropsWithChildren, ReactNode } from "react";
 import {
@@ -28,7 +29,7 @@ export function ErrorState({
     <View style={styles.wrap}>
       <Text style={styles.title}>We could not load KiliPicks</Text>
       <Text style={styles.copy}>{message}</Text>
-      <Pressable style={styles.button} onPress={retry}>
+      <Pressable style={({ pressed }) => [styles.button, neuAccent(pressed)]} onPress={retry}>
         <Text style={styles.buttonText}>Try again</Text>
       </Pressable>
     </View>
@@ -58,12 +59,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl,
     gap: spacing.md,
+    // Loading/error replace a whole screen, so they paint the surface too.
+    backgroundColor: neuColors.surface,
   },
   empty: {
+    ...neu.raised,
     alignItems: "center",
     padding: spacing.xl,
     margin: spacing.md,
-    backgroundColor: colors.sand,
     borderRadius: radii.lg,
     gap: spacing.sm,
   },

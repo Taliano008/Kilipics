@@ -1,7 +1,8 @@
 import { track } from "@/analytics/events";
 import { resolveMediaUrl } from "@/config/env";
 import { useSaved } from "@/saved/saved-context";
-import { colors, radii, shadow, spacing } from "@/theme/tokens";
+import { neuPressable } from "@/theme/neumorphism";
+import { colors, radii, spacing } from "@/theme/tokens";
 import type { PublicCatalogProvider } from "@/types/catalog";
 import { categoryLabel } from "@/utils/categories";
 import { savedIcon, starIcon } from "@/utils/icon-assets";
@@ -26,22 +27,17 @@ export function ProviderCard({
   const isDirectory = provider.limitedListing;
   const isDense = size === "dense";
 
+  // The store page logs the visit when it opens; logging it here as well
+  // counted every visit from a card twice.
   const open = () => {
-    void track("merchant_profile_viewed", {
-      pagePath: `/provider/${provider.id}`,
-      pageTitle: provider.name,
-      merchantId: provider.id,
-      merchantName: provider.name,
-      categoryId: provider.categoryId,
-      sourceSection: "provider_card",
-    });
     router.push({ pathname: "/provider/[id]", params: { id: provider.id } });
   };
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         styles.card,
+        neuPressable(pressed),
         compact && styles.compactCard,
         isDense && styles.denseCard,
       ]}
@@ -151,16 +147,16 @@ export function ProviderCard({
 }
 
 const styles = StyleSheet.create({
+  // Soft-UI frame (shadows come from neuPressable). No overflow clip here —
+  // it would cut the shadows off; the photo is clipped by imageContainer.
   card: {
     width: 272,
-    backgroundColor: colors.card,
     borderRadius: radii.lg,
-    overflow: "hidden",
-    ...shadow,
+    padding: 8,
   },
-  compactCard: { width: "100%", marginBottom: spacing.md },
-  denseCard: { width: 180 },
-  imageContainer: { position: "relative" },
+  compactCard: { width: "100%", marginBottom: spacing.lg },
+  denseCard: { width: 180, padding: 6 },
+  imageContainer: { position: "relative", borderRadius: radii.lg - 6, overflow: "hidden" },
   image: { width: "100%", aspectRatio: 4 / 3, backgroundColor: colors.blush }, // 4:3
   compactImage: { height: 210, aspectRatio: undefined },
   directoryImage: { aspectRatio: 16 / 10 }, // 16:10

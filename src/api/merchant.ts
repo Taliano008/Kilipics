@@ -1,5 +1,9 @@
 import { AUTH_API_BASE_URL } from "@/config/env";
-import type { PublicCatalogProvider, PublicCatalogService } from "@/types/catalog";
+import type {
+  GalleryCaption,
+  PublicCatalogProvider,
+  PublicCatalogService,
+} from "@/types/catalog";
 
 export type DaySchedule = {
   name: string;
@@ -20,6 +24,7 @@ export type MerchantBusiness = {
   name: string;
   industry: "beauty" | "wellness";
   categoryId: string;
+  categoryIds?: string[];
   subcategory?: string | null;
   email?: string | null;
   phone: string;
@@ -27,6 +32,9 @@ export type MerchantBusiness = {
   fullAddress: string;
   latitude: number;
   longitude: number;
+  // pin = placed by the merchant; address = looked up from the street
+  // address (approximate); none = city-centre placeholder.
+  locationPrecision?: "pin" | "address" | "none";
   locationType: "physical" | "mobile";
   travelRadius: number;
   radiusEnabled: boolean;
@@ -38,6 +46,8 @@ export type MerchantBusiness = {
   coverUrl?: string | null;
   logoUrl?: string | null;
   galleryUrls: string[];
+  // Optional title/price per gallery photo, keyed by its URL in galleryUrls.
+  galleryCaptions?: Record<string, GalleryCaption>;
   onboardingStep: number;
   submittedAt?: string | null;
   publicationStatus: "draft" | "published" | "hidden" | "archived";
@@ -56,6 +66,9 @@ export type MerchantBusiness = {
 
 export type Step1Input = {
   name: string;
+  // Primary first. `category` is the primary alone, kept for backends that
+  // predate multi-category support.
+  categories: string[];
   category: string;
   description: string;
   phone: string;
@@ -68,6 +81,9 @@ export type Step2Input = {
   locationType: "physical" | "mobile";
   radius: number;
   radiusEnabled: boolean;
+  // The store's map pin; omitted until the merchant places one.
+  latitude?: number;
+  longitude?: number;
 };
 
 export type Step3Input = {
@@ -495,6 +511,13 @@ export function createSalesTransaction(token: string, input: SalesTransactionInp
   );
 }
 
+export function deleteSalesTransaction(token: string, id: string) {
+  return request<{ ok: boolean; merchantToken?: string | null }>(
+    `/api/merchant/sales/transactions/${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+  );
+}
+
 export function saveSalesGoals(token: string, goals: Partial<SalesGoals>) {
   return request<{ ok: boolean; goals: SalesGoals; merchantToken?: string | null }>(
     "/api/merchant/sales/goals",
@@ -519,5 +542,39 @@ export function importLocalSales(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(input),
+  });
+}
+
+export type StoreVisitsRange = "today" | "week" | "month";
+
+// Counts for the Profile tab's Store visits card. Anonymous: no visitor
+// identities are ever returned.
+export type StoreVisits = {
+  range: StoreVisitsRange;
+  visits: number;
+  people: number;
+  contacted: number;
+  bookTaps: number;
+  saves: number;
+  previousVisits: number;
+  // Null until the previous period has visits to compare against.
+  comparison: { delta: number; percent: number } | null;
+  series: { label: string; value: number }[];
+  currentIndex: number;
+  lifetimeVisits: number;
+  merchantToken?: string | null;
+};
+
+export function fetchStoreVisits(
+  token: string,
+  params: { range: StoreVisitsRange; tzOffset: number; exclude?: string },
+) {
+  const qs = new URLSearchParams({
+    range: params.range,
+    tzOffset: String(params.tzOffset),
+    ...(params.exclude ? { exclude: params.exclude } : {}),
+  });
+  return request<StoreVisits>(`/api/merchant/insights/visits?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }

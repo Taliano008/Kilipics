@@ -6,6 +6,7 @@ import { CameraModal } from "@/components/CameraModal";
 import { resolveMediaUrl, SUPPORT_WHATSAPP_NUMBER } from "@/config/env";
 import { report } from "@/observability/report";
 import { useSaved } from "@/saved/saved-context";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { colors, radii, spacing } from "@/theme/tokens";
 import {
   adminIcon,
@@ -483,7 +484,7 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   content: { padding: spacing.lg, paddingBottom: 48 },
   headerRow: {
     flexDirection: "row",
@@ -495,9 +496,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.ink,
+    ...neuAccent(false, colors.ink),
     borderRadius: radii.lg,
     padding: spacing.lg,
     marginTop: spacing.lg,
@@ -537,7 +536,7 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: colors.sand,
+    ...neu.raised,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -553,7 +552,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.clay,
     borderWidth: 2,
-    borderColor: colors.sand,
+    borderColor: neuColors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -581,21 +580,19 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     alignSelf: "center",
-    borderWidth: 1,
-    borderColor: colors.clay,
+    ...neu.raisedSm,
     borderRadius: radii.pill,
     paddingHorizontal: 18,
     paddingVertical: 8,
     marginTop: spacing.md,
   },
   signOutText: { color: colors.clay, fontSize: 13, fontWeight: "800" },
+  // Raised panel; no overflow clip, which would cut its shadow off.
   groupCard: {
-    backgroundColor: colors.white,
+    ...neu.raised,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.line,
-    marginTop: spacing.sm,
-    overflow: "hidden",
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   groupRow: {
     flexDirection: "row",
@@ -607,14 +604,14 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.line,
+    backgroundColor: "rgba(163,142,124,0.22)",
     marginLeft: spacing.lg + 36 + spacing.md,
   },
   rowIconWrap: {
     width: 36,
     height: 36,
     borderRadius: radii.md,
-    backgroundColor: colors.sand,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.md,
@@ -627,14 +624,13 @@ const styles = StyleSheet.create({
   rowDisabled: { opacity: 0.55 },
   sellerForm: {
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: "rgba(163,142,124,0.22)",
     padding: spacing.lg,
     gap: 4,
   },
   label: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: spacing.sm, marginBottom: 6 },
   input: {
-    borderWidth: 1,
-    borderColor: colors.line,
+    ...neu.inset,
     borderRadius: radii.md,
     color: colors.ink,
     fontSize: 15,
@@ -645,7 +641,7 @@ const styles = StyleSheet.create({
   message: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: spacing.sm },
   sellerSubmit: {
     marginTop: spacing.md,
-    backgroundColor: colors.clay,
+    ...neuAccent(),
     borderRadius: radii.md,
     alignItems: "center",
     minHeight: 48,
@@ -658,8 +654,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.clay,
+    ...neu.raisedSm,
   },
   onboardBtnText: { color: colors.clay, fontSize: 14, fontWeight: "700" },
   sectionTitle: {
@@ -678,7 +673,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.5)", justifyContent: "flex-end" },
   editCard: {
-    backgroundColor: colors.white,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
     padding: spacing.lg,
@@ -690,7 +685,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.sand,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -699,15 +694,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 48,
     borderRadius: radii.md,
-    backgroundColor: colors.clay,
+    ...neuAccent(),
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarModalBtnSecondary: {
-    backgroundColor: colors.sand,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
+  avatarModalBtnSecondary: neu.raisedSm,
   avatarModalBtnText: { color: colors.white, fontSize: 14, fontWeight: "800" },
   avatarModalBtnTextSecondary: { color: colors.ink },
 });

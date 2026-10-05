@@ -11,8 +11,10 @@ import {
   uploadMerchantPhoto,
 } from "@/api/merchant";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
 import { CameraModal } from "@/components/CameraModal";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { bookingIcon, cameraIcon, gridIcon, searchIcon } from "@/utils/icon-assets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -44,7 +46,14 @@ const PHOTO_SAMPLES = [
   },
 ];
 
-const SCHEDULE_PRESETS = ["Mon – Fri, 9 – 6", "7 Days a Week", "Custom Hours"];
+// The stored value stays "Mon – Fri, 9 – 6" (the backend's default and what
+// existing businesses already have saved); only the chip label is shorter.
+const SCHEDULE_PRESETS = [
+  { value: "Mon – Fri, 9 – 6", label: "Mon – Fri", summary: "Monday to Friday · closed weekends" },
+  { value: "7 Days a Week", label: "7 Days a Week", summary: "Every day, Monday to Sunday" },
+  { value: "Custom Hours", label: "Custom Hours", summary: "" },
+];
+const CUSTOM_PRESET = "Custom Hours";
 
 const DEFAULT_DAYS = [
   { name: "Mon", open: true, from: "9:00 AM", to: "6:00 PM" },
@@ -82,8 +91,28 @@ export default function OnboardStep3() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isEditMode = mode === "edit";
-  const { merchantToken, consumerToken, saveMerchantSession } = useAuth();
+  const { merchant, merchantToken, consumerToken, saveMerchantSession } = useAuth();
   const activeToken = merchantToken || consumerToken;
+
+  // Record on the device that onboarding is done. Without this the stored
+  // merchant profile still says "not submitted" until the next app launch,
+  // so the Account tab keeps routing the merchant back into these screens —
+  // and submitting again used to unpublish an already-approved business.
+  // After submitting, land on the dashboard (it shows the review status) and
+  // drop steps 1–3 from the history, so Back can't return into onboarding.
+  const goToDashboard = () => {
+    if (router.canDismiss()) router.dismissAll();
+    router.replace("/merchant/profile?submitted=1");
+  };
+
+  const recordSubmitted = async (rotatedToken?: string | null) => {
+    const token = rotatedToken || merchantToken;
+    if (!token) return;
+    await saveMerchantSession(
+      token,
+      merchant ? { ...merchant, hasBusiness: true, onboardingSubmitted: true, onboardingStep: 4 } : undefined,
+    );
+  };
 
   const [photos, setPhotos] = useState<{ uri: string; label: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -229,10 +258,11 @@ export default function OnboardStep3() {
         // submitMerchantOnboarding, just persist the updated hours/photos.
         if (!isEditMode) {
           const res = await submitMerchantOnboarding(activeToken);
-          if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+          await recordSubmitted(res.merchantToken);
         }
       }
-      router.replace(isEditMode ? "/merchant/profile" : "/merchant/onboard/submitted");
+      if (isEditMode) router.replace("/merchant/profile");
+      else goToDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit onboarding. Please try again.");
     } finally {
@@ -246,9 +276,9 @@ export default function OnboardStep3() {
     try {
       if (activeToken) {
         const res = await submitMerchantOnboarding(activeToken);
-        if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+        await recordSubmitted(res.merchantToken);
       }
-      router.push("/merchant/onboard/submitted");
+      goToDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
     } finally {
@@ -388,36 +418,65 @@ export default function OnboardStep3() {
             badge on map cards.
           </Text>
 
-          {/* Preset chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.presetRow}
-          >
-            {SCHEDULE_PRESETS.map((p) => (
-              <Pressable
-                key={p}
-                style={[
-                  s.presetChip,
-                  activePreset === p ? s.presetChipActive : s.presetChipInactive,
-                ]}
-                onPress={() => applyPreset(p)}
-              >
-                <Text
-                  style={[
-                    s.presetChipText,
-                    activePreset === p
-                      ? s.presetChipTextActive
-                      : s.presetChipTextInactive,
-                  ]}
+          {/* One of three choices */}
+          <View style={s.presetRow} accessibilityRole="radiogroup">
+            {SCHEDULE_PRESETS.map((p) => {
+              const active = activePreset === p.value;
+              return (
+                <Pressable
+                  key={p.value}
+                  style={[s.presetChip, active ? s.presetChipActive : s.presetChipInactive]}
+                  onPress={() => applyPreset(p.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
                 >
-                  {p}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+                  <Text
+                    style={[s.presetChipText, active ? s.presetChipTextActive : s.presetChipTextInactive]}
+                    numberOfLines={1}
+                  >
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-          {/* Day rows */}
+          {/* An unrecognised saved preset falls through to the full per-day view. */}
+          {SCHEDULE_PRESETS.some((p) => p.value === activePreset && p.value !== CUSTOM_PRESET) ? (
+            // Mon – Fri / 7 days: one set of hours for every open day.
+            <View style={s.sharedHours}>
+              <Text style={s.sharedSummary}>
+                {SCHEDULE_PRESETS.find((p) => p.value === activePreset)?.summary}
+              </Text>
+              <View style={s.dayTimes}>
+                <View style={s.timeChip}>
+                  <TextInput
+                    style={s.timeChipText}
+                    value={days.find((d) => d.open)?.from ?? ""}
+                    onChangeText={(val) =>
+                      setDays((prev) => prev.map((d) => (d.open ? { ...d, from: val } : d)))
+                    }
+                    accessibilityLabel="Opening time"
+                  />
+                </View>
+                <Text style={s.timeDash}>–</Text>
+                <View style={s.timeChip}>
+                  <TextInput
+                    style={s.timeChipText}
+                    value={days.find((d) => d.open)?.to ?? ""}
+                    onChangeText={(val) =>
+                      setDays((prev) => prev.map((d) => (d.open ? { ...d, to: val } : d)))
+                    }
+                    accessibilityLabel="Closing time"
+                  />
+                </View>
+              </View>
+              <Text style={s.sharedHint}>
+                Different hours on some days? Choose Custom Hours.
+              </Text>
+            </View>
+          ) : (
+          /* Custom: each day on its own */
           <View style={s.dayList}>
             {days.map((d, i) => (
               <View
@@ -494,6 +553,7 @@ export default function OnboardStep3() {
               </View>
             ))}
           </View>
+          )}
         </View>
 
         {error ? (
@@ -539,6 +599,7 @@ export default function OnboardStep3() {
           setPhotoPickError(null);
         }}
       >
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.modalSheet}>
             <View style={s.modalHeader}>
@@ -643,6 +704,7 @@ export default function OnboardStep3() {
             </View>
           </View>
         </View>
+        </KeyboardAvoider>
       </Modal>
 
       {/* ── Custom Camera Modal ── */}
@@ -656,8 +718,8 @@ export default function OnboardStep3() {
 }
 
 const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: mc.surface },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: mc.surface },
+  safe:        { flex: 1, backgroundColor: neuColors.surface },
+  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: neuColors.surface },
   backBtn:     { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: mr.full },
   backIcon:    { fontSize: 22, color: mc.onSurface },
   headerTitle: { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
@@ -680,7 +742,7 @@ const s = StyleSheet.create({
   subtext:       { fontSize: 13, fontFamily: mf.regular, color: mc.onSurfaceVariant, marginTop: 4, lineHeight: 18 },
 
   // Sections
-  section:       { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
+  section:       { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
   sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sectionHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.xs },
   sectionIcon:   { fontSize: 18 },
@@ -699,14 +761,14 @@ const s = StyleSheet.create({
   photoLabel:   { position: "absolute", bottom: 6, left: 8 },
   photoLabelText: { color: "#fff", fontSize: 11, fontFamily: mf.semibold },
 
-  addTile:         { width: "47%", height: 110, borderRadius: mr.lg, borderWidth: 1.5, borderColor: mc.outlineVariant, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: mc.surfaceContainerLow },
+  addTile:         { width: "47%", height: 110, borderRadius: mr.lg, borderWidth: 1.5, borderColor: mc.outlineVariant, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 4, ...neu.inset },
   addTileIcon:     { width: 36, height: 36, borderRadius: 18, backgroundColor: mc.surfaceContainerHighest, alignItems: "center", justifyContent: "center" },
   addTileIconText: { fontSize: 20, color: mc.primary },
   addTileTitle:    { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   addTileHint:     { fontSize: 11, color: mc.onSurfaceVariant },
 
   // Pro tip
-  proTipRow:       { flexDirection: "row", alignItems: "flex-start", gap: ms.xs, backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, padding: ms.sm },
+  proTipRow:       { flexDirection: "row", alignItems: "flex-start", gap: ms.xs, ...neu.inset, borderRadius: mr.lg, padding: ms.sm },
   proTipIcon:      { fontSize: 16 },
   proTipIconImage: { width: 16, height: 16 },
   proTipText:      { flex: 1, fontSize: 12, color: mc.onSurfaceVariant, lineHeight: 16 },
@@ -714,29 +776,32 @@ const s = StyleSheet.create({
   proTipHighlight: { fontFamily: mf.semibold, color: mc.secondary },
 
   // Presets
-  presetRow:           { gap: ms.xs },
-  presetChip:          { paddingHorizontal: ms.sm, paddingVertical: 6, borderRadius: mr.full },
-  presetChipActive:    { backgroundColor: mc.primary },
-  presetChipInactive:  { backgroundColor: mc.surfaceContainerHigh },
+  presetRow:           { flexDirection: "row", gap: ms.xs },
+  presetChip:          { flex: 1, alignItems: "center", paddingHorizontal: 6, paddingVertical: 9, borderRadius: mr.full },
+  sharedHours:         { ...neu.inset, borderRadius: mr.lg, padding: ms.md, gap: ms.sm, alignItems: "flex-start" },
+  sharedSummary:       { fontSize: 14, fontFamily: mf.semibold, color: mc.onSurface },
+  sharedHint:          { fontSize: 12, color: mc.onSurfaceVariant },
+  presetChipActive:    { ...neuAccent(false, mc.primary) },
+  presetChipInactive:  { ...neu.raisedSm },
   presetChipText:      { fontSize: 13, fontFamily: mf.semibold },
   presetChipTextActive:   { color: mc.onPrimary },
   presetChipTextInactive: { color: mc.onSurface },
 
   // Day rows
   dayList:       { gap: ms.xs },
-  dayRow:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.sm },
+  dayRow:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...neu.raisedSm, borderRadius: mr.xl, padding: ms.sm },
   dayRowClosed:  { opacity: 0.7 },
   dayLeft:       { flexDirection: "row", alignItems: "center", gap: ms.xs, minWidth: 90 },
   toggle:        { width: 44, height: 24, borderRadius: mr.full, padding: 2, justifyContent: "center" },
   toggleOn:      { backgroundColor: mc.secondary },
-  toggleOff:     { backgroundColor: mc.surfaceContainerHighest },
-  toggleThumb:   { width: 20, height: 20, borderRadius: 10, backgroundColor: mc.surfaceContainerLowest },
+  toggleOff:     { ...neu.inset },
+  toggleThumb:   { width: 20, height: 20, borderRadius: 10, ...neu.raisedSm },
   toggleThumbLeft:  { alignSelf: "flex-start" },
   toggleThumbRight: { alignSelf: "flex-end" },
   dayName:       { fontSize: 13, fontFamily: mf.bold, color: mc.onSurface },
   dayNameClosed: { color: mc.onSurfaceVariant },
   dayTimes:      { flexDirection: "row", alignItems: "center", gap: 6 },
-  timeChip:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.md, backgroundColor: mc.surfaceContainer },
+  timeChip:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: mr.md, ...neu.inset },
   timeChipText:  { fontSize: 12, fontFamily: mf.medium, color: mc.onSurface },
   timeDash:      { color: mc.onSurfaceVariant, fontSize: 12 },
   noHoursText:   { fontSize: 13, color: mc.outline, fontStyle: "italic" },
@@ -745,21 +810,21 @@ const s = StyleSheet.create({
   statusText:    { fontSize: 12, fontFamily: mf.bold },
 
   // Footer
-  footer:   { flexDirection: "row", gap: ms.sm, padding: ms.md, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant },
-  skipBtn:  { flex: 1, height: 48, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
+  footer:   { flexDirection: "row", gap: ms.sm, padding: ms.md, ...neuBarTop },
+  skipBtn:  { flex: 1, height: 48, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   skipText: { color: mc.onSurface, fontSize: 15, fontFamily: mf.semibold },
-  cta:      { flex: 2, height: 48, borderRadius: mr.full, backgroundColor: mc.primary, alignItems: "center", justifyContent: "center" },
+  cta:      { flex: 2, height: 48, borderRadius: mr.full, ...neuAccent(false, mc.primary), alignItems: "center", justifyContent: "center" },
   ctaText:  { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
 
   // Modal styles
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalSheet:    { backgroundColor: mc.surfaceContainerLowest, borderTopLeftRadius: mr.xl, borderTopRightRadius: mr.xl, padding: ms.lg, gap: ms.sm },
+  modalSheet:    { backgroundColor: neuColors.surface, borderTopLeftRadius: mr.xl, borderTopRightRadius: mr.xl, padding: ms.lg, gap: ms.sm },
   modalHeader:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: ms.xs },
   modalTitle:    { fontSize: 17, fontFamily: mf.bold, color: mc.onSurface },
   modalClose:    { fontSize: 20, color: mc.onSurfaceVariant, padding: 4 },
   modalSectionLabel: { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurfaceVariant },
-  modalInput:    { backgroundColor: mc.surfaceContainerHigh, borderRadius: mr.md, padding: ms.sm, fontSize: 14, fontFamily: mf.regular, color: mc.onSurface },
-  modalAddBtn:   { backgroundColor: mc.primary, borderRadius: mr.full, paddingVertical: 12, alignItems: "center", marginTop: 4 },
+  modalInput:    { ...neu.inset, borderRadius: mr.md, padding: ms.sm, fontSize: 14, fontFamily: mf.regular, color: mc.onSurface },
+  modalAddBtn:   { ...neuAccent(false, mc.primary), borderRadius: mr.full, paddingVertical: 12, alignItems: "center", marginTop: 4 },
   modalAddBtnIcon: { width: 15, height: 15 },
   modalAddBtnText: { color: mc.onPrimary, fontFamily: mf.semibold, fontSize: 14 },
   presetGrid:    { flexDirection: "row", gap: ms.sm, marginTop: 4 },

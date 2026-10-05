@@ -3,6 +3,7 @@ import { useCatalog } from "@/catalog/catalog-context";
 import { ProviderCard } from "@/components/ProviderCard";
 import { EmptyState, LoadingState } from "@/components/ScreenState";
 import { useSaved } from "@/saved/saved-context";
+import { neuColors } from "@/theme/neumorphism";
 import { colors, spacing } from "@/theme/tokens";
 import { useEffect } from "react";
 import { SectionList, StyleSheet, Text } from "react-native";
@@ -68,7 +69,7 @@ export default function SavedScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.sand },
+  safe: { flex: 1, backgroundColor: neuColors.surface },
   list: { padding: spacing.lg, paddingBottom: 40 },
   eyebrow: {
     color: colors.clay,

@@ -1,7 +1,13 @@
 import { execute, query, queryOne } from "../db/connection.js";
 import { newId } from "../lib/ids.js";
+import { geocodeAddress } from "./geocode.js";
 import { badRequest, notFound } from "../lib/http-errors.js";
-import { invalidateCatalogCache, serializeProvider, serializeService } from "./catalog.js";
+import {
+  businessCategoryIds,
+  invalidateCatalogCache,
+  serializeProvider,
+  serializeService,
+} from "./catalog.js";
 
 // Mirrors the category taxonomy the rest of the catalog uses (see
 // src/utils/categories.ts on the mobile side) — categoryId values coming out
@@ -10,6 +16,29 @@ import { invalidateCatalogCache, serializeProvider, serializeService } from "./c
 const BEAUTY_CATEGORY_IDS = new Set(["hair", "wigs", "nails", "facials", "makeup", "barbering"]);
 const WELLNESS_CATEGORY_IDS = new Set(["spa", "fitness", "pilates", "yoga", "recovery"]);
 const DEFAULT_CATEGORY_ID = "spa";
+// Written at signup until the business has a real location (location_precision 'none').
+const PLACEHOLDER_LOCATION = { latitude: -1.2921, longitude: 36.8219 };
+// Enough for a genuine multi-service salon; stops one listing from claiming
+// every chip in search.
+const MAX_CATEGORIES = 5;
+
+// Step 1 accepts `categories` (array, primary first) from current clients and
+// the single `category` string older app builds still send.
+function normalizeCategories({ categories, category }) {
+  const raw = Array.isArray(categories) ? categories : [category];
+  const ids = [
+    ...new Set(
+      raw
+        .filter((id) => typeof id === "string")
+        .map((id) => id.trim().slice(0, 100))
+        .filter(Boolean),
+    ),
+  ];
+  if (ids.length > MAX_CATEGORIES) {
+    throw badRequest(`Choose up to ${MAX_CATEGORIES} categories.`);
+  }
+  return ids.length > 0 ? ids : [DEFAULT_CATEGORY_ID];
+}
 
 function industryForCategory(categoryId) {
   if (BEAUTY_CATEGORY_IDS.has(categoryId)) return "beauty";
@@ -50,6 +79,7 @@ export function serializeMerchantBusiness(row) {
     name: row.name,
     industry: row.industry,
     categoryId: row.category_id,
+    categoryIds: businessCategoryIds(row),
     subcategory: row.subcategory,
     email: row.email,
     phone: row.phone,
@@ -57,6 +87,7 @@ export function serializeMerchantBusiness(row) {
     fullAddress: row.full_address,
     latitude: row.latitude,
     longitude: row.longitude,
+    locationPrecision: row.location_precision ?? "none",
     locationType: row.location_type === "MOBILE_SERVICE" ? "mobile" : "physical",
     travelRadius: row.travel_radius ?? 15,
     radiusEnabled: Boolean(row.travel_radius),
@@ -68,6 +99,7 @@ export function serializeMerchantBusiness(row) {
     coverUrl: row.cover_url,
     logoUrl: row.logo_url,
     galleryUrls: safeJson(row.gallery_urls, []),
+    galleryCaptions: safeJson(row.gallery_captions, {}),
     onboardingStep: row.onboarding_step ?? 1,
     submittedAt: row.submitted_at,
     // Where the listing review stands, and the admin's message when
@@ -104,14 +136,16 @@ function buildPublicContacts(existingRow, { phone, email }) {
   return JSON.stringify(next);
 }
 
-export async function saveStep1(merchantId, { name, category, description, phone, email }) {
+export async function saveStep1(merchantId, { name, category, categories, description, phone, email }) {
   if (!name || name.trim().length === 0) {
     throw badRequest("Business name is required.");
   }
 
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   const trimmedName = name.trim();
-  const categoryId = category?.trim() || DEFAULT_CATEGORY_ID;
+  const categoryIds = normalizeCategories({ categories, category });
+  const categoryId = categoryIds[0];
+  const categoryIdsJson = JSON.stringify(categoryIds);
   const industry = industryForCategory(categoryId);
   const desc = description?.trim() || "";
   const contactPhone = phone?.trim() || "";
@@ -121,10 +155,10 @@ export async function saveStep1(merchantId, { name, category, description, phone
   if (existing) {
     await execute(
       `UPDATE businesses
-       SET name = ?, category_id = ?, industry = ?, positioning = ?, about = ?,
+       SET name = ?, category_id = ?, category_ids = ?, industry = ?, positioning = ?, about = ?,
            phone = ?, email = ?, public_contacts = ?, onboarding_step = GREATEST(onboarding_step, 1)
        WHERE id = ?`,
-      [trimmedName, categoryId, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, existing.id]
+      [trimmedName, categoryId, categoryIdsJson, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, existing.id]
     );
     invalidateCatalogCache();
     const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
@@ -137,12 +171,12 @@ export async function saveStep1(merchantId, { name, category, description, phone
   try {
     await execute(
       `INSERT INTO businesses (
-        id, merchant_id, slug, name, industry, category_id,
+        id, merchant_id, slug, name, industry, category_id, category_ids,
         email, phone, public_contacts, area, full_address, latitude, longitude,
         location_type, hours, positioning, about,
         publication_status, limited_listing, onboarding_step
       ) VALUES (
-        ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?,
         'FIXED_VENUE', '', ?, ?,
         'draft', 1, 1
@@ -154,6 +188,7 @@ export async function saveStep1(merchantId, { name, category, description, phone
         trimmedName,
         industry,
         categoryId,
+        categoryIdsJson,
         contactEmail,
         contactPhone,
         publicContactsJson,
@@ -179,10 +214,10 @@ export async function saveStep1(merchantId, { name, category, description, phone
       if (winner) {
         await execute(
           `UPDATE businesses
-           SET name = ?, category_id = ?, industry = ?, positioning = ?, about = ?,
+           SET name = ?, category_id = ?, category_ids = ?, industry = ?, positioning = ?, about = ?,
                phone = ?, email = ?, public_contacts = ?, onboarding_step = GREATEST(onboarding_step, 1)
            WHERE id = ?`,
-          [trimmedName, categoryId, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, winner.id]
+          [trimmedName, categoryId, categoryIdsJson, industry, desc, desc, contactPhone, contactEmail, publicContactsJson, winner.id]
         );
         invalidateCatalogCache();
         const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [winner.id]);
@@ -197,11 +232,28 @@ export async function saveStep1(merchantId, { name, category, description, phone
   return serializeMerchantBusiness(created);
 }
 
-export async function saveStep2(merchantId, { address, area, locationType, radius, radiusEnabled }) {
+// The store's map pin. Both or neither: a lone coordinate keeps the saved
+// pin. Bounded to Kenya's rough extent so a stray (0,0) or a swapped
+// lat/lng pair can't put a Nairobi salon in the Atlantic.
+function parsePin(latitude, longitude) {
+  if (latitude === undefined && longitude === undefined) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw badRequest("Map pin coordinates must be numbers.");
+  }
+  if (lat < -5 || lat > 5.5 || lng < 33.5 || lng > 42.5) {
+    throw badRequest("The map pin must be inside Kenya.");
+  }
+  return { lat, lng };
+}
+
+export async function saveStep2(merchantId, { address, area, locationType, radius, radiusEnabled, latitude, longitude }) {
   const existing = await queryOne("SELECT * FROM businesses WHERE merchant_id = ?", [merchantId]);
   if (!existing) {
     throw badRequest("Step 1 must be completed before Step 2.");
   }
+  const pin = parsePin(latitude, longitude);
 
   const fullAddress = address?.trim() || "";
   const neighborhood = area?.trim() || (fullAddress ? fullAddress.split(",")[0].trim() : "Nairobi");
@@ -209,17 +261,60 @@ export async function saveStep2(merchantId, { address, area, locationType, radiu
   const travelRad = radiusEnabled ? (Math.round(Number(radius)) || 15) : 0;
   const serviceAreasJson = JSON.stringify([{ radiusMiles: travelRad, enabled: Boolean(radiusEnabled) }]);
 
+  // A placed pin always wins. Without one, a pin from an earlier save is
+  // kept; coordinates that were only looked up from the old address are
+  // dropped back to the placeholder when the address changes, and looked
+  // up again below.
+  const addressChanged = fullAddress !== (existing.full_address ?? "");
+  let lat = existing.latitude;
+  let lng = existing.longitude;
+  let precision = existing.location_precision ?? "none";
+  if (pin) {
+    ({ lat, lng } = pin);
+    precision = "pin";
+  } else if (precision === "address" && addressChanged) {
+    ({ latitude: lat, longitude: lng } = PLACEHOLDER_LOCATION);
+    precision = "none";
+  }
+
   await execute(
     `UPDATE businesses
      SET full_address = ?, area = ?, location_type = ?, travel_radius = ?, service_areas = ?,
+         latitude = ?, longitude = ?, location_precision = ?,
          onboarding_step = GREATEST(onboarding_step, 2)
      WHERE id = ?`,
-    [fullAddress, neighborhood, locType, travelRad, serviceAreasJson, existing.id]
+    [fullAddress, neighborhood, locType, travelRad, serviceAreasJson, lat, lng, precision, existing.id]
   );
 
   invalidateCatalogCache();
+  if (precision === "none" && fullAddress) {
+    // Lookups can take seconds; don't make the merchant wait for them.
+    void locateFromAddress(existing.id, fullAddress);
+  }
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
+}
+
+// Gives a business without a placed pin approximate coordinates from its
+// address, so customers see it on a map straight away. Only writes if the
+// row still has that address and still has no pin — a pin placed while the
+// lookup ran must not be overwritten. Also used by scripts/geocode-businesses.mjs.
+export async function locateFromAddress(businessId, fullAddress) {
+  const hit = await geocodeAddress(fullAddress);
+  if (!hit) return false;
+  try {
+    const changed = await execute(
+      `UPDATE businesses
+       SET latitude = ?, longitude = ?, location_precision = 'address'
+       WHERE id = ? AND full_address = ? AND location_precision <> 'pin'`,
+      [hit.lat, hit.lng, businessId, fullAddress]
+    );
+    invalidateCatalogCache();
+    return changed.affectedRows > 0;
+  } catch (err) {
+    console.error(`[geocode] failed to save location for ${businessId}:`, err.message);
+    return false;
+  }
 }
 
 export async function saveStep3(merchantId, { photos, activePreset, days, hoursText }) {
@@ -264,6 +359,22 @@ export async function submitOnboarding(merchantId) {
     throw badRequest("No business found to submit.");
   }
 
+  // Already approved: the merchant has come back through the onboarding
+  // screens (an app with a stale "not submitted" flag routes them there).
+  // Their edits are already saved by the step endpoints; re-submitting must
+  // not quietly take a live business off the catalog and back to the queue.
+  if (existing.review_status === "approved") {
+    await execute(
+      `UPDATE businesses
+       SET onboarding_step = GREATEST(onboarding_step, 4),
+           submitted_at = COALESCE(submitted_at, now() AT TIME ZONE 'utc')
+       WHERE id = ?`,
+      [existing.id]
+    );
+    const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
+    return serializeMerchantBusiness(updated);
+  }
+
   await execute(
     `UPDATE businesses
      SET publication_status = 'draft',
@@ -279,6 +390,25 @@ export async function submitOnboarding(merchantId) {
   invalidateCatalogCache();
   const updated = await queryOne("SELECT * FROM businesses WHERE id = ?", [existing.id]);
   return serializeMerchantBusiness(updated);
+}
+
+const CAPTION_TITLE_MAX = 80;
+const CAPTION_PRICE_MAX = 40;
+
+// Keeps only captions for photos that are actually in the gallery, trimmed
+// and length-capped; a photo whose title and price are both blank loses its
+// caption entirely rather than storing an empty one.
+function sanitizeGalleryCaptions(captions, galleryUrls) {
+  const urls = new Set(galleryUrls);
+  const clean = {};
+  if (!captions || typeof captions !== "object" || Array.isArray(captions)) return clean;
+  for (const [url, caption] of Object.entries(captions)) {
+    if (!urls.has(url) || !caption || typeof caption !== "object") continue;
+    const title = typeof caption.title === "string" ? caption.title.trim().slice(0, CAPTION_TITLE_MAX) : "";
+    const price = typeof caption.price === "string" ? caption.price.trim().slice(0, CAPTION_PRICE_MAX) : "";
+    if (title || price) clean[url] = { ...(title ? { title } : {}), ...(price ? { price } : {}) };
+  }
+  return clean;
 }
 
 export async function updateBusiness(merchantId, updates) {
@@ -315,6 +445,19 @@ export async function updateBusiness(merchantId, updates) {
     );
   }
 
+  // Re-validated whenever either side changes, so removing a photo also
+  // drops its caption.
+  if ("galleryCaptions" in updates || "galleryUrls" in updates) {
+    const galleryUrls = Array.isArray(updates.galleryUrls)
+      ? updates.galleryUrls
+      : safeJson(existing.gallery_urls, []);
+    const captions = "galleryCaptions" in updates
+      ? updates.galleryCaptions
+      : safeJson(existing.gallery_captions, {});
+    setClauses.push("gallery_captions = ?");
+    values.push(JSON.stringify(sanitizeGalleryCaptions(captions, galleryUrls)));
+  }
+
   if (setClauses.length > 0) {
     values.push(existing.id);
     await execute(`UPDATE businesses SET ${setClauses.join(", ")} WHERE id = ?`, values);
@@ -344,8 +487,16 @@ export async function getBusinessPreview(merchantId) {
     [row.id, services.map((s) => s.image_url).filter(Boolean)],
   ]);
 
+  const serviceCategoriesByBusiness = new Map([[row.id, services.map((s) => s.category_id)]]);
+
   return {
-    provider: serializeProvider(row, serviceIdsByBusiness, serviceImagesByBusiness),
+    provider: serializeProvider(
+      row,
+      serviceIdsByBusiness,
+      serviceImagesByBusiness,
+      serviceCategoriesByBusiness,
+      new Map([[row.id, services]]),
+    ),
     services: services.map(serializeService),
   };
 }

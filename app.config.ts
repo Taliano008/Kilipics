@@ -21,5 +21,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name ?? 'KiliPicks',
     slug: config.slug ?? 'kilipicks-mobile',
+    plugins: [
+      ...(config.plugins ?? []),
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission:
+            'KiliPicks uses your location to place your business on the map.',
+        },
+      ],
+    ],
   };
 };

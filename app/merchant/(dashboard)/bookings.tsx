@@ -10,6 +10,7 @@
  * and the customer is notified with the agreed time. Declining passes the
  * reason on. Both can be undone from the toast.
  */
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { fetchMerchantServices, type BookingInput, type MerchantService } from "@/api/merchant";
 import { useMerchantBusiness } from "@/merchant/business-context";
@@ -20,6 +21,7 @@ import {
   type MerchantBooking,
 } from "@/merchant/bookings-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { parseLocalDate } from "@/utils/dates";
 import { normalizeKenyanPhone } from "@/utils/phone";
 import { openWhatsapp } from "@/utils/whatsapp";
@@ -323,7 +325,7 @@ export default function BookingsScreen() {
   }, [activeToken]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: mc.surface }}>
+    <View style={{ flex: 1, backgroundColor: neuColors.surface }}>
       <DashboardHeader title="Bookings" />
       <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView
@@ -727,6 +729,7 @@ function BookingSheet({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         <View style={[s.sheet, { paddingBottom: ms.lg + insets.bottom }]}>
@@ -959,6 +962,7 @@ function BookingSheet({
           )}
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -1023,6 +1027,7 @@ function NewBookingModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <View style={[s.sheet, { paddingBottom: ms.lg + insets.bottom }]}>
           <View style={s.sheetHeadRow}>
@@ -1100,12 +1105,13 @@ function NewBookingModal({
           </Pressable>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  content: { padding: ms.md, gap: ms.sm, paddingBottom: 120 },
+  content: { padding: ms.md, gap: ms.md, paddingBottom: 120 },
 
   titleRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
   title: { fontFamily: mf.bold, fontSize: 28, color: mc.onSurface, letterSpacing: -0.5 },
@@ -1116,25 +1122,23 @@ const s = StyleSheet.create({
     height: 36,
     paddingHorizontal: 12,
     borderRadius: 18,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
     opacity: 0.6,
   },
   availabilityText: { fontFamily: mf.semibold, fontSize: 13, color: mc.onSecondaryContainer },
 
   dateStripWrap: { marginHorizontal: -ms.md, marginBottom: ms.xs },
-  dateStrip: { gap: 8, paddingHorizontal: ms.md, paddingVertical: 2 },
+  dateStrip: { gap: 12, paddingHorizontal: ms.md, paddingVertical: 12 },
   dateChip: {
     width: 52,
     height: 72,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHigh,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
   },
-  dateChipActive: { backgroundColor: mc.primary, borderColor: mc.primary },
+  dateChipActive: { ...neuAccent(false, mc.primary), borderColor: mc.primary },
   dateChipDow: { fontFamily: mf.medium, fontSize: 12, color: mc.secondary },
   dateChipNum: { fontFamily: mf.bold, fontSize: 20, color: mc.onSurface },
   dateChipTextActive: { color: mc.onPrimary },
@@ -1155,9 +1159,7 @@ const s = StyleSheet.create({
   daySummary: { fontFamily: mf.medium, fontSize: 13, color: mc.onSurfaceVariant },
 
   emptyCard: {
-    backgroundColor: mc.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHigh,
+    ...neu.raised,
     borderRadius: 20,
     paddingVertical: 28,
     paddingHorizontal: 20,
@@ -1179,7 +1181,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: mr.full,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
   },
   retryBtnText: { fontFamily: mf.semibold, fontSize: 13, color: mc.onSurface },
 
@@ -1200,9 +1202,7 @@ const s = StyleSheet.create({
 
   // Request card
   card: {
-    backgroundColor: mc.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHigh,
+    ...neu.raised,
     borderRadius: 20,
     padding: ms.md,
     gap: 14,
@@ -1234,14 +1234,12 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHighest,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  serviceBox: { backgroundColor: mc.surfaceContainerLow, borderRadius: 14, padding: 14, gap: 8 },
+  serviceBox: { ...neu.inset, borderRadius: 14, padding: 14, gap: 8 },
   serviceTopRow: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -1271,9 +1269,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHighest,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1281,9 +1277,7 @@ const s = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHighest,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1292,7 +1286,7 @@ const s = StyleSheet.create({
     flex: 1.5,
     height: 48,
     borderRadius: 14,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1312,9 +1306,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: mc.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: mc.surfaceContainerHigh,
+    ...neu.raised,
     borderRadius: 16,
     paddingVertical: 12,
     paddingLeft: 14,
@@ -1335,7 +1327,7 @@ const s = StyleSheet.create({
     height: 56,
     paddingHorizontal: 20,
     borderRadius: 18,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     shadowColor: mc.primary,
     shadowOpacity: 0.35,
     shadowRadius: 12,
@@ -1371,7 +1363,7 @@ const s = StyleSheet.create({
   // Sheets
   modalBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.45)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: mc.surface,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 10,
@@ -1393,7 +1385,7 @@ const s = StyleSheet.create({
   sheetPrimary: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1402,39 +1394,35 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
   linkBtn: { marginLeft: "auto", paddingVertical: 8, paddingHorizontal: 4 },
   linkText: { fontFamily: mf.bold, fontSize: 14, color: mc.primary },
 
-  slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  slotGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   slot: {
     width: "31.5%",
     height: 48,
     borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: mc.surfaceContainerHighest,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
-  slotOn: { backgroundColor: mc.primary, borderColor: mc.primary },
-  slotTaken: { backgroundColor: mc.surfaceContainer },
+  slotOn: { ...neuAccent(false, mc.primary), borderColor: mc.primary },
+  slotTaken: { ...neu.inset },
   slotText: { fontFamily: mf.semibold, fontSize: 15, color: mc.onSurface },
   slotTextOn: { color: mc.onPrimary },
   slotTextTaken: { color: mc.outline },
   slotNote: { fontFamily: mf.medium, fontSize: 10, color: mc.outline, marginTop: -1 },
 
-  reasonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  reasonRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   reasonChip: {
     height: 40,
     paddingHorizontal: 14,
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: mc.surfaceContainerHighest,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     justifyContent: "center",
   },
   reasonChipOn: { backgroundColor: mc.inverseSurface, borderColor: mc.inverseSurface },
@@ -1470,7 +1458,7 @@ const s = StyleSheet.create({
   waBtnText: { fontFamily: mf.semibold, fontSize: 13, color: mc.onTertiaryContainer },
 
   input: {
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.md,
     paddingHorizontal: ms.sm,
     paddingVertical: 12,
@@ -1482,9 +1470,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: mr.full,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.raisedSm,
   },
-  svcPillActive: { backgroundColor: mc.primary },
+  svcPillActive: { ...neuAccent(false, mc.primary) },
   svcPillText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSurface },
   svcPillTextActive: { color: mc.onPrimary },
   formError: { fontFamily: mf.medium, fontSize: 12, color: mc.error },

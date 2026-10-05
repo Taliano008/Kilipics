@@ -12,22 +12,26 @@
  * exists on a fresh local store) and a "you're in the top 15% of Nairobi
  * studios" claim (an unverifiable, fabricated ranking). Real numbers only.
  */
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { useBookings } from "@/merchant/bookings-context";
 import { useSales, type SalesGoals, type TransactionType } from "@/merchant/sales-context";
+import { MAX_BACKDATE_DAYS, bookingCountsAsSale, bookingIsUpcoming } from "@/merchant/sales-rules";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { localIsoDate, parseLocalDate } from "@/utils/dates";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, AppState, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const PERIODS = ["Daily", "Weekly", "Monthly"] as const;
 type Period = (typeof PERIODS)[number];
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const VISIBLE_ENTRIES = 12;
 
 // One row of the sales ledger: either a transaction the merchant typed in,
 // or a booking they accepted.
@@ -86,22 +90,60 @@ export default function SalesScreen() {
     error: salesError,
     refresh: refreshSales,
     addTransaction,
+    deleteTransaction,
     setGoal,
   } = useSales();
   const { bookings, refresh } = useBookings();
   const [period, setPeriod] = useState<Period>("Monthly");
   const [addOpen, setAddOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<keyof SalesGoals | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [addFormKey, setAddFormKey] = useState(0);
+
+  // Bookings aren't deletable here — cancelling the booking removes its sale.
+  const confirmDelete = (entry: SalesEntry) =>
+    Alert.alert(
+      "Delete transaction?",
+      `${entry.description} · KES ${entry.amount.toLocaleString()}\nThis removes it from your totals on every phone.`,
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            void deleteTransaction(entry.id).catch((err: Error) =>
+              Alert.alert("Couldn't delete transaction", err.message),
+            ),
+        },
+      ],
+    );
+
+  // "Today", "this week" and "this month" are re-read whenever the tab is
+  // opened or the app comes back to the foreground. Tabs stay mounted, so a
+  // date fixed at first render would keep showing yesterday's totals after
+  // midnight (and last month's on the 1st).
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") setNow(new Date());
+    });
+    // Also once a minute, so a confirmed booking moves into the totals when
+    // its appointment time passes while the tab is open.
+    const tick = setInterval(() => setNow(new Date()), 60_000);
+    return () => {
+      sub.remove();
+      clearInterval(tick);
+    };
+  }, []);
 
   // A booking accepted (or made) since this tab was last open should count.
   useFocusEffect(
     useCallback(() => {
+      setNow(new Date());
       refresh();
       refreshSales();
     }, [refresh, refreshSales]),
   );
-
-  const now = useMemo(() => new Date(), []);
   const todayIso = localIsoDate(now);
   // Sunday to Saturday, as local calendar dates (string compare is safe for
   // YYYY-MM-DD and avoids time-of-day edge cases).
@@ -113,9 +155,9 @@ export default function SalesScreen() {
   );
   const monthPrefix = todayIso.slice(0, 7);
 
-  // Every accepted booking is a sale, dated on the day of the appointment.
-  // Pending bookings aren't revenue until the merchant accepts them, and
-  // cancelled ones never are — so cancelling a booking removes its sale.
+  // A booking is a sale, dated on its appointment day, once it's completed or
+  // its confirmed appointment time has passed (see bookingCountsAsSale).
+  // Pending and cancelled bookings never are — so cancelling removes the sale.
   const entries = useMemo<SalesEntry[]>(() => {
     const manual = transactions.map((t): SalesEntry => {
       const created = new Date(t.createdAt);
@@ -135,7 +177,7 @@ export default function SalesScreen() {
       };
     });
     const booked = bookings
-      .filter((b) => b.status === "confirmed" || b.status === "completed")
+      .filter((b) => bookingCountsAsSale(b, now))
       .map(
         (b): SalesEntry => ({
           id: `booking-${b.id}`,
@@ -151,7 +193,7 @@ export default function SalesScreen() {
         }),
       );
     return [...manual, ...booked].sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  }, [transactions, bookings]);
+  }, [transactions, bookings, now]);
 
   const inPeriod = useCallback(
     (date: string, p: Period) =>
@@ -181,6 +223,10 @@ export default function SalesScreen() {
     (b) => b.status === "pending" && inPeriod(b.date, period),
   );
   const pendingValue = pendingInPeriod.reduce((s, b) => s + b.price, 0);
+  const upcomingInPeriod = bookings.filter(
+    (b) => bookingIsUpcoming(b, now) && inPeriod(b.date, period),
+  );
+  const upcomingValue = upcomingInPeriod.reduce((s, b) => s + b.price, 0);
 
   // Income only. Daily splits today by time of day, Weekly by weekday,
   // Monthly by week of the month. Sparse on a fresh install, which is the
@@ -191,7 +237,11 @@ export default function SalesScreen() {
         ? ["Morning", "Afternoon", "Evening"]
         : period === "Weekly"
           ? WEEKDAY
-          : ["Wk 1", "Wk 2", "Wk 3", "Wk 4"];
+          : // Days 29–31 get their own "Wk 5" instead of inflating week 4.
+            Array.from(
+              { length: Math.ceil(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() / 7) },
+              (_, i) => `Wk ${i + 1}`,
+            );
     const values = labels.map(() => 0);
     for (const e of periodEntries) {
       if (e.type !== "income") continue;
@@ -204,11 +254,11 @@ export default function SalesScreen() {
               : 2
           : period === "Weekly"
             ? parseLocalDate(e.date).getDay()
-            : Math.min(3, Math.floor((parseLocalDate(e.date).getDate() - 1) / 7));
+            : Math.floor((parseLocalDate(e.date).getDate() - 1) / 7);
       values[idx] += e.amount;
     }
     return labels.map((label, i) => ({ label, value: values[i] }));
-  }, [periodEntries, period]);
+  }, [periodEntries, period, now]);
   const maxBucket = Math.max(1, ...chart.map((c) => c.value));
   const peakIdx = chart.findIndex((c) => c.value === maxBucket);
 
@@ -221,7 +271,7 @@ export default function SalesScreen() {
   const copy = PERIOD_COPY[period];
 
   return (
-    <View style={{ flex: 1, backgroundColor: mc.surface }}>
+    <View style={{ flex: 1, backgroundColor: neuColors.surface }}>
       <DashboardHeader title="Sales" />
       <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -308,6 +358,17 @@ export default function SalesScreen() {
               </Text>
             </View>
           )}
+          {upcomingInPeriod.length > 0 && (
+            <View style={s.banner}>
+              <MaterialIcons name="event" size={18} color={mc.primary} />
+              <Text style={s.bannerText}>
+                {upcomingInPeriod.length} upcoming{" "}
+                {upcomingInPeriod.length === 1 ? "booking" : "bookings"} worth KES{" "}
+                {upcomingValue.toLocaleString()} will count once the appointment time passes, or
+                when you mark {upcomingInPeriod.length === 1 ? "it" : "them"} completed.
+              </Text>
+            </View>
+          )}
 
           <View style={s.chartCard}>
             <View style={s.chartHeaderRow}>
@@ -384,7 +445,7 @@ export default function SalesScreen() {
           {periodEntries.length === 0 ? (
             <Text style={s.emptyText}>{copy.empty}</Text>
           ) : (
-            periodEntries.slice(0, 12).map((t) => (
+            (showAll ? periodEntries : periodEntries.slice(0, VISIBLE_ENTRIES)).map((t) => (
               <View key={t.id} style={s.txRow}>
                 <View style={s.txLeft}>
                   <View
@@ -420,13 +481,37 @@ export default function SalesScreen() {
                       : `${parseLocalDate(t.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · ${t.time}`}
                   </Text>
                 </View>
+                {t.fromBooking ? null : (
+                  <Pressable
+                    style={s.txDelete}
+                    hitSlop={8}
+                    onPress={() => confirmDelete(t)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${t.description}`}
+                  >
+                    <MaterialIcons name="delete-outline" size={18} color={mc.onSurfaceVariant} />
+                  </Pressable>
+                )}
               </View>
             ))
+          )}
+          {periodEntries.length > VISIBLE_ENTRIES && (
+            <Pressable style={s.showAllBtn} onPress={() => setShowAll((v) => !v)}>
+              <Text style={s.showAllText}>
+                {showAll ? "Show fewer" : `Show all ${periodEntries.length}`}
+              </Text>
+            </Pressable>
           )}
         </ScrollView>
 
         <View style={s.fabWrap}>
-          <Pressable style={s.fab} onPress={() => setAddOpen(true)}>
+          <Pressable
+            style={s.fab}
+            onPress={() => {
+              setAddFormKey((k) => k + 1);
+              setAddOpen(true);
+            }}
+          >
             <MaterialIcons name="add" size={20} color={mc.onPrimary} />
             <Text style={s.fabText}>Add Transaction</Text>
           </Pressable>
@@ -434,11 +519,23 @@ export default function SalesScreen() {
       </SafeAreaView>
 
       <AddTransactionModal
+        // A fresh form (dated today) every time it's opened.
+        key={addFormKey}
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={(input) => {
           addTransaction(input)
-            .then(() => setAddOpen(false))
+            .then(() => {
+              setAddOpen(false);
+              // A back-dated entry outside the period on screen would
+              // otherwise look like it vanished.
+              if (!inPeriod(input.date, period)) {
+                Alert.alert(
+                  "Transaction saved",
+                  `Recorded for ${parseLocalDate(input.date).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}. It counts in that day's totals.`,
+                );
+              }
+            })
             .catch((err: Error) => Alert.alert("Couldn't save transaction", err.message));
         }}
       />
@@ -510,17 +607,35 @@ function AddTransactionModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (input: { type: TransactionType; amount: number; description: string; method?: string }) => void;
+  onSubmit: (input: {
+    type: TransactionType;
+    amount: number;
+    description: string;
+    method?: string;
+    date: string;
+  }) => void;
 }) {
   const [type, setType] = useState<TransactionType>("income");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState("M-Pesa");
+  // Days before today: 0 = today, 1 = yesterday, ...
+  const [daysAgo, setDaysAgo] = useState(0);
+
+  const today = new Date();
+  const chosen = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo);
+  const dateLabel =
+    daysAgo === 0
+      ? "Today"
+      : daysAgo === 1
+        ? "Yesterday"
+        : chosen.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
 
   const canSubmit = Number(amount) > 0 && description.trim().length > 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <View style={s.formCard}>
           <View style={s.formHeader}>
@@ -565,17 +680,43 @@ function AddTransactionModal({
             value={method}
             onChangeText={setMethod}
           />
+          <View style={s.dateRow}>
+            <Pressable
+              style={[s.dateStep, daysAgo >= MAX_BACKDATE_DAYS && { opacity: 0.3 }]}
+              disabled={daysAgo >= MAX_BACKDATE_DAYS}
+              onPress={() => setDaysAgo((d) => d + 1)}
+              accessibilityLabel="Previous day"
+            >
+              <MaterialIcons name="chevron-left" size={22} color={mc.onSurface} />
+            </Pressable>
+            <Text style={s.dateLabel}>{dateLabel}</Text>
+            <Pressable
+              style={[s.dateStep, daysAgo === 0 && { opacity: 0.3 }]}
+              disabled={daysAgo === 0}
+              onPress={() => setDaysAgo((d) => Math.max(0, d - 1))}
+              accessibilityLabel="Next day"
+            >
+              <MaterialIcons name="chevron-right" size={22} color={mc.onSurface} />
+            </Pressable>
+          </View>
           <Pressable
             style={[s.formSubmit, !canSubmit && { opacity: 0.5 }]}
             disabled={!canSubmit}
             onPress={() =>
-              onSubmit({ type, amount: Number(amount), description: description.trim(), method })
+              onSubmit({
+                type,
+                amount: Number(amount),
+                description: description.trim(),
+                method,
+                date: localIsoDate(chosen),
+              })
             }
           >
             <Text style={s.formSubmitText}>Save Transaction</Text>
           </Pressable>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -595,6 +736,7 @@ function EditGoalModal({
 
   return (
     <Modal visible={goalKey !== null} animationType="fade" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdropCenter}>
         <View style={s.editGoalCard}>
           <Text style={s.formTitle}>Edit {goalKey} target</Text>
@@ -618,12 +760,13 @@ function EditGoalModal({
           </View>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  content: { padding: ms.md, gap: ms.sm, paddingBottom: 110 },
+  content: { padding: ms.md, gap: ms.md, paddingBottom: 110 },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   overviewLabel: { fontFamily: mf.bold, fontSize: 18, color: mc.onSurface },
   monthLabel: { fontFamily: mf.semibold, fontSize: 14, color: mc.primary, marginTop: 2 },
@@ -631,7 +774,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.inset,
     borderRadius: mr.full,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -643,15 +786,15 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     borderRadius: mr.lg,
     padding: ms.sm,
   },
   bannerText: { flex: 1, fontFamily: mf.regular, fontSize: 12, color: mc.onSurfaceVariant, lineHeight: 17 },
 
-  segment: { flexDirection: "row", backgroundColor: mc.surfaceContainerHigh, borderRadius: mr.lg, padding: 4 },
+  segment: { flexDirection: "row", ...neu.inset, borderRadius: mr.lg, padding: 4 },
   segmentBtn: { flex: 1, paddingVertical: 9, borderRadius: mr.md, alignItems: "center" },
-  segmentBtnActive: { backgroundColor: mc.surfaceContainerLowest },
+  segmentBtnActive: { ...neu.raisedSm },
   segmentText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSurfaceVariant },
   segmentTextActive: { color: mc.primary, fontFamily: mf.bold },
 
@@ -671,7 +814,7 @@ const s = StyleSheet.create({
   heroGridLabel: { fontFamily: mf.medium, fontSize: 10, color: "rgba(255,255,255,0.8)" },
   heroGridValue: { fontFamily: mf.semibold, fontSize: 14, marginTop: 2 },
 
-  chartCard: { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
+  chartCard: { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
   chartHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   chartTitle: { fontFamily: mf.bold, fontSize: 15, color: mc.onSurface },
   chartSub: { fontFamily: mf.regular, fontSize: 11, color: mc.onSurfaceVariant, marginTop: 1 },
@@ -684,14 +827,14 @@ const s = StyleSheet.create({
 
   goalsHeader: { marginTop: 6 },
   sectionTitle: { fontFamily: mf.bold, fontSize: 16, color: mc.onSurface },
-  goalCard: { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.lg, padding: ms.sm, gap: 8 },
+  goalCard: { ...neu.raised, borderRadius: mr.lg, padding: ms.sm, gap: 8 },
   goalTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   goalTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   goalTitle: { fontFamily: mf.semibold, fontSize: 13, color: mc.onSurface },
   goalValueRow: { flexDirection: "row", alignItems: "baseline" },
   goalValue: { fontFamily: mf.bold, fontSize: 14, color: mc.onSurface },
   goalTarget: { fontFamily: mf.regular, fontSize: 12, color: mc.onSurfaceVariant },
-  goalTrack: { height: 10, borderRadius: 5, backgroundColor: mc.surfaceContainer, overflow: "hidden" },
+  goalTrack: { height: 10, borderRadius: 5, ...neu.inset, overflow: "hidden" },
   goalFill: { height: "100%", borderRadius: 5 },
   goalBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   goalPct: { fontFamily: mf.medium, fontSize: 11, color: mc.onSurfaceVariant },
@@ -703,7 +846,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr.lg,
     padding: ms.sm,
   },
@@ -715,13 +858,27 @@ const s = StyleSheet.create({
     fontFamily: mf.medium,
     fontSize: 10,
     color: mc.onSurfaceVariant,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
   txAmount: { fontFamily: mf.bold, fontSize: 13 },
   txTime: { fontFamily: mf.regular, fontSize: 10, color: mc.onSurfaceVariant, marginTop: 2 },
+  txDelete: { marginLeft: ms.xs, padding: 4 },
+  showAllBtn: { alignSelf: "center", paddingVertical: ms.sm, paddingHorizontal: ms.md },
+  showAllText: { fontFamily: mf.semibold, fontSize: 13, color: mc.primary },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...neu.inset,
+    borderRadius: mr.md,
+    paddingHorizontal: ms.xs,
+    paddingVertical: 4,
+  },
+  dateStep: { padding: 8 },
+  dateLabel: { fontFamily: mf.semibold, fontSize: 14, color: mc.onSurface },
 
   fabWrap: { position: "absolute", right: ms.md, bottom: ms.md },
   fab: {
@@ -731,7 +888,7 @@ const s = StyleSheet.create({
     height: 52,
     paddingHorizontal: 18,
     borderRadius: mr.full,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     shadowColor: mc.primary,
     shadowOpacity: 0.35,
     shadowRadius: 12,
@@ -749,14 +906,14 @@ const s = StyleSheet.create({
     padding: ms.lg,
   },
   formCard: {
-    backgroundColor: mc.surfaceContainerLowest,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: mr["2xl"],
     borderTopRightRadius: mr["2xl"],
     padding: ms.lg,
     gap: ms.sm,
   },
   editGoalCard: {
-    backgroundColor: mc.surfaceContainerLowest,
+    backgroundColor: neuColors.surface,
     borderRadius: mr.xl,
     padding: ms.lg,
     gap: ms.sm,
@@ -768,7 +925,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -777,12 +934,12 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: mr.md,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
   },
   typeBtnText: { fontFamily: mf.semibold, fontSize: 13, color: mc.onSurface },
   input: {
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.md,
     paddingHorizontal: ms.sm,
     paddingVertical: 12,
@@ -793,7 +950,7 @@ const s = StyleSheet.create({
   formSubmit: {
     height: 50,
     borderRadius: mr.lg,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
   },

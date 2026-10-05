@@ -18,6 +18,7 @@ import merchantMediaRoutes from "./routes/merchant/media.js";
 import merchantServicesRoutes from "./routes/merchant/services.js";
 import merchantBookingsRoutes from "./routes/merchant/bookings.js";
 import merchantSalesRoutes from "./routes/merchant/sales.js";
+import merchantInsightsRoutes from "./routes/merchant/insights.js";
 import publicCatalogRoutes from "./routes/public/catalog.js";
 import publicAvailabilityRequestRoutes from "./routes/public/availability-requests.js";
 import publicReviewRoutes from "./routes/public/reviews.js";
@@ -132,10 +133,15 @@ await app.register(merchantMediaRoutes, { prefix: "/api/merchant/media" });
 await app.register(merchantServicesRoutes, { prefix: "/api/merchant/services" });
 await app.register(merchantBookingsRoutes, { prefix: "/api/merchant/bookings" });
 await app.register(merchantSalesRoutes, { prefix: "/api/merchant/sales" });
+await app.register(merchantInsightsRoutes, { prefix: "/api/merchant/insights" });
 await app.register(publicCatalogRoutes, { prefix: "/api/public" });
 await app.register(publicAvailabilityRequestRoutes, { prefix: "/api/public" });
 await app.register(publicReviewRoutes, { prefix: "/api/public" });
 await app.register(analyticsRoutes, { prefix: "/api/analytics" });
+
+// Someone opening the server's bare address in a browser gets a pointer
+// rather than a 404 that looks like a failure. Only the app uses this API.
+app.get("/", async () => ({ service: "KiliPicks API", ok: true, health: "/healthz" }));
 
 app.get("/healthz", async (request, reply) => {
   try {

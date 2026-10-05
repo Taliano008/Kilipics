@@ -21,15 +21,19 @@ import {
   type MerchantService,
 } from "@/api/merchant";
 import { CameraModal } from "@/components/CameraModal";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
+import { StoreVisitsCard } from "@/components/merchant/StoreVisitsCard";
 import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { categoryLabel } from "@/utils/categories";
 import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
+import { formatServicePrice } from "@/utils/price";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -51,10 +55,20 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
   const { business, loading, activeToken, refresh } = useMerchantBusiness();
+  // Set by onboarding step 3, which lands here straight after submitting.
+  const { submitted } = useLocalSearchParams<{ submitted?: string }>();
 
   const [services, setServices] = useState<MerchantService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(
+    submitted === "1" ? "Submitted for review. We'll notify you when it's approved." : null,
+  );
+
+  useEffect(() => {
+    if (submitted !== "1") return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [submitted]);
   const [editOpen, setEditOpen] = useState(false);
   const [aboutInput, setAboutInput] = useState("");
   const [savingAbout, setSavingAbout] = useState(false);
@@ -67,6 +81,11 @@ export default function ProfileScreen() {
   const [uploadingGalleryPhoto, setUploadingGalleryPhoto] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
   const [removingGalleryUrl, setRemovingGalleryUrl] = useState<string | null>(null);
+  // The gallery photo whose caption is being edited, if any.
+  const [captionUrl, setCaptionUrl] = useState<string | null>(null);
+  const [captionTitle, setCaptionTitle] = useState("");
+  const [captionPrice, setCaptionPrice] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
   const [logoModalOpen, setLogoModalOpen] = useState(false);
   const [logoCameraOpen, setLogoCameraOpen] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -83,8 +102,12 @@ export default function ProfileScreen() {
       .finally(() => setServicesLoading(false));
   }, [activeToken]);
 
+  // Bumped on pull-to-refresh so the Store visits card reloads too.
+  const [refreshCount, setRefreshCount] = useState(0);
+
   const handleRefresh = async () => {
     setRefreshing(true);
+    setRefreshCount((n) => n + 1);
     refresh();
     if (activeToken) {
       try {
@@ -102,7 +125,9 @@ export default function ProfileScreen() {
 
   const businessName = business?.name || "My Business";
   const initials = businessName.slice(0, 2).toUpperCase();
-  const categoryDisplay = business?.categoryId ? categoryLabel(business.categoryId) : "Beauty & Wellness";
+  const categoryDisplay = business?.categoryId
+    ? (business.categoryIds?.length ? business.categoryIds : [business.categoryId]).map(categoryLabel).join(", ")
+    : "Beauty & Wellness";
   const areaLabel = business?.area || (business?.fullAddress ? business.fullAddress.split(",")[0].trim() : "Nairobi");
   const hasRating = business?.rating !== null && business?.rating !== undefined && (business?.rating ?? 0) > 0;
   const ratingVal = hasRating ? (business?.rating ?? 0).toFixed(1) : "New";
@@ -258,6 +283,34 @@ export default function ProfileScreen() {
     await appendLogoPhoto(compressed);
   };
 
+  const openCaptionEditor = (url: string) => {
+    const existing = business?.galleryCaptions?.[url];
+    setCaptionTitle(existing?.title ?? "");
+    setCaptionPrice(existing?.price ?? "");
+    setCaptionUrl(url);
+  };
+
+  // Empty title and price removes the caption (the backend drops blank ones).
+  const saveCaption = async (title: string, price: string) => {
+    if (!activeToken || !captionUrl) return;
+    setSavingCaption(true);
+    try {
+      await updateMerchantBusiness(activeToken, {
+        galleryCaptions: {
+          ...(business?.galleryCaptions ?? {}),
+          [captionUrl]: { title: title.trim(), price: price.trim() },
+        },
+      });
+      refresh();
+      setCaptionUrl(null);
+      showToast(title.trim() || price.trim() ? "Caption saved" : "Caption removed");
+    } catch {
+      showToast("Couldn't save that caption. Try again.");
+    } finally {
+      setSavingCaption(false);
+    }
+  };
+
   const removeGalleryPhoto = async (url: string) => {
     if (!activeToken) return;
     setRemovingGalleryUrl(url);
@@ -273,7 +326,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: mc.surface }}>
+    <View style={{ flex: 1, backgroundColor: neuColors.surface }}>
       <DashboardHeader title="Profile" />
       <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView
@@ -407,31 +460,6 @@ export default function ProfileScreen() {
               )}
             </View>
 
-            <LinearGradient
-              colors={[mc.primary, mc.primaryContainer]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.proBanner}
-            >
-              <View style={s.proTopRow}>
-                <View style={s.proTag}>
-                  <MaterialIcons name="rocket-launch" size={13} color="#fff" />
-                  <Text style={s.proTagText}>KILIPICKS GROWTH</Text>
-                </View>
-              </View>
-              <Text style={s.proTitle}>Grow your business with KiliPicks Pro</Text>
-              <Text style={s.proBody}>
-                Get featured placement in Nairobi search and a top verified badge.
-              </Text>
-              <Pressable
-                style={s.proBtn}
-                onPress={() => showToast("KiliPicks Pro is launching soon")}
-              >
-                <Text style={s.proBtnText}>Upgrade to Pro</Text>
-                <MaterialIcons name="arrow-forward" size={16} color={mc.primary} />
-              </Pressable>
-            </LinearGradient>
-
             {completeness.missing.length > 0 && (
               <View style={s.completenessCard}>
                 <View style={s.completenessHeaderRow}>
@@ -464,6 +492,41 @@ export default function ProfileScreen() {
                 ))}
               </View>
             )}
+
+            {business ? (
+              <StoreVisitsCard
+                businessId={business.id}
+                businessName={business.name}
+                live={isPublished}
+                activeToken={activeToken}
+                refreshKey={refreshCount}
+              />
+            ) : null}
+
+            <LinearGradient
+              colors={[mc.primary, mc.primaryContainer]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.proBanner}
+            >
+              <View style={s.proTopRow}>
+                <View style={s.proTag}>
+                  <MaterialIcons name="rocket-launch" size={13} color="#fff" />
+                  <Text style={s.proTagText}>KILIPICKS GROWTH</Text>
+                </View>
+              </View>
+              <Text style={s.proTitle}>Grow your business with KiliPicks Pro</Text>
+              <Text style={s.proBody}>
+                Get featured placement in Nairobi search and a top verified badge.
+              </Text>
+              <Pressable
+                style={s.proBtn}
+                onPress={() => showToast("KiliPicks Pro is launching soon")}
+              >
+                <Text style={s.proBtnText}>Upgrade to Pro</Text>
+                <MaterialIcons name="arrow-forward" size={16} color={mc.primary} />
+              </Pressable>
+            </LinearGradient>
 
             <View style={s.sectionHeaderRow}>
               <View style={s.sectionTitleRow}>
@@ -561,7 +624,21 @@ export default function ProfileScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.galleryRow}>
                 {(business?.galleryUrls ?? []).map((url) => (
                   <View key={url} style={s.galleryTile}>
-                    <Image source={{ uri: resolveMediaUrl(url) ?? undefined }} style={StyleSheet.absoluteFill} />
+                    <Pressable
+                      style={StyleSheet.absoluteFill}
+                      onPress={() => openCaptionEditor(url)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit photo caption"
+                    >
+                      <Image source={{ uri: resolveMediaUrl(url) ?? undefined }} style={StyleSheet.absoluteFill} />
+                      <View style={s.galleryCaptionTag}>
+                        <Text style={s.galleryCaptionTagText} numberOfLines={1}>
+                          {business?.galleryCaptions?.[url]?.title ||
+                            business?.galleryCaptions?.[url]?.price ||
+                            "+ Caption"}
+                        </Text>
+                      </View>
+                    </Pressable>
                     <Pressable
                       style={s.galleryRemove}
                       disabled={removingGalleryUrl === url}
@@ -669,6 +746,7 @@ export default function ProfileScreen() {
       <Toast message={toast} />
 
       <Modal visible={editOpen} animationType="slide" transparent onRequestClose={() => setEditOpen(false)}>
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.editCard}>
             <View style={s.formHeader}>
@@ -699,6 +777,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+        </KeyboardAvoider>
       </Modal>
 
       <Modal
@@ -707,6 +786,7 @@ export default function ProfileScreen() {
         transparent
         onRequestClose={() => setContactEditOpen(false)}
       >
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.editCard}>
             <View style={s.formHeader}>
@@ -747,6 +827,89 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+        </KeyboardAvoider>
+      </Modal>
+
+      <Modal
+        visible={captionUrl !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCaptionUrl(null)}
+      >
+        <KeyboardAvoider>
+        <View style={s.modalBackdrop}>
+          <View style={s.editCard}>
+            <View style={s.formHeader}>
+              <Text style={s.formTitle}>Photo caption</Text>
+              <Pressable style={s.modalCloseBtn} onPress={() => setCaptionUrl(null)}>
+                <MaterialIcons name="close" size={16} color={mc.onSurface} />
+              </Pressable>
+            </View>
+            <Text style={s.captionHelp}>
+              Shown when customers open this photo — e.g. the service and its price.
+            </Text>
+
+            {services.length > 0 ? (
+              <>
+                <Text style={s.editLabel}>Fill from a service</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.captionChips}>
+                  {services.map((svc) => (
+                    <Pressable
+                      key={svc.id}
+                      style={s.captionChip}
+                      onPress={() => {
+                        setCaptionTitle(svc.name);
+                        setCaptionPrice(formatServicePrice(svc));
+                      }}
+                    >
+                      <Text style={s.captionChipText} numberOfLines={1}>{svc.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : null}
+
+            <Text style={s.editLabel}>Title</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={captionTitle}
+              onChangeText={setCaptionTitle}
+              placeholder="e.g. Knotless braids"
+              placeholderTextColor={mc.outline}
+              maxLength={80}
+            />
+            <Text style={s.editLabel}>Price</Text>
+            <TextInput
+              style={[s.editInput, { minHeight: 44 }]}
+              value={captionPrice}
+              onChangeText={setCaptionPrice}
+              placeholder="e.g. KES 4,500"
+              placeholderTextColor={mc.outline}
+              maxLength={40}
+            />
+            <Pressable
+              style={[s.formSubmit, savingCaption && { opacity: 0.6 }]}
+              disabled={savingCaption}
+              onPress={() => void saveCaption(captionTitle, captionPrice)}
+            >
+              {savingCaption ? (
+                <ActivityIndicator color={mc.onPrimary} size="small" />
+              ) : (
+                <Text style={s.formSubmitText}>Save caption</Text>
+              )}
+            </Pressable>
+            {captionUrl && business?.galleryCaptions?.[captionUrl] ? (
+              <Pressable
+                style={s.captionRemove}
+                disabled={savingCaption}
+                onPress={() => void saveCaption("", "")}
+              >
+                <Text style={s.captionRemoveText}>Remove caption</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+        </KeyboardAvoider>
       </Modal>
 
       <Modal
@@ -957,7 +1120,7 @@ const s = StyleSheet.create({
   heroBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: mc.tertiary },
   heroBadgeText: { fontFamily: mf.semibold, fontSize: 11, color: mc.onSurface },
 
-  body: { paddingHorizontal: ms.md, marginTop: -48, gap: ms.sm },
+  body: { paddingHorizontal: ms.md, marginTop: -48, gap: ms.md },
   reviewCard: {
     backgroundColor: mc.errorContainer,
     borderRadius: mr.xl,
@@ -976,7 +1139,7 @@ const s = StyleSheet.create({
   },
   reviewBtnText: { fontFamily: mf.bold, fontSize: 14, color: mc.onPrimary },
   card: {
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
     gap: ms.sm,
@@ -1024,7 +1187,7 @@ const s = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 12,
     borderRadius: mr.full,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
   },
   editBtnText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSecondaryContainer },
 
@@ -1047,7 +1210,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1058,7 +1221,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1107,7 +1270,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 10,
@@ -1117,7 +1280,7 @@ const s = StyleSheet.create({
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   sectionTitle: { fontFamily: mf.bold, fontSize: 16, color: mc.onSurface },
-  countPill: { backgroundColor: mc.surfaceContainerHigh, borderRadius: mr.full, paddingHorizontal: 8, paddingVertical: 2 },
+  countPill: { ...neu.inset, borderRadius: mr.full, paddingHorizontal: 8, paddingVertical: 2 },
   countPillText: { fontFamily: mf.medium, fontSize: 11, color: mc.onSurfaceVariant },
   addServiceBtn: {
     flexDirection: "row",
@@ -1126,26 +1289,37 @@ const s = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: 12,
     borderRadius: mr.full,
-    backgroundColor: mc.primaryFixed,
+    ...neu.raisedSm,
   },
   addServiceBtnText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onPrimaryFixed },
 
   noServices: {
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.inset,
     borderRadius: mr.xl,
     padding: ms.md,
     alignItems: "center",
   },
   noServicesText: { fontFamily: mf.medium, fontSize: 13, color: mc.onSurfaceVariant, textAlign: "center" },
 
-  galleryRow: { flexDirection: "row", gap: ms.sm, paddingVertical: 2 },
+  // Room on every side so the row does not clip the tiles soft shadows.
+  galleryRow: { flexDirection: "row", gap: ms.md, paddingVertical: 12, paddingHorizontal: 4 },
   galleryTile: {
     width: 96,
     height: 96,
     borderRadius: mr.lg,
     overflow: "hidden",
-    backgroundColor: mc.surfaceContainer,
+    ...neu.raisedSm,
   },
+  galleryCaptionTag: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  galleryCaptionTagText: { fontFamily: mf.semibold, fontSize: 10.5, color: "#fff" },
   galleryRemove: {
     position: "absolute",
     top: 6,
@@ -1164,7 +1338,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: mc.outlineVariant,
     borderStyle: "dashed",
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
@@ -1175,7 +1349,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr.xl,
     padding: 12,
     gap: ms.sm,
@@ -1185,7 +1359,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: mr.lg,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -1203,17 +1377,17 @@ const s = StyleSheet.create({
     gap: 6,
     minHeight: 44,
     borderRadius: mr.xl,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.raisedSm,
   },
   viewAllText: { fontFamily: mf.semibold, fontSize: 13, color: mc.primary },
 
-  switchCard: { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr["2xl"], padding: ms.md, gap: ms.sm },
+  switchCard: { ...neu.raised, borderRadius: mr["2xl"], padding: ms.md, gap: ms.sm },
   switchTopRow: { flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   switchIcon: {
     width: 40,
     height: 40,
     borderRadius: mr.lg,
-    backgroundColor: mc.primaryFixed,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1222,7 +1396,7 @@ const s = StyleSheet.create({
   switchBtn: {
     minHeight: 46,
     borderRadius: mr.xl,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1234,7 +1408,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
   },
@@ -1243,7 +1417,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: mr.lg,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1254,7 +1428,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
   },
@@ -1289,7 +1463,7 @@ const s = StyleSheet.create({
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.5)", justifyContent: "flex-end" },
   editCard: {
-    backgroundColor: mc.surfaceContainerLowest,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: mr["2xl"],
     borderTopRightRadius: mr["2xl"],
     padding: ms.lg,
@@ -1301,13 +1475,13 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
   editLabel: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSurfaceVariant },
   editInput: {
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.md,
     padding: ms.sm,
     minHeight: 90,
@@ -1319,9 +1493,21 @@ const s = StyleSheet.create({
   formSubmit: {
     height: 50,
     borderRadius: mr.lg,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
   },
   formSubmitText: { fontFamily: mf.bold, fontSize: 15, color: mc.onPrimary },
+  captionHelp: { fontFamily: mf.regular, fontSize: 12.5, color: mc.onSurfaceVariant },
+  captionChips: { gap: ms.sm, paddingVertical: 10, paddingHorizontal: 4 },
+  captionChip: {
+    maxWidth: 180,
+    paddingHorizontal: ms.sm,
+    paddingVertical: 7,
+    borderRadius: mr.full,
+    ...neu.raisedSm,
+  },
+  captionChipText: { fontFamily: mf.semibold, fontSize: 12.5, color: mc.onSurface },
+  captionRemove: { alignItems: "center", paddingVertical: ms.xs },
+  captionRemoveText: { fontFamily: mf.semibold, fontSize: 13, color: mc.error },
 });

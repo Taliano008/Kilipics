@@ -5,13 +5,17 @@
  */
 import { useAuth } from "@/auth/auth-context";
 import { fetchMerchantBusiness, saveMerchantStep2 } from "@/api/merchant";
+import { StoreLocationPicker } from "@/components/StoreMap";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import {
   adminIcon,
   bookingIcon,
   carIcon,
   searchIcon,
 } from "@/utils/icon-assets";
+import { NAIROBI_CENTER, hasPinnedLocation, type Coordinate } from "@/utils/location";
+import { requireOptionalNativeModule } from "expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -26,9 +30,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Static map image (same as Inspo)
-const MAP_IMAGE =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuCi5oK6P_YW7PxruJL57RGy-dVsxPJkLT6J9IKbMFFiHMDovneid28n4HS--k_UVTPQOTabuv7RinY8nPeF5TuDuj0EFAC8t3j8xjoz0HHTDf1uegQFFmlkE5hYjSLoepQDYxC0XKpmzvKPPz67rEPp5C2hRuEsYXEJ2IttiCCeioX334aJjBVMWbKdTcbVcTcU7uwAUGXCcPjGWDEWjbNcChsBbp8swYfqbNdqGlkhL4YKfAoYstCrpA";
+type LocationModule = typeof import("expo-location");
+
+// expo-location throws on import when its native module is missing (app
+// binaries built before it was added), so load it only if it's there.
+// Without it the merchant can still place the pin by tapping the map.
+const Location: LocationModule | null = requireOptionalNativeModule("ExpoLocation")
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require("expo-location") as LocationModule)
+  : null;
 
 export default function OnboardStep2() {
   const router = useRouter();
@@ -45,6 +55,11 @@ export default function OnboardStep2() {
   const [serviceType, setServiceType] = useState<"physical" | "mobile">("physical");
   const [radiusEnabled, setRadiusEnabled] = useState(true);
   const [radius, setRadius] = useState(15);
+  const [pin, setPin] = useState<Coordinate>(NAIROBI_CENTER);
+  const [pinSet, setPinSet] = useState(false);
+  // The pin starts at a position looked up from the address, not yet confirmed.
+  const [pinApprox, setPinApprox] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,10 +79,59 @@ export default function OnboardStep2() {
           if (res.business.locationType) setServiceType(res.business.locationType);
           if (typeof res.business.travelRadius === "number") setRadius(res.business.travelRadius || 15);
           if (typeof res.business.radiusEnabled === "boolean") setRadiusEnabled(res.business.radiusEnabled);
+          const saved = { latitude: res.business.latitude, longitude: res.business.longitude };
+          if (hasPinnedLocation(saved) && res.business.locationPrecision !== "none") {
+            setPin(saved);
+            // A position looked up from the address is only a starting
+            // point; the merchant still confirms it by placing the pin.
+            if (res.business.locationPrecision === "address") setPinApprox(true);
+            else setPinSet(true);
+          }
         }
       })
       .catch(() => {});
   }, [activeToken, saveMerchantSession]);
+
+  const movePin = (coordinate: Coordinate) => {
+    setPin(coordinate);
+    setPinSet(true);
+    setPinApprox(false);
+    setError(null);
+  };
+
+  const placePinAtCurrentLocation = async () => {
+    if (!Location) return;
+    setLocating(true);
+    setError(null);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Location permission is off. Drag the pin onto your store instead.");
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const here = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      movePin(here);
+      // Fill the address from the pin only when the merchant hasn't typed one.
+      if (!address.trim()) {
+        const [place] = await Location.reverseGeocodeAsync(here).catch(() => []);
+        if (place) {
+          const streetLine = [place.name, place.street].filter(Boolean).join(", ");
+          const areaLine = [place.district || place.subregion, place.city].filter(Boolean).join(", ");
+          handleFieldChange(streetLine, unit, areaLine);
+        }
+      }
+    } catch {
+      setError("Couldn't get your location. Drag the pin onto your store instead.");
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleAddressSearch = (text: string) => {
     setAddress(text);
@@ -90,6 +154,10 @@ export default function OnboardStep2() {
       setError("Please enter your business street address or area.");
       return;
     }
+    if (serviceType === "physical" && !pinSet) {
+      setError("Place the pin on your store so clients can find you on the map.");
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
@@ -100,6 +168,7 @@ export default function OnboardStep2() {
           locationType: serviceType,
           radius,
           radiusEnabled,
+          ...(pinSet ? pin : {}),
         });
         if (res.merchantToken) await saveMerchantSession(res.merchantToken);
       }
@@ -191,40 +260,40 @@ export default function OnboardStep2() {
           )}
         </View>
 
-        {/* ── Map Preview ── */}
+        {/* ── Store Pin Map ── */}
         <View style={s.mapCard}>
-          <Image source={{ uri: MAP_IMAGE }} style={s.mapImage} resizeMode="cover" />
-          {/* Gradient overlay */}
-          <View style={s.mapOverlay} />
-          {/* Validated badge */}
-          <View style={s.mapBadge}>
-            {address.trim() ? (
-              <Text style={s.mapBadgeText}>✓ Location Set</Text>
+          <StoreLocationPicker coordinate={pin} onChange={movePin} />
+          <View style={s.mapBadge} pointerEvents="none">
+            {pinSet ? (
+              <Text style={s.mapBadgeText}>✓ Pin placed</Text>
             ) : (
               <View style={s.mapBadgeRow}>
                 <Image source={adminIcon} style={s.mapBadgeIcon} tintColor={mc.onSecondary} />
-                <Text style={s.mapBadgeText}>Enter Location</Text>
+                <Text style={s.mapBadgeText}>
+                  {pinApprox ? "Approximate — tap your exact spot" : "Tap the map at your store"}
+                </Text>
               </View>
             )}
           </View>
-          {/* Center pin */}
-          <View style={s.mapPinWrap} pointerEvents="none">
-            <View style={s.mapPulseOuter} />
-            <View style={s.mapPinContainer}>
-              <View style={s.mapPin}>
-                <Image source={adminIcon} style={s.mapPinIcon} tintColor={mc.onPrimaryContainer} />
-              </View>
-              <View style={s.mapPinNeedle} />
-            </View>
-          </View>
-          {/* Re-center */}
-          <Pressable style={s.recenterBtn}>
-            <Image source={adminIcon} style={s.recenterIcon} tintColor={mc.onSurface} />
-            <Text style={s.recenterText}>
-              {address ? address.slice(0, 20) + (address.length > 20 ? "..." : "") : "Nairobi"}
-            </Text>
-          </Pressable>
+          {Location ? (
+            <Pressable
+              style={s.recenterBtn}
+              onPress={placePinAtCurrentLocation}
+              disabled={locating}
+              accessibilityRole="button"
+            >
+              {locating ? (
+                <ActivityIndicator size="small" color={mc.onSurface} />
+              ) : (
+                <Image source={adminIcon} style={s.recenterIcon} tintColor={mc.onSurface} />
+              )}
+              <Text style={s.recenterText}>Use my current location</Text>
+            </Pressable>
+          ) : null}
         </View>
+        <Text style={s.mapHint}>
+          Move the map to your street, then tap your exact entrance. Clients see this pin on your listing.
+        </Text>
 
         {/* ── Business Model Toggle ── */}
         <View>
@@ -449,8 +518,8 @@ export default function OnboardStep2() {
 }
 
 const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: mc.surface },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: mc.surface },
+  safe:        { flex: 1, backgroundColor: neuColors.surface },
+  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: neuColors.surface },
   backBtn:     { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: mr.full },
   backIcon:    { fontSize: 22, color: mc.onSurface },
   headerTitle: { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface },
@@ -474,35 +543,28 @@ const s = StyleSheet.create({
   subtext:          { fontSize: 14, color: mc.onSurfaceVariant, lineHeight: 20 },
 
   // Search
-  searchBar:   { flexDirection: "row", alignItems: "center", backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, paddingHorizontal: ms.sm, paddingVertical: 6, gap: ms.xs },
+  searchBar:   { flexDirection: "row", alignItems: "center", ...neu.inset, borderRadius: mr.xl, paddingHorizontal: ms.sm, paddingVertical: 6, gap: ms.xs },
   searchIcon:  { fontSize: 18 },
   searchIconImage: { width: 18, height: 18 },
   searchInput: { flex: 1, fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   clearIcon:   { fontSize: 16, color: mc.onSurfaceVariant, padding: 4 },
 
   // Map
-  mapCard:     { borderRadius: mr.xl, overflow: "hidden", height: 200 },
-  mapImage:    { width: "100%", height: "100%", position: "absolute" },
-  mapOverlay:  { position: "absolute", bottom: 0, left: 0, right: 0, height: 80, backgroundColor: "rgba(0,0,0,0.25)" },
+  mapCard:     { borderRadius: mr.xl, overflow: "hidden", height: 260 },
+  mapHint:     { fontSize: 12, color: mc.onSurfaceVariant, marginTop: -ms.xs },
   mapBadge:    { position: "absolute", top: 12, left: 12, backgroundColor: mc.secondary, paddingHorizontal: 12, paddingVertical: 4, borderRadius: mr.full },
   mapBadgeRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   mapBadgeIcon: { width: 12, height: 12 },
   mapBadgeText: { color: mc.onSecondary, fontSize: 12, fontFamily: mf.semibold },
-  mapPinWrap:  { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, alignItems: "center", justifyContent: "center" },
-  mapPulseOuter: { position: "absolute", width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(186,73,52,0.15)" },
-  mapPinContainer: { alignItems: "center" },
-  mapPin:      { width: 40, height: 40, borderRadius: 20, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
-  mapPinIcon:  { width: 20, height: 20 },
-  mapPinNeedle: { width: 10, height: 10, backgroundColor: mc.primaryContainer, transform: [{ rotate: "45deg" }], marginTop: -4 },
   recenterBtn: { position: "absolute", bottom: 12, right: 12, backgroundColor: mc.surfaceContainerLowest, paddingHorizontal: 10, paddingVertical: 6, borderRadius: mr.full, flexDirection: "row", alignItems: "center", gap: 4 },
   recenterIcon: { width: 12, height: 12 },
   recenterText: { fontSize: 12, fontFamily: mf.semibold, color: mc.onSurface },
 
   // Business model
   sectionLabel: { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurfaceVariant, marginBottom: ms.xs },
-  segmented:    { flexDirection: "row", gap: ms.xs, padding: 4, backgroundColor: mc.surfaceContainer, borderRadius: mr.xl },
+  segmented:    { flexDirection: "row", gap: ms.xs, padding: 4, ...neu.inset, borderRadius: mr.xl },
   seg:          { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: ms.xs, paddingVertical: 10, paddingHorizontal: ms.sm, borderRadius: mr.lg },
-  segActive:    { backgroundColor: mc.surfaceContainerLowest },
+  segActive:    { ...neu.raisedSm },
   segInactive:  { backgroundColor: "transparent" },
   segIcon:      { fontSize: 16 },
   segIconImage: { width: 16, height: 16 },
@@ -511,14 +573,14 @@ const s = StyleSheet.create({
   segTextInactive: { color: mc.onSurfaceVariant },
 
   // Card
-  card:           { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
+  card:           { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.sm },
   cardHeader:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: ms.xs },
   cardHeaderIcon: { fontSize: 18 },
   cardHeaderIconImage: { width: 18, height: 18 },
   cardHeaderTitle: { fontSize: 15, fontFamily: mf.semibold, color: mc.onSurface },
   editLink:       { color: mc.primary, fontSize: 12, fontFamily: mf.semibold },
-  addrField:      { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, paddingHorizontal: ms.sm, paddingVertical: 8 },
+  addrField:      { ...neu.inset, borderRadius: mr.lg, paddingHorizontal: ms.sm, paddingVertical: 8 },
   addrFieldLabel: { fontSize: 11, fontFamily: mf.semibold, color: mc.onSurfaceVariant },
   addrFieldValue: { fontSize: 14, fontFamily: mf.medium, color: mc.onSurface, marginTop: 2 },
   addrRow:        { flexDirection: "row", gap: ms.xs },
@@ -533,26 +595,26 @@ const s = StyleSheet.create({
   radiusSubtitle:   { fontSize: 13, color: mc.onSurfaceVariant },
   toggle:           { width: 48, height: 24, borderRadius: mr.full, padding: 2, justifyContent: "center" },
   toggleOn:         { backgroundColor: mc.primaryContainer },
-  toggleOff:        { backgroundColor: mc.surfaceContainerHighest },
-  toggleThumb:      { width: 20, height: 20, borderRadius: 10, backgroundColor: mc.surfaceContainerLowest },
+  toggleOff:        { ...neu.inset },
+  toggleThumb:      { width: 20, height: 20, borderRadius: 10, ...neu.raisedSm },
   toggleThumbLeft:  { alignSelf: "flex-start" },
   toggleThumbRight: { alignSelf: "flex-end" },
   radiusSliderSection: { gap: ms.xs },
-  radiusValueRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: mc.surfaceContainerLow, paddingHorizontal: ms.sm, paddingVertical: 8, borderRadius: mr.lg },
+  radiusValueRow:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...neu.inset, paddingHorizontal: ms.sm, paddingVertical: 8, borderRadius: mr.lg },
   radiusValueLabel: { fontSize: 13, color: mc.onSurfaceVariant },
   radiusValueBadge: { backgroundColor: mc.primaryFixed, paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.sm },
   radiusValueText:  { color: mc.primary, fontSize: 13, fontFamily: mf.bold },
-  sliderTrack:      { flexDirection: "row", height: 6, borderRadius: mr.full, overflow: "hidden", backgroundColor: mc.surfaceContainerHighest },
+  sliderTrack:      { flexDirection: "row", height: 6, borderRadius: mr.full, overflow: "hidden", ...neu.inset },
   sliderFill:       { backgroundColor: mc.primary },
   sliderEmpty:      { backgroundColor: mc.surfaceContainerHighest },
   sliderLabels:     { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sliderLabelText:  { fontSize: 11, color: mc.onSurfaceVariant },
   sliderBtns:       { flexDirection: "row", gap: ms.xs },
-  sliderBtn:        { width: 36, height: 36, borderRadius: mr.full, backgroundColor: mc.surfaceContainerLow, alignItems: "center", justifyContent: "center" },
+  sliderBtn:        { width: 36, height: 36, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   sliderBtnText:    { fontSize: 20, color: mc.onSurface, lineHeight: 24 },
 
   // Tip
-  tipCard:    { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, padding: ms.sm, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
+  tipCard:    { ...neu.raised, borderRadius: mr.xl, padding: ms.sm, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   tipIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: mc.secondaryFixed, alignItems: "center", justifyContent: "center" },
   tipIconText: { fontSize: 16 },
   tipIconImage: { width: 16, height: 16 },
@@ -560,9 +622,9 @@ const s = StyleSheet.create({
   tipBody:    { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18, marginTop: 2 },
 
   // Footer
-  footer:           { flexDirection: "row", gap: ms.sm, padding: ms.md, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant },
-  backFooterBtn:    { flex: 1, height: 48, borderRadius: mr.full, backgroundColor: mc.surfaceContainer, alignItems: "center", justifyContent: "center" },
+  footer:           { flexDirection: "row", gap: ms.sm, padding: ms.md, ...neuBarTop },
+  backFooterBtn:    { flex: 1, height: 48, borderRadius: mr.full, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
   backFooterText:   { color: mc.onSurface, fontSize: 15, fontFamily: mf.semibold },
-  cta:              { flex: 2, height: 48, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
+  cta:              { flex: 2, height: 48, borderRadius: mr.full, ...neuAccent(false, mc.primaryContainer), alignItems: "center", justifyContent: "center" },
   ctaText:          { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
 });

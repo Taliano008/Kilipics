@@ -198,6 +198,24 @@ not bundled into an auth change).
 disk, now superseded. Left in place rather than deleted, since it's a
 separate repo with its own git history this session didn't own removing.
 
+## Round 6 — Maps, categories, sales tracking, store visits, soft UI (2026-09-30 → 2026-10-05)
+
+Full detail, setup steps and known gaps: [CHANGES-2026-10-05.md](CHANGES-2026-10-05.md).
+Branch `feature/maps-categories-gallery`; migrations 031–033 applied.
+
+- Store location: Leaflet/OpenStreetMap map on business pages, pin placement in
+  onboarding, background geocoding of addresses.
+- Up to 5 categories per business; Barber/Gym home tiles fixed.
+- Gallery captions, hero photo carousel, onboarding logo upload.
+- Sales: totals no longer go stale after midnight; delete, back-dating, bookings
+  count once they have happened.
+- Store visits card on the merchant Profile tab.
+- Soft UI (neumorphism) across the customer app and most merchant screens.
+- Search opens on all businesses; tab bars clear the Android navigation bar.
+
+**Still needed:** deploy to Render, rebuild the app (new native modules), device
+testing.
+
 ## Outstanding blockers (need something from the product owner)
 
 | Item | Status |
