@@ -4,14 +4,24 @@
  * Matches: Inspo/add_business_details_code.html
  */
 import { useAuth } from "@/auth/auth-context";
-import { fetchMerchantBusiness, saveMerchantStep1 } from "@/api/merchant";
+import {
+  fetchMerchantBusiness,
+  saveMerchantStep1,
+  updateMerchantBusiness,
+  uploadMerchantPhoto,
+} from "@/api/merchant";
+import { CameraModal } from "@/components/CameraModal";
+import { resolveMediaUrl } from "@/config/env";
+import { report } from "@/observability/report";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuBarTop, neuColors } from "@/theme/neumorphism";
 import {
   CATALOG_CATEGORY_IDS,
   MAX_BUSINESS_CATEGORIES,
   categoryLabel,
 } from "@/utils/categories";
 import { normalizeKenyanPhone } from "@/utils/phone";
+import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import {
   adminIcon,
   bookingIcon,
@@ -26,6 +36,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -57,6 +68,18 @@ export default function OnboardStep1() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Business logo. It uploads as soon as it's picked; attaching it to the
+  // business needs the business to exist, which for a brand-new merchant
+  // only happens when this step is saved — so until then it's held as
+  // "pending" and attached right after saveMerchantStep1.
+  const [hasBusiness, setHasBusiness] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoPending, setLogoPending] = useState(false);
+  const [logoSheetOpen, setLogoSheetOpen] = useState(false);
+  const [logoCameraOpen, setLogoCameraOpen] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!activeToken) return;
     setLoading(true);
@@ -66,6 +89,8 @@ export default function OnboardStep1() {
           void saveMerchantSession(res.merchantToken);
         }
         if (res.business) {
+          setHasBusiness(true);
+          if (res.business.logoUrl) setLogoUrl(res.business.logoUrl);
           setBusinessName(res.business.name || "");
           const saved = res.business.categoryIds?.length
             ? res.business.categoryIds
@@ -79,6 +104,57 @@ export default function OnboardStep1() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [activeToken, saveMerchantSession]);
+
+  const uploadLogo = async (photo: { uri: string; name: string; mimeType: string }) => {
+    if (!activeToken) return;
+    setUploadingLogo(true);
+    setLogoError(null);
+    try {
+      const uploaded = await uploadMerchantPhoto(activeToken, photo, "logo");
+      setLogoUrl(uploaded.url);
+      if (hasBusiness) {
+        await updateMerchantBusiness(activeToken, { logoUrl: uploaded.url });
+        setLogoPending(false);
+      } else {
+        setLogoPending(true);
+      }
+      setLogoSheetOpen(false);
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "Couldn't upload that photo. Please try again.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const pickLogoFromLibrary = async () => {
+    setLogoError(null);
+    const result = await pickPhotoFromLibrary();
+    if (result.status === "canceled") return;
+    if (result.status === "permission_denied") {
+      setLogoError("Photo library access is off. Enable it in your phone's Settings to choose a photo.");
+      return;
+    }
+    await uploadLogo(result.photo);
+  };
+
+  const handleLogoPictureTaken = async (raw: { uri: string; width: number; height: number }) => {
+    setLogoCameraOpen(false);
+    await uploadLogo(await compressPhoto(raw));
+  };
+
+  // After step 1 is saved the business exists: attach a logo picked before
+  // that. A failure here isn't worth blocking onboarding over — the logo can
+  // be set again from the Profile tab — so it's only reported.
+  const attachPendingLogo = async (token: string) => {
+    if (!logoPending || !logoUrl) return;
+    try {
+      await updateMerchantBusiness(token, { logoUrl });
+      setLogoPending(false);
+      setHasBusiness(true);
+    } catch (err) {
+      report(err, { scope: "onboarding_logo_attach" }, "warning");
+    }
+  };
 
   const toggleCategory = (id: string) => {
     if (selectedCategories.includes(id)) {
@@ -127,6 +203,7 @@ export default function OnboardStep1() {
         if (res.merchantToken) {
           await saveMerchantSession(res.merchantToken);
         }
+        await attachPendingLogo(res.merchantToken || activeToken);
       }
       router.push("/merchant/onboard/step2");
     } catch (err) {
@@ -143,6 +220,7 @@ export default function OnboardStep1() {
         if (res.merchantToken) {
           await saveMerchantSession(res.merchantToken);
         }
+        await attachPendingLogo(res.merchantToken || activeToken);
       } catch {
         // silent exit
       }
@@ -214,7 +292,14 @@ export default function OnboardStep1() {
           <View style={s.logoRow}>
             <View style={s.avatarWrap}>
               <View style={s.avatar}>
-                {initials ? (
+                {logoUrl ? (
+                  <Image
+                    source={{ uri: resolveMediaUrl(logoUrl) ?? undefined }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    accessibilityLabel="Your business logo"
+                  />
+                ) : initials ? (
                   <Text style={s.avatarText}>{initials}</Text>
                 ) : (
                   <Image source={adminIcon} style={s.avatarIconImage} tintColor={mc.onPrimaryContainer} />
@@ -234,10 +319,25 @@ export default function OnboardStep1() {
               <Text style={s.logoHint}>
                 Vector badge, storefront sign, or logo portrait.
               </Text>
-              <Pressable style={s.uploadBtn}>
-                <Image source={cameraIcon} style={s.uploadBtnIcon} tintColor={mc.onSurface} />
-                <Text style={s.uploadBtnText}>Upload Mark / Photo</Text>
+              <Pressable
+                style={[s.uploadBtn, uploadingLogo && { opacity: 0.6 }]}
+                disabled={uploadingLogo}
+                onPress={() => {
+                  setLogoError(null);
+                  setLogoSheetOpen(true);
+                }}
+                accessibilityRole="button"
+              >
+                {uploadingLogo ? (
+                  <ActivityIndicator size="small" color={mc.onSurface} />
+                ) : (
+                  <Image source={cameraIcon} style={s.uploadBtnIcon} tintColor={mc.onSurface} />
+                )}
+                <Text style={s.uploadBtnText}>
+                  {uploadingLogo ? "Uploading…" : logoUrl ? "Change Mark / Photo" : "Upload Mark / Photo"}
+                </Text>
               </Pressable>
+              {logoError && !logoSheetOpen ? <Text style={s.logoErrorText}>{logoError}</Text> : null}
             </View>
           </View>
         </View>
@@ -446,13 +546,73 @@ export default function OnboardStep1() {
           <Text style={s.saveExitText}>Save & exit to dashboard</Text>
         </Pressable>
       </View>
+
+      {/* ── Logo source sheet ── */}
+      <Modal
+        visible={logoSheetOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLogoSheetOpen(false)}
+      >
+        <Pressable style={s.sheetBackdrop} onPress={() => !uploadingLogo && setLogoSheetOpen(false)}>
+          {/* Inner Pressable swallows taps so they don't close the sheet. */}
+          <Pressable style={s.sheet} onPress={() => {}}>
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>Business logo</Text>
+              <Pressable
+                style={s.sheetClose}
+                onPress={() => setLogoSheetOpen(false)}
+                disabled={uploadingLogo}
+                accessibilityLabel="Close"
+              >
+                <Text style={{ color: mc.onSurface, fontSize: 14 }}>✕</Text>
+              </Pressable>
+            </View>
+            <Text style={s.sheetHint}>
+              A logo, badge or storefront sign. It appears on your listing and booking slips.
+            </Text>
+            {logoError ? <Text style={s.logoErrorText}>{logoError}</Text> : null}
+            <View style={s.sheetRow}>
+              <Pressable
+                style={[s.sheetBtn, { backgroundColor: mc.primary }, uploadingLogo && { opacity: 0.6 }]}
+                disabled={uploadingLogo}
+                onPress={() => {
+                  setLogoError(null);
+                  setLogoCameraOpen(true);
+                }}
+              >
+                <Image source={cameraIcon} style={s.uploadBtnIcon} tintColor={mc.onPrimary} />
+                <Text style={[s.sheetBtnText, { color: mc.onPrimary }]}>Take Photo</Text>
+              </Pressable>
+              <Pressable
+                style={[s.sheetBtn, { backgroundColor: mc.surfaceContainerHigh }, uploadingLogo && { opacity: 0.6 }]}
+                disabled={uploadingLogo}
+                onPress={() => void pickLogoFromLibrary()}
+              >
+                <Text style={[s.sheetBtnText, { color: mc.onSurface }]}>From Library</Text>
+              </Pressable>
+            </View>
+            {uploadingLogo ? (
+              <View style={s.sheetBusy}>
+                <ActivityIndicator color={mc.primary} size="small" />
+                <Text style={s.sheetHint}>Uploading photo…</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <CameraModal
+        visible={logoCameraOpen}
+        onClose={() => setLogoCameraOpen(false)}
+        onPictureTaken={(photo) => void handleLogoPictureTaken(photo)}
+      />
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: mc.surface },
-  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: mc.surface },
+  safe:        { flex: 1, backgroundColor: neuColors.surface },
+  header:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ms.md, paddingVertical: ms.sm, backgroundColor: neuColors.surface },
   backBtn:     { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: mr.full },
   backIcon:    { fontSize: 22, color: mc.onSurface },
   headerTitle: { fontSize: 18, fontFamily: mf.semibold, color: mc.onSurface, letterSpacing: -0.3 },
@@ -460,14 +620,14 @@ const s = StyleSheet.create({
   content:     { padding: ms.md, gap: ms.md },
 
   // Progress
-  progressCard:  { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, padding: ms.md },
+  progressCard:  { ...neu.raised, borderRadius: mr.xl, padding: ms.md },
   progressTop:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: ms.xs },
   stepRow:       { flexDirection: "row", alignItems: "center", gap: ms.xs },
   stepDot:       { width: 20, height: 20, borderRadius: mr.full, backgroundColor: mc.primary, alignItems: "center", justifyContent: "center" },
   stepDotText:   { color: mc.onPrimary, fontSize: 11, fontFamily: mf.bold },
   stepLabel:     { color: mc.primary, fontSize: 11, fontFamily: mf.bold, textTransform: "uppercase", letterSpacing: 0.8 },
   stepSub:       { color: mc.onSurfaceVariant, fontSize: 11, fontFamily: mf.semibold },
-  progressTrack: { flexDirection: "row", height: 6, borderRadius: mr.full, gap: 4, backgroundColor: mc.surfaceContainerHigh, padding: 1.5 },
+  progressTrack: { flexDirection: "row", height: 6, borderRadius: mr.full, gap: 4, ...neu.inset, padding: 1.5 },
   progressFill:  { borderRadius: mr.full, backgroundColor: mc.primary },
   progressEmpty: { borderRadius: mr.full, backgroundColor: mc.surfaceContainerHighest },
 
@@ -477,12 +637,12 @@ const s = StyleSheet.create({
   subtext:       { fontSize: 14, fontFamily: mf.regular, color: mc.onSurfaceVariant, lineHeight: 20 },
 
   // Cards
-  card: { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, padding: ms.md, gap: ms.xs },
+  card: { ...neu.raised, borderRadius: mr.xl, padding: ms.md, gap: ms.xs },
 
   // Logo / Avatar
   logoRow:         { flexDirection: "row", alignItems: "center", gap: ms.md },
   avatarWrap:      { position: "relative" },
-  avatar:          { width: 64, height: 64, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center" },
+  avatar:          { width: 64, height: 64, borderRadius: mr.full, backgroundColor: mc.primaryContainer, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarText:      { color: mc.onPrimaryContainer, fontSize: 20, fontFamily: mf.bold },
   avatarIconImage: { width: 26, height: 26 },
   avatarBadge:     { position: "absolute", bottom: -4, right: -4, width: 22, height: 22, borderRadius: mr.full, backgroundColor: mc.secondary, alignItems: "center", justifyContent: "center" },
@@ -493,9 +653,22 @@ const s = StyleSheet.create({
   requiredBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryContainer },
   requiredText:    { fontSize: 11, fontFamily: mf.bold, color: mc.onSecondaryContainer },
   logoHint:        { fontSize: 13, color: mc.onSurfaceVariant },
-  uploadBtn:       { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: ms.sm, paddingVertical: 6, borderRadius: mr.full, backgroundColor: mc.surfaceContainerHigh },
+  uploadBtn:       { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: ms.sm, paddingVertical: 6, borderRadius: mr.full, ...neu.raisedSm },
   uploadBtnIcon:   { width: 14, height: 14 },
   uploadBtnText:   { fontSize: 12, fontFamily: mf.semibold, color: mc.onSurface },
+  logoErrorText:   { fontSize: 12, fontFamily: mf.medium, color: mc.error, marginTop: 4 },
+
+  // Logo sheet
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.5)", justifyContent: "flex-end" },
+  sheet:         { backgroundColor: neuColors.surface, borderTopLeftRadius: mr.xl, borderTopRightRadius: mr.xl, padding: ms.lg, gap: ms.sm },
+  sheetHeader:   { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sheetTitle:    { fontSize: 16, fontFamily: mf.bold, color: mc.onSurface },
+  sheetClose:    { width: 32, height: 32, borderRadius: 16, ...neu.raisedSm, alignItems: "center", justifyContent: "center" },
+  sheetHint:     { fontSize: 13, color: mc.onSurfaceVariant },
+  sheetRow:      { flexDirection: "row", gap: ms.sm },
+  sheetBtn:      { flex: 1, height: 48, borderRadius: mr.full, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
+  sheetBtnText:  { fontSize: 14, fontFamily: mf.bold },
+  sheetBusy:     { flexDirection: "row", alignItems: "center", gap: 8 },
 
   // Field
   fieldHeaderRow:  { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -504,7 +677,7 @@ const s = StyleSheet.create({
   availableRow:    { flexDirection: "row", alignItems: "center", gap: 3 },
   availableIcon:   { width: 12, height: 12 },
   availableText:   { fontSize: 12, fontFamily: mf.semibold, color: mc.secondary },
-  inputRow:        { flexDirection: "row", alignItems: "center", backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, paddingHorizontal: ms.md, paddingVertical: 12, gap: ms.xs },
+  inputRow:        { flexDirection: "row", alignItems: "center", ...neu.inset, borderRadius: mr.lg, paddingHorizontal: ms.md, paddingVertical: 12, gap: ms.xs },
   inputIcon:       { fontSize: 16, color: mc.primary },
   inputIconImage:  { width: 16, height: 16 },
   textInput:       { flex: 1, fontSize: 16, fontFamily: mf.regular, color: mc.onSurface },
@@ -512,16 +685,16 @@ const s = StyleSheet.create({
   contactSubLabel: { fontSize: 11, fontFamily: mf.semibold, color: mc.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5 },
 
   // Pill selector
-  pillWrap:         { flexDirection: "row", flexWrap: "wrap", gap: ms.xs },
+  pillWrap:         { flexDirection: "row", flexWrap: "wrap", gap: ms.sm },
   pill:             { paddingHorizontal: ms.md, paddingVertical: 8, borderRadius: mr.full },
-  pillActive:       { backgroundColor: mc.primary },
-  pillInactive:     { backgroundColor: mc.surfaceContainerLow },
+  pillActive:       { ...neuAccent(false, mc.primary) },
+  pillInactive:     { ...neu.raisedSm },
   pillText:         { fontSize: 13, fontFamily: mf.semibold },
   pillTextActive:   { color: mc.onPrimary },
   pillTextInactive: { color: mc.onSurfaceVariant },
 
   // Description
-  textArea:  { fontSize: 14, fontFamily: mf.regular, color: mc.onSurface, backgroundColor: mc.surfaceContainerLow, borderRadius: mr.lg, padding: ms.sm, minHeight: 90, textAlignVertical: "top" },
+  textArea:  { fontSize: 14, fontFamily: mf.regular, color: mc.onSurface, ...neu.inset, borderRadius: mr.lg, padding: ms.sm, minHeight: 90, textAlignVertical: "top" },
   charCount: { fontSize: 12, fontFamily: mf.bold },
   tipRow:    { flexDirection: "row", alignItems: "center", gap: 4 },
   tipIcon:   { fontSize: 14 },
@@ -534,7 +707,7 @@ const s = StyleSheet.create({
   clientVisibleText:  { fontSize: 11, fontFamily: mf.bold, color: mc.onSecondaryFixed },
 
   // Quality banner
-  qualityBanner: { backgroundColor: mc.surfaceContainer, borderRadius: mr.xl, padding: ms.md, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
+  qualityBanner: { ...neu.raised, borderRadius: mr.xl, padding: ms.md, flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   qualityIcon:   { width: 32, height: 32, borderRadius: mr.full, backgroundColor: mc.tertiaryFixed, alignItems: "center", justifyContent: "center", marginTop: 2 },
   qualityIconText: { fontSize: 16 },
   qualityIconImage: { width: 16, height: 16 },
@@ -543,14 +716,14 @@ const s = StyleSheet.create({
   qualityText:   { fontSize: 13, color: mc.onSurfaceVariant, lineHeight: 18 },
 
   // Preview card
-  previewCard:         { backgroundColor: mc.surfaceContainerLow, borderRadius: mr.xl, overflow: "hidden" },
+  previewCard:         { ...neu.inset, borderRadius: mr.xl, overflow: "hidden" },
   previewHeader:       { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: ms.md },
   previewTitleRow:     { flexDirection: "row", alignItems: "center", gap: 6 },
   previewTitleIcon:    { width: 14, height: 14 },
   previewTitle:        { fontSize: 13, fontFamily: mf.semibold, color: mc.onSurface },
   livePreviewBadge:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: mr.full, backgroundColor: mc.secondaryFixed },
   livePreviewText:     { fontSize: 11, fontFamily: mf.bold, color: mc.secondary },
-  previewMockup:       { marginHorizontal: ms.md, marginBottom: ms.md, backgroundColor: mc.surfaceContainerLowest, borderRadius: mr.xl, overflow: "hidden" },
+  previewMockup:       { marginHorizontal: ms.md, marginBottom: ms.md, ...neu.raised, borderRadius: mr.xl, overflow: "hidden" },
   previewImagePlaceholder: { height: 120, backgroundColor: mc.surfaceContainerHigh, alignItems: "center", justifyContent: "center" },
   previewImageEmoji:   { fontSize: 48 },
   previewImageIcon:    { width: 36, height: 36 },
@@ -562,8 +735,8 @@ const s = StyleSheet.create({
   previewBizCat:       { fontSize: 13, color: mc.onSurfaceVariant, marginTop: 2 },
 
   // Footer
-  footer:       { padding: ms.md, backgroundColor: mc.surfaceContainerLowest, borderTopWidth: 1, borderTopColor: mc.outlineVariant, gap: ms.xs },
-  cta:          { height: 48, borderRadius: mr.full, backgroundColor: mc.primary, alignItems: "center", justifyContent: "center" },
+  footer:       { padding: ms.md, ...neuBarTop, gap: ms.xs },
+  cta:          { height: 48, borderRadius: mr.full, ...neuAccent(false, mc.primary), alignItems: "center", justifyContent: "center" },
   ctaText:      { color: mc.onPrimary, fontSize: 15, fontFamily: mf.bold },
   saveExitText: { color: mc.onSurfaceVariant, fontSize: 13, fontFamily: mf.semibold },
 });
