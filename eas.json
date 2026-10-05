@@ -12,6 +12,7 @@
       }
     },
     "development": {
+      "environment": "development",
       "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
@@ -25,7 +26,8 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "environment": "preview"
     },
     "production": {
       "extends": "base",
@@ -33,7 +35,8 @@
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_API_BASE_URL": "https://kilipics.onrender.com"
-      }
+      },
+      "environment": "production"
     }
   },
   "submit": {
