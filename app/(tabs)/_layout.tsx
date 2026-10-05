@@ -14,6 +14,9 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // The screen shrinks above the keyboard (KeyboardAvoider in
+        // app/_layout.tsx); without this the tab bar rides up with it.
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.clay,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: styles.label,

@@ -77,6 +77,8 @@ function DashboardTabs() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // See the same option in app/(tabs)/_layout.tsx.
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: mc.primary,
         tabBarInactiveTintColor: mc.onSurfaceVariant,
         tabBarStyle: {

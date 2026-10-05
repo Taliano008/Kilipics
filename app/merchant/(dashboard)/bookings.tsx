@@ -10,6 +10,7 @@
  * and the customer is notified with the agreed time. Declining passes the
  * reason on. Both can be undone from the toast.
  */
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { fetchMerchantServices, type BookingInput, type MerchantService } from "@/api/merchant";
 import { useMerchantBusiness } from "@/merchant/business-context";
@@ -727,6 +728,7 @@ function BookingSheet({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         <View style={[s.sheet, { paddingBottom: ms.lg + insets.bottom }]}>
@@ -959,6 +961,7 @@ function BookingSheet({
           )}
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -1023,6 +1026,7 @@ function NewBookingModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <View style={[s.sheet, { paddingBottom: ms.lg + insets.bottom }]}>
           <View style={s.sheetHeadRow}>
@@ -1100,6 +1104,7 @@ function NewBookingModal({
           </Pressable>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }

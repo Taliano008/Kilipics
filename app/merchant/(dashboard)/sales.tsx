@@ -12,6 +12,7 @@
  * exists on a fresh local store) and a "you're in the top 15% of Nairobi
  * studios" claim (an unverifiable, fabricated ranking). Real numbers only.
  */
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
 import { useBookings } from "@/merchant/bookings-context";
 import { useSales, type SalesGoals, type TransactionType } from "@/merchant/sales-context";
@@ -521,6 +522,7 @@ function AddTransactionModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdrop}>
         <View style={s.formCard}>
           <View style={s.formHeader}>
@@ -576,6 +578,7 @@ function AddTransactionModal({
           </Pressable>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -595,6 +598,7 @@ function EditGoalModal({
 
   return (
     <Modal visible={goalKey !== null} animationType="fade" transparent onRequestClose={onClose}>
+      <KeyboardAvoider>
       <View style={s.modalBackdropCenter}>
         <View style={s.editGoalCard}>
           <Text style={s.formTitle}>Edit {goalKey} target</Text>
@@ -618,6 +622,7 @@ function EditGoalModal({
           </View>
         </View>
       </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }

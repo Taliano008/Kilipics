@@ -306,7 +306,9 @@ function ReviewForm({
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={s.sheetRoot}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        // Android too: the app is edge-to-edge, so the window doesn't
+        // resize for the keyboard (see src/components/KeyboardAvoider.tsx).
+        behavior="padding"
       >
         <Pressable style={s.backdrop} onPress={onClose} accessibilityLabel="Close" />
         <View style={[s.sheet, { paddingBottom: 20 + insets.bottom }]}>

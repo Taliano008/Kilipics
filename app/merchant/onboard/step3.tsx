@@ -13,6 +13,7 @@ import {
 import { mc, mf, mr, ms } from "@/theme/merchant";
 import { pickPhotoFromLibrary, compressPhoto } from "@/utils/photo-picker";
 import { CameraModal } from "@/components/CameraModal";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { bookingIcon, cameraIcon, gridIcon, searchIcon } from "@/utils/icon-assets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -82,8 +83,28 @@ export default function OnboardStep3() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isEditMode = mode === "edit";
-  const { merchantToken, consumerToken, saveMerchantSession } = useAuth();
+  const { merchant, merchantToken, consumerToken, saveMerchantSession } = useAuth();
   const activeToken = merchantToken || consumerToken;
+
+  // Record on the device that onboarding is done. Without this the stored
+  // merchant profile still says "not submitted" until the next app launch,
+  // so the Account tab keeps routing the merchant back into these screens —
+  // and submitting again used to unpublish an already-approved business.
+  // After submitting, land on the dashboard (it shows the review status) and
+  // drop steps 1–3 from the history, so Back can't return into onboarding.
+  const goToDashboard = () => {
+    if (router.canDismiss()) router.dismissAll();
+    router.replace("/merchant/profile?submitted=1");
+  };
+
+  const recordSubmitted = async (rotatedToken?: string | null) => {
+    const token = rotatedToken || merchantToken;
+    if (!token) return;
+    await saveMerchantSession(
+      token,
+      merchant ? { ...merchant, hasBusiness: true, onboardingSubmitted: true, onboardingStep: 4 } : undefined,
+    );
+  };
 
   const [photos, setPhotos] = useState<{ uri: string; label: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -229,10 +250,11 @@ export default function OnboardStep3() {
         // submitMerchantOnboarding, just persist the updated hours/photos.
         if (!isEditMode) {
           const res = await submitMerchantOnboarding(activeToken);
-          if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+          await recordSubmitted(res.merchantToken);
         }
       }
-      router.replace(isEditMode ? "/merchant/profile" : "/merchant/onboard/submitted");
+      if (isEditMode) router.replace("/merchant/profile");
+      else goToDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit onboarding. Please try again.");
     } finally {
@@ -246,9 +268,9 @@ export default function OnboardStep3() {
     try {
       if (activeToken) {
         const res = await submitMerchantOnboarding(activeToken);
-        if (res.merchantToken) await saveMerchantSession(res.merchantToken);
+        await recordSubmitted(res.merchantToken);
       }
-      router.push("/merchant/onboard/submitted");
+      goToDashboard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit. Please try again.");
     } finally {
@@ -539,6 +561,7 @@ export default function OnboardStep3() {
           setPhotoPickError(null);
         }}
       >
+        <KeyboardAvoider>
         <View style={s.modalBackdrop}>
           <View style={s.modalSheet}>
             <View style={s.modalHeader}>
@@ -643,6 +666,7 @@ export default function OnboardStep3() {
             </View>
           </View>
         </View>
+        </KeyboardAvoider>
       </Modal>
 
       {/* ── Custom Camera Modal ── */}

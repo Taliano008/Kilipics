@@ -4,6 +4,7 @@ import { AuthProvider } from "@/auth/auth-context";
 import { CatalogProvider } from "@/catalog/catalog-context";
 import { SavedProvider } from "@/saved/saved-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { UpgradeGate } from "@/components/UpgradeGate";
 import { colors } from "@/theme/tokens";
 import { Stack } from "expo-router";
@@ -84,6 +85,8 @@ export default Sentry.wrap(function RootLayout() {
             <AuthProvider>
               <UpgradeGate>
                 <StatusBar style="dark" />
+                {/* Every screen shrinks above the keyboard — see KeyboardAvoider. */}
+                <KeyboardAvoider>
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -108,6 +111,7 @@ export default Sentry.wrap(function RootLayout() {
                   {/* ── Merchant screens (sub-routes auto-discovered by file-system routing) ── */}
                   <Stack.Screen name="merchant" />
                 </Stack>
+                </KeyboardAvoider>
               </UpgradeGate>
             </AuthProvider>
           </SavedProvider>
