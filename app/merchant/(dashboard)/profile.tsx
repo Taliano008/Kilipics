@@ -23,9 +23,11 @@ import {
 import { CameraModal } from "@/components/CameraModal";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { DashboardHeader } from "@/components/merchant/DashboardHeader";
+import { StoreVisitsCard } from "@/components/merchant/StoreVisitsCard";
 import { getBusinessCompleteness } from "@/merchant/completeness";
 import { useMerchantBusiness } from "@/merchant/business-context";
 import { mc, mf, mr, ms } from "@/theme/merchant";
+import { neu, neuAccent, neuColors } from "@/theme/neumorphism";
 import { categoryLabel } from "@/utils/categories";
 import { compressPhoto, pickPhotoFromLibrary } from "@/utils/photo-picker";
 import { formatServicePrice } from "@/utils/price";
@@ -100,8 +102,12 @@ export default function ProfileScreen() {
       .finally(() => setServicesLoading(false));
   }, [activeToken]);
 
+  // Bumped on pull-to-refresh so the Store visits card reloads too.
+  const [refreshCount, setRefreshCount] = useState(0);
+
   const handleRefresh = async () => {
     setRefreshing(true);
+    setRefreshCount((n) => n + 1);
     refresh();
     if (activeToken) {
       try {
@@ -320,7 +326,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: mc.surface }}>
+    <View style={{ flex: 1, backgroundColor: neuColors.surface }}>
       <DashboardHeader title="Profile" />
       <SafeAreaView edges={[]} style={{ flex: 1 }}>
         <ScrollView
@@ -454,31 +460,6 @@ export default function ProfileScreen() {
               )}
             </View>
 
-            <LinearGradient
-              colors={[mc.primary, mc.primaryContainer]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.proBanner}
-            >
-              <View style={s.proTopRow}>
-                <View style={s.proTag}>
-                  <MaterialIcons name="rocket-launch" size={13} color="#fff" />
-                  <Text style={s.proTagText}>KILIPICKS GROWTH</Text>
-                </View>
-              </View>
-              <Text style={s.proTitle}>Grow your business with KiliPicks Pro</Text>
-              <Text style={s.proBody}>
-                Get featured placement in Nairobi search and a top verified badge.
-              </Text>
-              <Pressable
-                style={s.proBtn}
-                onPress={() => showToast("KiliPicks Pro is launching soon")}
-              >
-                <Text style={s.proBtnText}>Upgrade to Pro</Text>
-                <MaterialIcons name="arrow-forward" size={16} color={mc.primary} />
-              </Pressable>
-            </LinearGradient>
-
             {completeness.missing.length > 0 && (
               <View style={s.completenessCard}>
                 <View style={s.completenessHeaderRow}>
@@ -511,6 +492,41 @@ export default function ProfileScreen() {
                 ))}
               </View>
             )}
+
+            {business ? (
+              <StoreVisitsCard
+                businessId={business.id}
+                businessName={business.name}
+                live={isPublished}
+                activeToken={activeToken}
+                refreshKey={refreshCount}
+              />
+            ) : null}
+
+            <LinearGradient
+              colors={[mc.primary, mc.primaryContainer]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.proBanner}
+            >
+              <View style={s.proTopRow}>
+                <View style={s.proTag}>
+                  <MaterialIcons name="rocket-launch" size={13} color="#fff" />
+                  <Text style={s.proTagText}>KILIPICKS GROWTH</Text>
+                </View>
+              </View>
+              <Text style={s.proTitle}>Grow your business with KiliPicks Pro</Text>
+              <Text style={s.proBody}>
+                Get featured placement in Nairobi search and a top verified badge.
+              </Text>
+              <Pressable
+                style={s.proBtn}
+                onPress={() => showToast("KiliPicks Pro is launching soon")}
+              >
+                <Text style={s.proBtnText}>Upgrade to Pro</Text>
+                <MaterialIcons name="arrow-forward" size={16} color={mc.primary} />
+              </Pressable>
+            </LinearGradient>
 
             <View style={s.sectionHeaderRow}>
               <View style={s.sectionTitleRow}>
@@ -1104,7 +1120,7 @@ const s = StyleSheet.create({
   heroBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: mc.tertiary },
   heroBadgeText: { fontFamily: mf.semibold, fontSize: 11, color: mc.onSurface },
 
-  body: { paddingHorizontal: ms.md, marginTop: -48, gap: ms.sm },
+  body: { paddingHorizontal: ms.md, marginTop: -48, gap: ms.md },
   reviewCard: {
     backgroundColor: mc.errorContainer,
     borderRadius: mr.xl,
@@ -1123,7 +1139,7 @@ const s = StyleSheet.create({
   },
   reviewBtnText: { fontFamily: mf.bold, fontSize: 14, color: mc.onPrimary },
   card: {
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
     gap: ms.sm,
@@ -1171,7 +1187,7 @@ const s = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 12,
     borderRadius: mr.full,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
   },
   editBtnText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSecondaryContainer },
 
@@ -1194,7 +1210,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1205,7 +1221,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1254,7 +1270,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raisedSm,
     borderRadius: mr.lg,
     paddingHorizontal: 10,
     paddingVertical: 10,
@@ -1264,7 +1280,7 @@ const s = StyleSheet.create({
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   sectionTitle: { fontFamily: mf.bold, fontSize: 16, color: mc.onSurface },
-  countPill: { backgroundColor: mc.surfaceContainerHigh, borderRadius: mr.full, paddingHorizontal: 8, paddingVertical: 2 },
+  countPill: { ...neu.inset, borderRadius: mr.full, paddingHorizontal: 8, paddingVertical: 2 },
   countPillText: { fontFamily: mf.medium, fontSize: 11, color: mc.onSurfaceVariant },
   addServiceBtn: {
     flexDirection: "row",
@@ -1273,25 +1289,26 @@ const s = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: 12,
     borderRadius: mr.full,
-    backgroundColor: mc.primaryFixed,
+    ...neu.raisedSm,
   },
   addServiceBtnText: { fontFamily: mf.semibold, fontSize: 12, color: mc.onPrimaryFixed },
 
   noServices: {
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.inset,
     borderRadius: mr.xl,
     padding: ms.md,
     alignItems: "center",
   },
   noServicesText: { fontFamily: mf.medium, fontSize: 13, color: mc.onSurfaceVariant, textAlign: "center" },
 
-  galleryRow: { flexDirection: "row", gap: ms.sm, paddingVertical: 2 },
+  // Room on every side so the row does not clip the tiles soft shadows.
+  galleryRow: { flexDirection: "row", gap: ms.md, paddingVertical: 12, paddingHorizontal: 4 },
   galleryTile: {
     width: 96,
     height: 96,
     borderRadius: mr.lg,
     overflow: "hidden",
-    backgroundColor: mc.surfaceContainer,
+    ...neu.raisedSm,
   },
   galleryCaptionTag: {
     position: "absolute",
@@ -1321,7 +1338,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: mc.outlineVariant,
     borderStyle: "dashed",
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
@@ -1332,7 +1349,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr.xl,
     padding: 12,
     gap: ms.sm,
@@ -1342,7 +1359,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: mr.lg,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -1360,17 +1377,17 @@ const s = StyleSheet.create({
     gap: 6,
     minHeight: 44,
     borderRadius: mr.xl,
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.raisedSm,
   },
   viewAllText: { fontFamily: mf.semibold, fontSize: 13, color: mc.primary },
 
-  switchCard: { backgroundColor: mc.surfaceContainerLowest, borderRadius: mr["2xl"], padding: ms.md, gap: ms.sm },
+  switchCard: { ...neu.raised, borderRadius: mr["2xl"], padding: ms.md, gap: ms.sm },
   switchTopRow: { flexDirection: "row", alignItems: "flex-start", gap: ms.sm },
   switchIcon: {
     width: 40,
     height: 40,
     borderRadius: mr.lg,
-    backgroundColor: mc.primaryFixed,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1379,7 +1396,7 @@ const s = StyleSheet.create({
   switchBtn: {
     minHeight: 46,
     borderRadius: mr.xl,
-    backgroundColor: mc.secondaryContainer,
+    ...neu.raisedSm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1391,7 +1408,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
   },
@@ -1400,7 +1417,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: mr.lg,
-    backgroundColor: mc.surfaceContainer,
+    ...neu.inset,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1411,7 +1428,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: mc.surfaceContainerLowest,
+    ...neu.raised,
     borderRadius: mr["2xl"],
     padding: ms.md,
   },
@@ -1446,7 +1463,7 @@ const s = StyleSheet.create({
 
   modalBackdrop: { flex: 1, backgroundColor: "rgba(30,27,24,0.5)", justifyContent: "flex-end" },
   editCard: {
-    backgroundColor: mc.surfaceContainerLowest,
+    backgroundColor: neuColors.surface,
     borderTopLeftRadius: mr["2xl"],
     borderTopRightRadius: mr["2xl"],
     padding: ms.lg,
@@ -1458,13 +1475,13 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
     alignItems: "center",
     justifyContent: "center",
   },
   editLabel: { fontFamily: mf.semibold, fontSize: 12, color: mc.onSurfaceVariant },
   editInput: {
-    backgroundColor: mc.surfaceContainerLow,
+    ...neu.inset,
     borderRadius: mr.md,
     padding: ms.sm,
     minHeight: 90,
@@ -1476,19 +1493,19 @@ const s = StyleSheet.create({
   formSubmit: {
     height: 50,
     borderRadius: mr.lg,
-    backgroundColor: mc.primary,
+    ...neuAccent(false, mc.primary),
     alignItems: "center",
     justifyContent: "center",
   },
   formSubmitText: { fontFamily: mf.bold, fontSize: 15, color: mc.onPrimary },
   captionHelp: { fontFamily: mf.regular, fontSize: 12.5, color: mc.onSurfaceVariant },
-  captionChips: { gap: ms.xs, paddingVertical: 2 },
+  captionChips: { gap: ms.sm, paddingVertical: 10, paddingHorizontal: 4 },
   captionChip: {
     maxWidth: 180,
     paddingHorizontal: ms.sm,
     paddingVertical: 7,
     borderRadius: mr.full,
-    backgroundColor: mc.surfaceContainerHigh,
+    ...neu.raisedSm,
   },
   captionChipText: { fontFamily: mf.semibold, fontSize: 12.5, color: mc.onSurface },
   captionRemove: { alignItems: "center", paddingVertical: ms.xs },

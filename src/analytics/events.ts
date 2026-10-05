@@ -56,6 +56,12 @@ function identity() {
   return identityPromise;
 }
 
+// This phone's anonymous analytics id. The seller dashboard sends it so a
+// merchant's own visits to their store don't pad their visit counts.
+export async function analyticsDeviceId() {
+  return (await identity()).anonymousUserId;
+}
+
 type StoredSession = { sessionId: string; lastActivityAt: number };
 
 // Not memoized like identity() — elapsed time must be re-checked on every
